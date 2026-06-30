@@ -1,0 +1,1 @@
+playwright show-trace (Get-ChildItem -Path test-results/traces/*.zip | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
