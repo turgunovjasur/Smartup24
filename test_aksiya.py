@@ -2,8 +2,6 @@ import random
 
 from playwright.sync_api import Page, expect
 
-from flow_navbar import flow_menu, flow_search
-
 
 def test_example(page: Page) -> None:
     page.goto("https://app3.greenwhite.uz/x24/a2/auth/login")

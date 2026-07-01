@@ -7,6 +7,7 @@ import allure
 import pytest
 from typing import Any, Generator
 from playwright.sync_api import sync_playwright, Browser, Page, expect
+from flow_authorization import logout
 
 TRACE_DIR = "test-results/traces"
 DATA_DIR = "test-results/data"
@@ -106,6 +107,7 @@ def session_page(session_context) -> Generator[Page, Any, None]:
     """Barcha smoke testlar uchun yagona sahifa — holat saqlanadi."""
     page_obj = session_context.new_page()
     yield page_obj
+    logout(page_obj)  # seansni yopamiz — parallel seans limiti to'lib qolmasligi uchun
     page_obj.close()
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -122,6 +124,7 @@ def page(browser: Browser, request) -> Generator[Page, Any, None]:
 
     yield page_obj
 
+    logout(page_obj)  # seansni yopamiz — parallel seans limiti to'lib qolmasligi uchun
     os.makedirs(TRACE_DIR, exist_ok=True)
     safe_name = request.node.nodeid.replace("/", "_").replace("::", "__")
     context.tracing.stop(path=os.path.join(TRACE_DIR, f"{safe_name}.zip"))

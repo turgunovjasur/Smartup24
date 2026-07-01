@@ -1,0 +1,171 @@
+# Smartup24 — Loyiha Bilim Bazasi
+
+## Proyekt haqida
+- Playwright + Python test avtomatizatsiyasi (Smartup24 ERP tizimi)
+- Framework: pytest + playwright-python + allure
+- Staging URL: https://app3.greenwhite.uz/x24/a2/auth/login
+- Default login: admin@autotest / greenwhite
+
+## Katalog tuzilmasi
+```
+conftest.py          — pytest fixtures (browser, page, session_page, code, save_data, load_data)
+utils/base_page.py   — BasePage class (barcha page object class shu classdan meros oladi)
+flows/               — reusable flow funksiyalari
+  flow_authorization.py  — authorization(), logout()
+  flow_navbar.py         — flow_navigate(page, tab, name), flow_search(), flow_menu()
+tests/               — asosiy test fayllari (Page Object pattern bilan)
+test_*.py (root)     — qo'shimcha/runner testlar
+```
+
+## conftest.py — Fixtures
+
+| Fixture | Scope | Tavsif |
+|---------|-------|--------|
+| `browser` | function | Har test uchun yangi Chromium browser (headless=False, --start-maximized) |
+| `page` | function | Har test uchun yangi page + trace yozadi + logout() oxirida |
+| `session_browser` | session | Butun sessiya uchun bitta browser (smoke runner) |
+| `session_context` | session | Session uchun bitta context + trace |
+| `session_page` | session | Session uchun bitta page — holat testlar orasida saqlanadi |
+| `code` | session | random 4-xonali raqam (str), har sessiyada bir marta |
+| `save_data` | session | `save_data(key, value, file_name)` → test-results/data/{file_name}.json |
+| `load_data` | session | `load_data(key, file_name)` → json fayldan o'qish |
+
+Timeout konstantalari (conftest.py):
+- `DEFAULT_TIMEOUT = 10_000` ms — click, fill, expect
+- `NAVIGATION_TIMEOUT = 60_000` ms — page.goto, wait_for_load_state
+
+## BasePage (utils/base_page.py) — Asosiy metodlar
+
+### Input bilan ishlash
+```python
+# Oddiy text input/textarea
+self.input(label="Код", value="123")
+self.input(ng_model="d.name", value="test")
+self.input(placeholder="Поиск", value="abc")
+self.input(locator="input.cls", value="x")
+self.input(label="Kod", return_value=True)   # qiymatni qaytaradi
+self.input(label="Kod", expect_value="123")  # faqat tekshiradi
+
+# Single-select b-input (dropdown bilan)
+self.b_input_by_label("Статус", "Активный")
+self.b_input_by_label("Склад", "Центральный склад", server_search=True)
+self.b_input_by_label("Тип", return_value=True)
+
+# Multi-select b-input ("N Выбранных")
+self.multiselect("Роли", "Менеджер", "Администратор")
+self.multiselect("Роли", "Менеджер", name="roles")  # name bilan
+
+# Oddiy select dropdown (ng-model asosida)
+self.select_option("d.type", "Тип А")
+self.select_b_input("d.status", "Активный")
+```
+
+### Checkbox / Switch
+```python
+self.checkbox(label="НДС", checked=True)           # label orqali, holatga keltiradi
+self.checkbox(ng_model="d.vat_enabled", checked=False)
+self.checkbox(check_all=True)                      # grid "hammasini tanlash"
+self.checkbox(first_visible=True)                  # birinchi ko'rinadigan grid checkbox
+self.checkbox(label="НДС", expect_checked=True)    # faqat tekshiradi
+self.checkbox(label="НДС", return_value=True)      # bool qaytaradi
+```
+
+### Grid bilan ishlash
+```python
+self.grid_row("Товар А")                           # qatorni topib ko'rinishini tekshiradi
+self.grid_row("Товар А", "Активный", "100")        # qatorni topib, matnlarni tekshiradi
+self.click_grid_row("Товар А")                     # qatorni topib bosadi
+row = self.grid_row("Товар А")
+row.get_by_role("button", name="Редактировать").click()
+
+# Grid controller (list forma)
+self.grid_controller(search="Товар")
+self.grid_controller(reload=True)
+self.grid_controller(expand=True)
+self.grid_controller(open_filter=True)
+self.grid_controller(open_setting=True)
+```
+
+### Saqlash va navigate
+```python
+# "Сохранить" tugmasini bosib, yangi heading ochilishini kutadi
+self.save_and_expect_heading("Список товаров")
+self.save_and_expect_heading("Список", button_name="Применить", exact_button=False)
+self.save_and_expect_heading("Список", confirm_text="Подтвердить")  # confirm modal bilan
+```
+
+### Loader / Alert
+```python
+self.wait_for_loader()                   # .block-ui-overlay yo'qolishini kutadi
+self.visible_error_text()                # UI da xato matni (biruniAlert va h.k.)
+self.close_extended_alert()              # #biruniAlertExtended ni yopadi
+self.confirm_biruni("Удалить?")          # confirm modal ni "да" bilan yopadi
+self.confirm_biruni(button_name="нет")
+```
+
+### Sana tanlash
+```python
+self.select_date("d.date", option="today")
+self.select_date("d.date", option="first")   # oy boshi
+self.select_date("d.date", option="last")    # oy oxiri
+self.select_date("d.date", option="custom", day=15)
+self.select_date("d.date", option="today", add_days=7)
+```
+
+### Heading va error
+```python
+self.current_heading_text()   # sahifadagi barcha heading matnlari ("|" bilan ulangan)
+self.visible_error_text()     # biruniAlert, toast, .alert-danger va h.k.
+```
+
+## Flows
+
+### Authorization
+```python
+from flows.flow_authorization import authorization, logout
+
+authorization(page)                                        # default: admin@autotest
+authorization(page, email="user@test", password="pass")
+logout(page)                                               # chiqish (conftest fixture da avtomatik chaqiriladi)
+```
+
+### Navbar navigatsiya
+```python
+from flows.flow_navbar import flow_navigate, flow_search, flow_menu
+
+flow_navigate(page, tab="Модератор", name="Товары")     # tab → menuitem
+flow_navigate(page, tab="Продажи", name="Заказы")
+flow_search(page, name="Товар")                          # global qidiruv
+flow_menu(page)                                          # settings menu
+```
+
+## Muhim Smartup24 selectorlari
+
+| Element | Selector |
+|---------|----------|
+| Asosiy widget konteyner | `app-form-stack-widget` |
+| Grid | `b-grid` |
+| Grid qatori | `b-grid .tbl-row` |
+| Dropdown input | `b-input` |
+| Loader overlay | `.block-ui-overlay` |
+| Alert (kengaytirilgan) | `#biruniAlertExtended` |
+| Alert (oddiy) | `#biruniAlert` |
+| Confirm modal | `#biruniConfirm` |
+| CDK overlay backdrop | `.cdk-overlay-backdrop` |
+
+## Test yozish qoidalari
+
+1. **Page Object pattern**: har bir sahifa uchun `BasePage` dan meros oluvchi class yoz.
+2. **Fixture ishlatish**: `page` (har test uchun yangi) yoki `session_page` (holat saqlanadigan).
+3. **Timeout**: `DEFAULT_TIMEOUT` va `NAVIGATION_TIMEOUT` constantalaridan foydalanish kerak; magic number yozma.
+4. **Allure**: `@allure.story`, `@allure.title`, `@allure.step` dekoratorlari bilan.
+5. **Overlay muammo**: CDK overlay backdrop flaky bo'lishi mumkin — `wait_for_loader()` dan keyin click; `expect(locator).to_be_visible()` before click.
+6. **save_data/load_data**: testlar orasida ma'lumot uzatish uchun JSON fixture ishlatiladi.
+7. **code fixture**: noyob nom yaratish uchun `code` fixture ga `str(code)` qo'shiladi.
+
+## Loyiha yo'llari (key paths)
+
+- Allure natijalar: `test-results/allure-results/`
+- Trace fayllar: `test-results/traces/`
+- Test data: `test-results/data/`
+- Allure kategoriyalar: `allure/categories.json`

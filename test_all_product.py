@@ -3,7 +3,7 @@ import random
 from playwright.sync_api import expect, Page
 from flow_authorization import authorization
 
-PRODUCT_URL = "https://app3.greenwhite.uz/x24/a2/sb/sbr/moderator/product/product_list"
+PRODUCT_URL = "https://app.smartup24.com/a2/sb/sbr/moderator/product/product_list"
 
 ARTICLE_FILTER = (
     "Название * Краткое название * Код Производитель * "
@@ -14,7 +14,6 @@ ARTICLE_FILTER = (
 # ─── Helper funksiyalar ───────────────────────────────────────────────────────
 
 def _go_to_product_list(page: Page) -> None:
-    """Mahsulotlar ro'yxatiga o'tish."""
     page.goto(PRODUCT_URL)
     page.wait_for_load_state("networkidle")
 
@@ -60,13 +59,13 @@ def _create_product(page: Page, name: str, status: str = "active") -> None:
         try:
             _go_to_product_list(page)
             page.get_by_role("button", name="Создать").click()
-            expect(page.get_by_text("Продукт (создание)").first).to_be_visible()
+            expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
             page.locator(".bg-white.box-border.duration-100").first.click()
             page.locator('smt-input[smtid="name"] input').wait_for(state="visible")
             page.locator('smt-input[smtid="name"] input').fill(name)
             page.locator('smt-input[smtid="short_name"] input').fill(name)
             page.locator("smt-control").filter(has_text="measure *").get_by_placeholder("Подбор").click()
-            page.get_by_text("бл").click()
+            _pick_option(page, "бл")
             page.get_by_role("article").filter(has_text="Название * Краткое название * Код Производитель * Регион производство Подбор Ста").get_by_placeholder("Подбор").click()
             _pick_option(page, "Energy Drink")
             page.get_by_role("button", name="Сохранить").click()
@@ -74,7 +73,7 @@ def _create_product(page: Page, name: str, status: str = "active") -> None:
             if status == "inactive":
                 page.get_by_role("radio").nth(3).click()
                 page.get_by_role("button", name="Сохранить").click()
-
+            expect(page.get_by_text("Продукт (создание)").first).to_be_hidden(timeout=8000)
             return
         except Exception:
             if attempt == 2:
@@ -82,22 +81,40 @@ def _create_product(page: Page, name: str, status: str = "active") -> None:
             page.wait_for_timeout(1000)
 
 
+def _ensure_show_all(page: Page) -> None:
+    toggle = page.locator(".gap-2.inline-flex").first
+    show_all = page.get_by_role("button", name="Показать все")
+    for _ in range(4):
+        try:
+            toggle.click(timeout=4000)
+            show_all.wait_for(state="visible", timeout=3000)
+            show_all.click()
+            page.wait_for_load_state("networkidle")
+            return
+        except Exception:
+            page.wait_for_timeout(600)
+    # Oxirgi urinish — endi xato bo'lsa ko'tariladi (sabab aniq ko'rinadi)
+    toggle.click(timeout=5000)
+    show_all.wait_for(state="visible", timeout=5000)
+    show_all.click()
+    page.wait_for_load_state("networkidle")
+
+
 def _search_and_open(page: Page, name: str, status: str = "active") -> None:
     """Ro'yxatda qidirib kartani ochadi — natija/click flaky bo'lgani uchun retry."""
     action_btn = page.locator("button").filter(
         has_text=re.compile(r"Изменить|Удалить|Просмотреть")
     ).first
+    search = page.get_by_role("searchbox", name="Поиск")
     for _ in range(4):
         _go_to_product_list(page)
+        search.fill(name)
+        page.wait_for_timeout(800)
         if status == "inactive":
-            try:
-                page.locator(".gap-2.inline-flex").first.click()
-                page.get_by_role("button", name="Показать все").click()
-                page.wait_for_load_state("networkidle")
-            except Exception:
-                pass
-        page.get_by_role("searchbox", name="Поиск").fill(name)
-        page.wait_for_timeout(1200)
+            _ensure_show_all(page)
+            if search.input_value() != name:
+                search.fill(name)
+            page.wait_for_timeout(800)
         try:
             page.get_by_text(name).first.click(timeout=6000)
             action_btn.wait_for(state="visible", timeout=5000)
@@ -128,7 +145,7 @@ def test_product_full_create(page: Page, code) -> None:
 
     _go_to_product_list(page)
     page.get_by_role("button", name="Создать").click()
-    expect(page.get_by_text("Продукт (создание)").first).to_be_visible()
+    expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
     page.locator(".bg-white.box-border.duration-100").first.click()
     page.locator('smt-input[smtid="name"] input').wait_for(state="visible")
     page.locator('smt-input[smtid="name"] input').fill(name)
@@ -230,17 +247,15 @@ def test_product_duplicate_error(page: Page, code) -> None:
     # Avval yaratib saqlaymiz
     _create_product(page, name)
 
-    # Xuddi shu nom bilan yana yaratamiz
     _go_to_product_list(page)
     page.get_by_role("button", name="Создать").click()
-    expect(page.get_by_text("Продукт (создание)").first).to_be_visible()
+    expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
     page.locator(".bg-white.box-border.duration-100").first.click()
     page.locator('smt-input[smtid="name"] input').wait_for(state="visible")
     page.locator('smt-input[smtid="name"] input').fill(name)
     page.locator('smt-input[smtid="short_name"] input').fill(name)
     page.locator("smt-control").filter(has_text="measure *").get_by_placeholder("Подбор").click()
     page.get_by_text("бл").click()
-    page.keyboard.press("Escape")
     page.get_by_role("article").filter(
         has_text="Название * Краткое название * Код Производитель * Регион производство Подбор Ста").get_by_placeholder(
         "Подбор").click()
@@ -260,14 +275,13 @@ def test_product_inactive_create(page: Page, code) -> None:
 
     _go_to_product_list(page)
     page.get_by_role("button", name="Создать").click()
-    expect(page.get_by_text("Продукт (создание)").first).to_be_visible()
+    expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
     page.locator(".bg-white.box-border.duration-100").first.click()
     page.locator('smt-input[smtid="name"] input').wait_for(state="visible")
     page.locator('smt-input[smtid="name"] input').fill(name)
     page.locator('smt-input[smtid="short_name"] input').fill(name)
     page.locator("smt-control").filter(has_text="measure *").get_by_placeholder("Подбор").click()
     page.get_by_text("бл").click()
-    page.keyboard.press("Escape")
     page.get_by_role("article").filter(
         has_text="Название * Краткое название * Код Производитель * Регион производство Подбор Ста").get_by_placeholder(
         "Подбор").click()
@@ -286,14 +300,13 @@ def test_product_status_change(page: Page, code) -> None:
 
     _go_to_product_list(page)
     page.get_by_role("button", name="Создать").click()
-    expect(page.get_by_text("Продукт (создание)").first).to_be_visible()
+    expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
     page.locator(".bg-white.box-border.duration-100").first.click()
     page.locator('smt-input[smtid="name"] input').wait_for(state="visible")
     page.locator('smt-input[smtid="name"] input').fill(name)
     page.locator('smt-input[smtid="short_name"] input').fill(name)
     page.locator("smt-control").filter(has_text="measure *").get_by_placeholder("Подбор").click()
     page.get_by_text("бл").click()
-    page.keyboard.press("Escape")
     page.get_by_role("article").filter(
         has_text="Название * Краткое название * Код Производитель * Регион производство Подбор Ста").get_by_placeholder(
         "Подбор").click()
@@ -341,14 +354,13 @@ def test_product_trim(page: Page, code) -> None:
 
     _go_to_product_list(page)
     page.get_by_role("button", name="Создать").click()
-    expect(page.get_by_text("Продукт (создание)").first).to_be_visible()
+    expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
     page.locator(".bg-white.box-border.duration-100").first.click()
     page.locator('smt-input[smtid="name"] input').wait_for(state="visible")
     page.locator('smt-input[smtid="name"] input').fill(f"    {name}    ")
     page.locator('smt-input[smtid="short_name"] input').fill(f"    {name}    ")
     page.locator("smt-control").filter(has_text="measure *").get_by_placeholder("Подбор").click()
     page.get_by_text("бл").click()
-    page.keyboard.press("Escape")
     page.get_by_role("article").filter(
         has_text="Название * Краткое название * Код Производитель * Регион производство Подбор Ста").get_by_placeholder(
         "Подбор").click()
