@@ -1,23 +1,38 @@
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
+from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
+from utils.base_page import BasePage
 
 
-def test_industry(page: Page) -> None:
+def run_industry(page: Page, code) -> None:
+    """Testcase: "Отрасль" xarakteristikasiga yangi podtip qo'shish.
+
+    1. Модератор -> Товары -> Характеристика товаров ro'yxatini ochish.
+    2. "Отрасль" guruhini tanlab "Подтипы" ga o'tish.
+    3. "Создать" -> "Название" maydonini to'ldirish.
+    4. Saqlab, ro'yxatda ko'rinishini tekshirish.
+    """
+    m = BasePage(page)
+    name = f"Industry-{code}"
+
     flow_navigate(page, tab="Модератор", name="Товары")
+    m.expect_heading("Товары")
+    m.click_link("Характеристика товаров")
+    m.expect_heading("Характеристика товаров")
 
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
-    page.get_by_role("link", name="Характеристика товаров").click()
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Характеристика товаров")
-    page.get_by_role("searchbox", name="Поиск").click()
-    page.get_by_role("searchbox", name="Поиск").fill("Отрасль")
-    page.get_by_role("searchbox", name="Поиск").press("Enter")
-    page.get_by_text("Отрасль").click()
-    page.get_by_role("button", name="Подтипы").click()
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Отрасль")
-    page.get_by_role("button", name="Создать").click()
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Характеристика товаров (создание)")
-    page.locator("input[name=\"ng.form10.name\"]").click()
-    page.locator("input[name=\"ng.form10.name\"]").fill("Industry-1")
-    page.get_by_role("button", name="Сохранить").click()
-    expect(page.locator("#cdk-drop-list-19")).to_contain_text("Industry-1")
+    m.click_grid_row("Отрасль")
+    m.click_button("Подтипы")
+    m.expect_heading("Отрасль")
+
+    m.open_create()
+    m.expect_heading("Характеристика товаров (создание)")
+    m.input(label="Название", value=name)
+    m.save_and_expect_heading("Отрасль")
+
+    m.grid_row(name)
+
+
+def test_industry(page: Page, code) -> None:
+    authorization(page)
+    run_industry(page, code)

@@ -1,51 +1,38 @@
 ---
 name: learn
-description: Foydalanuvchi biror narsa tushuntirsa, o'rgatsa yoki xato sababini aytsa — bu bilimni avtomatik tegishli skill fayliga qo'shadi. PROAKTIV ishlatiladi, foydalanuvchi so'ramasdan ham.
+description: Foydalanuvchi biror narsa tushuntirsa, o'rgatsa yoki xato sababini aytsa — bu bilimni tegishli skill fayliga qo'shadi. PROAKTIV ishlatiladi, foydalanuvchi so'ramasdan ham.
 allowed-tools: Read, Edit, Write, Glob
 ---
 
-# Yangi Bilimni Skill ga Qo'shish
+# Yangi Bilimni Skill ga Qo'shish (Smartup24)
 
 Argument: `$ARGUMENTS` (o'rganilgan narsa tavsifi)
 
 ## Qachon ishlatiladi (AVTOMATIK)
 
 Quyidagi holatlarda foydalanuvchi so'ramasdan o'zing ishlat:
-- Foydalanuvchi UI xatti-harakatini tushuntirsa ("modal shunday ishlaydi", "server shuncha vaqt ketadi")
-- Xato sababini o'zi aytsa ("sabab hali modal ochilmasidan button bosilyapti")
-- Loyiha qoidasini ko'rsatsa ("bu test faqat runner orqali ishlaydi")
-- Avval qilgan yechim noto'g'ri chiqsa va to'g'ri yechim topilsa
+- Foydalanuvchi UI xatti-harakatini tushuntirsa ("select tanlangach qiymat input'da bo'ladi", "server shuncha vaqt ketadi")
+- Xato sababini o'zi aytsa ("sabab heading sub-nav linkiga mos kelyapti")
+- Loyiha qoidasini ko'rsatsa ("nom har doim `code` bilan unikal bo'lsin")
+- Avval qilgan yechim noto'g'ri chiqib, to'g'ri yechim topilsa
 
 ## Ish tartibi
 
-1. O'rganilgan bilimni qisqa va aniq jumlaga yaz
-2. Qaysi skill fayliga tegishli ekanini aniqlash:
-   - UI modal/animatsiya muammolari → `debug-test`
-   - Test yozish qoidalari → `write-test`
-   - Flow qoidalari → `new-flow`
-   - Smartup biznes flowlari, UI joylashuvlari, entitylar, locatorlar → `smartup-guide` ichidagi mos reference fayl:
-     - aniq forma bo'yicha bilimlar → `smartup-guide/references/forms/<form-slug>.md`
-     - contract/order shartlari → `smartup-guide/references/contracts.md`
-     - order flow/product/setup → `smartup-guide/references/orders.md`
-     - locator/modal/grid/screenshot → `smartup-guide/references/ui-patterns.md`
-     - debug/data_store/setup dependency → `smartup-guide/references/testing-debug.md`
-   - Loyiha arxitekturasi → `write-test` yoki `review-test`
-   - Agar hech biriga to'g'ri kelmasa → tegishli skill fayl yaratilsin
-3. Skill fayliga `## Loyiha Xususiyatlari` bo'limiga qo'sh (yo'q bo'lsa yaratilsin)
-4. Qo'shilgan joyni foydalanuvchiga ko'rsat
-
-## Format
-
-```markdown
-## Loyiha Xususiyatlari
-
-### <mavzu>
-- <o'rganilgan narsa — qisqa va aniq>
-```
+1. O'rganilgan bilimni qisqa va aniq jumlaga yoz.
+2. Qaysi joyga tegishli ekanini aniqla:
+   - **UI locator / komponent pattern** (yangi `smt-*` element, dropdown, heading, radio va h.k.) → `utils/base_page.py` ga yangi funksiya yoki mavjudini tuzatish sifatida qo'sh (base funksiyalar shu yerda markazlashgan), va kerak bo'lsa `debug-test` ga gotcha qatori.
+   - **Debug/xato pattern / timing gotcha** → `debug-test` SKILL.md `## Loyiha xususiyatlari`.
+   - **Test yozish qoidasi / struktura** → `write-test` SKILL.md.
+   - **Flow qoidasi** → `new-flow` SKILL.md.
+   - **Run/pytest qoidasi** → `run-smoke` SKILL.md.
+   - **Review mezoni** → `review-test` SKILL.md.
+3. Mavjud `## Loyiha xususiyatlari` bo'limiga qo'sh (yo'q bo'lsa yarat).
+4. Qo'shilgan joyni foydalanuvchiga ko'rsat.
 
 ## Muhim
 
-- Umumiy ma'lumot emas, **bu loyihaga xos** narsalarni qo'sh
-- Bir jumla yetarli — uzun tushuntirma kerak emas
-- Bir xil narsani ikki marta qo'shma (avval mavjudligini tekshir)
-- Smartup/test vazifasi yakunida ish xulosasi va o'rganilgan ma'lumotlarni mos `smartup-guide` form dossier yoki reference faylga tartibli yozib qo'y
+- Umumiy Playwright ma'lumoti emas — **bu loyihaga (Smartup24 x24 UI) xos** narsalarni qo'sh.
+- Bir jumla yetarli; uzun tushuntirma kerak emas.
+- Bir xil narsani ikki marta qo'shma (avval mavjudligini tekshir).
+- **Locator/komponent bilimini** kod ichida (base_page.py docstring/komment) markazlashtir — shunda testlar avtomatik foydalanadi; SKILL.md ga faqat qoida/gotcha yoz.
+- Yangi kashf qilingan UI patternni doim avval Playwright MCP bilan real DOM'da tasdiqlab, keyin yoz.

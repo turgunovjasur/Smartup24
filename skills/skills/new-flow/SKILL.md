@@ -1,64 +1,57 @@
 ---
 name: new-flow
-description: Yangi flow funksiya yaratish (tests/smoke/flows/ papkasida). UI harakatlar ketma-ketligini flow sifatida ajratish kerak bo'lganda ishlatiladi.
+description: Yangi flow funksiya yaratish (flows/ papkasida). Bir nechta testda qayta ishlatiladigan UI harakatlar ketma-ketligini flow sifatida ajratish kerak bo'lganda ishlatiladi.
 allowed-tools: Read, Glob, Grep, Edit, Write
 ---
 
-# Yangi Flow Funksiya Yaratish
+# Yangi Flow Funksiya Yaratish (Smartup24)
 
 Argument: `$ARGUMENTS` (flow nomi va qisqacha tavsif)
 
 ## Flow nima?
 
-Flow — bu bir nechta testlarda qayta ishlatiladigan UI harakatlar ketma-ketligi.
-Masalan: `authorization`, `navigate_to_menu`, `open_modal` va hokazo.
+Flow — bir nechta testlarda qayta ishlatiladigan UI harakatlar ketma-ketligi.
+Masalan: `authorization`, `logout`, `flow_navigate`.
 
 ## Joylashuv
 
-`tests/smoke/flows/flow_<nomi>.py`
+`flows/flow_<nomi>.py`
+
+Mavjud flowlar:
+- `flows/flow_authorization.py` — `authorization(page, email, password)`, `logout(page)`
+- `flows/flow_navbar.py` — `flow_navigate(page, tab, name)`, `flow_search(page, name)`, `flow_menu(page)`
 
 ## Shablon
 
 ```python
-import allure
 from playwright.sync_api import Page, expect
 
 
-def <nomi>(page: Page, **kwargs) -> None:
-    """
-    <Qisqacha tavsif>.
-
-    Args:
-        page: Playwright page instance
-        **kwargs: Qo'shimcha parametrlar (code, data va h.k.)
-    """
-    with allure.step("1 - <Qadam>"):
-        page.locator("<selector>").click()
-
-    with allure.step("2 - <Qadam>"):
-        expect(page.locator("<selector>")).to_be_visible()
+def <nomi>(page: Page, ...) -> None:
+    """<Qisqacha tavsif>."""
+    page.get_by_role("button", name="...").click()
+    expect(page.locator("...")).to_be_visible()
 ```
 
 ## Qoidalar
 
-- Funksiya `Page` ni birinchi argument sifatida qabul qilsin
-- Har bir muhim qadam `allure.step` bilan o'ralsin
-- `expect()` bilan holatni tekshir, `assert` emas
-- Flow faqat UI harakatlarni bajarsin — ma'lumot saqlash/o'qish test ichida qolsin
-- Funksiya nomi `flow_` prefiksi emas, tavsifli ism bo'lsin: `authorization`, `create_room`
+- Funksiya `Page` ni birinchi argument sifatida qabul qilsin.
+- Holatni `expect()` bilan tekshir, Python `assert` emas.
+- **Forma maydonlari bilan ishlashni flow ichiga yozma** — u `BasePage` (utils/base_page.py) ishi. Flow faqat navigatsiya/ketma-ketlik (tab bosish, menyu, login) uchun.
+- Faqat **bir nechta testda takrorlanadigan** harakatni flowga ajrat; bitta testga xos harakat test ichida qolsin. 1 qatorlik wrapper flow yozma.
+- Barqaror locator ishlat: `get_by_role("button"/"link"/"menuitem", name=...)` yoki `smtid`. Dinamik `ng.formN.*` / `#cdk-drop-list-N` ISHLATMA.
+- Teardownda ishlaydigan flow (masalan `logout`) `try/except` bilan himoyalansin — sahifa yopilgan/xato holatda bo'lsa ham testni buzmasin.
 
-## Loyiha Xususiyatlari
+## Loyiha xususiyatlari
 
-### Order flowlarni qayta ishlatish
-- Order testlari ko'p yoziladi; orderga tegishli takrorlanadigan harakatlar `tests/smoke/flows/flow_order/` ichidagi alohida flow funksiyalarga ajratilsin va yangi order case'larda shu flowlardan foydalanilsin.
-- Order case'lari contract shartlariga bog'liq bo'lishi mumkin; contract yaratish flowlari `Типы оплат` kabi shartlarni parametr sifatida qabul qiladigan qilib loyihalansin.
-- Biruni error xabarlari hamma joyda bir xil pattern bilan keladi; error kutish, text tekshirish va modal yopish umumiy flow/helper sifatida ajratilsin.
-- Listlarda kerakli ustun/search yoqilmagan bo'lsa, grid setting orqali ustun va searchni yoqadigan reusable flow yozish mumkin.
+- **Navigatsiya**: `flow_navigate(page, tab, name)` navbar tab tugmasini (`Модератор`/`Поставщик`/`Клиент`) bosib, ochilgan menyudan `menuitem` ni tanlaydi. Товары/справочnik ro'yxatlariga shu orqali o't.
+- **Sub-nav (list ichidagi bo'limlar)**: `Производители`, `Характеристика товаров` kabi bo'limlar `app-form-stack-widget` ichida `link` sifatida — `page.get_by_role("link", name=...)` bilan bosiladi (odatda test ichida, alohida flow shart emas).
+- **Login**: `authorization(page)` login qilib navbar "Модератор" ko'ringunicha kutadi; `run_` funksiyalari login qilinganini kutadi, o'zi auth qilmaydi.
 
 ## Ish tartibi
 
-1. `$ARGUMENTS` ni o'qi — qanday flow kerak?
-2. O'xshash mavjud flow larni ko'r (`tests/smoke/flows/`)
-3. Yangi `flow_<nomi>.py` fayl yarat
+1. `$ARGUMENTS` ni o'qi — qanday flow kerak, u bir nechta testda ishlatiladimi?
+2. O'xshash mavjud flowni ko'r (`flows/`)
+3. Yangi `flow_<nomi>.py` yarat yoki mavjud faylga qo'sh
 4. Flow funksiyasini yoz
-5. Qaysi testlarda ishlatish kerakligini ko'rsat
+5. Qaysi testlarda ishlatilishini ko'rsat

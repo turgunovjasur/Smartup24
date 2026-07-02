@@ -1,19 +1,33 @@
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
+from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
+from utils.base_page import BasePage
 
 
-def test_manufacturer(page: Page) -> None:
+def run_manufacturer(page: Page, code) -> None:
+    """Testcase: Yangi ishlab chiqaruvchi (Производитель) yaratish.
+
+    1. Модератор -> Товары -> Производители ro'yxatini ochish.
+    2. "Создать" -> "Название" maydonini to'ldirish.
+    3. Saqlab, ro'yxatda nom bo'yicha ko'rinishini tekshirish.
+    """
+    m = BasePage(page)
+    name = f"Manufacturer-{code}"
+
     flow_navigate(page, tab="Модератор", name="Товары")
+    m.expect_heading("Товары")
+    m.click_link("Производители")
+    m.expect_heading("Производители")
 
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Товары")
-    page.get_by_role("link", name="Производители").click()
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Производители")
-    page.get_by_role("button", name="Создать").click()
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Производитель (Создание)")
-    page.locator("input[name=\"ng.form5.name\"]").click()
-    page.locator("input[name=\"ng.form5.name\"]").click()
-    page.locator("input[name=\"ng.form5.name\"]").fill("Manufacturer-1")
-    page.get_by_role("button", name="Сохранить").dblclick()
-    expect(page.locator("app-form-stack-widget")).to_contain_text("Производители")
-    expect(page.locator("#cdk-drop-list-6")).to_contain_text("Manufacturer-1")
+    m.open_create()
+    m.expect_heading("Производитель (Создание)")
+    m.input(label="Название", value=name)
+    m.save_and_expect_heading("Производители")
+
+    m.grid_row(name)
+
+
+def test_manufacturer(page: Page, code) -> None:
+    authorization(page)
+    run_manufacturer(page, code)

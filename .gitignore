@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Smartup24 — local artifacts
+.DS_Store
+.playwright-mcp/
+test-results/

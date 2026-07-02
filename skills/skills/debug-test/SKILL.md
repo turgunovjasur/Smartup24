@@ -1,60 +1,75 @@
 ---
 name: debug-test
-description: Muvaffaqiyatsiz testni tahlil qilib sabab topish va tuzatish. Test xatosi, timeout, locator muammolari haqida so'ralganda ishlatiladi.
+description: Muvaffaqiyatsiz Smartup24 testini tahlil qilib sabab topish va tuzatish. Test xatosi, timeout, locator muammolari haqida so'ralganda ishlatiladi.
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
-# Muvaffaqiyatsiz Testni Debug Qilish
+# Muvaffaqiyatsiz Testni Debug Qilish (Smartup24)
 
 Test: `$ARGUMENTS`
 
 ## Tahlil tartibi
 
-### 1. Log va trace fayllarni o'qi
+### 1. Testni ishga tushirib xatoni ko'r
+```bash
+.venv/bin/python -m pytest tests/test_<nomi>.py -v --tb=short
 ```
-test-results/logs/          — xato loglari
-test-results/traces/        — Playwright trace (.zip)
-test-results/allure-results/ — Allure natijalar
+Trace va failure screenshot:
+```
+test-results/traces/            — Playwright trace (.zip), test nomi bo'yicha
+test-results/allure-results/    — Allure natijalar + failure screenshot (conftest avtomatik attach qiladi)
 ```
 
-Avval `test-results/logs/` dagi tegishli log faylni o'qi.
+### 2. Real DOM ni MCP bilan tekshir
+Locator/flow muammosida Playwright MCP bilan sahifani och, login qil va real DOM ni ko'r. Bu eng ishonchli usul — selektorni taxmin qilma. Konsolda tekshirish:
+```js
+document.querySelectorAll('smt-input[smtid="name"]')
+document.querySelector('app-form-stack-widget span.font-semibold.truncate')?.innerText
+[...document.querySelectorAll('smt-select-dropdown li')].map(l=>l.innerText)
+```
 
-### 2. Xato turini aniqlash
+### 3. Xato turini aniqlash
 
 | Xato | Sabab | Yechim |
 |------|-------|--------|
-| `TimeoutError` | Element ko'rinmayapti | Locator tekshir, sahifa yuklangan-yuklangani |
-| `StrictModeViolation` | Bir nechta element topildi | Locator aniqroq qil |
-| `ElementNotFound` | Element yo'q | Page state tekshir, flow tartibini ko'r |
-| `AssertionError` | Qiymat mos kelmayapti | Kutilgan vs haqiqiy qiymatni solishtir |
-| `JSONDecodeError` | data_store.json buzilgan | Faylni o'chirib qayta run qil |
-| `pytest.exit` | `code` fixture topilmadi | Avval `test_setup_runner.py` yoki `run_tests.sh` ishlatilsin |
+| `TimeoutError` / `to_be_visible` | Element ko'rinmayapti yoki noto'g'ri formada | Label/smtid tekshir, `expect_heading` bilan to'g'ri formada ekaniga ishonch hosil qil |
+| `AssertionError: Locator expected to contain text` | Heading mos kelmadi | Aktiv title span ni tekshir (pastdagi form-stack race) |
+| `StrictModeViolation` | Bir nechta element topildi | `index=`, `root=` yoki aniqroq `smtid`/`label` |
+| Select tanlanmadi | Dropdown ochilmadi yoki qiymat topilmadi | `search=` matnini tekshir, option `.cdk-overlay-container` da render bo'ladi |
+| `NameError` teardownda | flow import qilinmagan | `conftest.py` da kerakli import bor-yo'qligini tekshir |
 
-### 3. Locator muammolari
+## Loyiha xususiyatlari (Smartup24 x24 gotcha'lar)
 
-Locator ishlayotganini tekshirish uchun Playwright konsolda:
-```js
-document.querySelectorAll('<selector>')
-```
+### Heading race — `app-form-stack-widget` butun matni
+- `app-form-stack-widget` matni **sarlavha + sub-nav LINK nomlarini** o'z ichiga oladi (masalan Товары sahifasida "Производители", "Характеристика товаров" linklari matnda bor).
+- Shuning uchun `expect(widget).to_contain_text("Производители")` eski sahifada (sub-nav linkiga) **transition tugamasdan** mos kelib qoladi va keyingi amal (Создать) noto'g'ri formada bajariladi.
+- **Yechim**: faqat aktiv title span tekshiriladi — `BasePage.expect_heading(...)` shuni qiladi (`app-form-stack-widget span.font-semibold.truncate:visible`). Har navigatsiya/save dan keyin `expect_heading(...)` chaqir.
 
-Yaxshi locator tartibi:
-1. `data-testid` atributi (eng ishonchli)
-2. `role` + `name` kombinatsiyasi
-3. Matn orqali: `page.get_by_text()`
-4. CSS selektor (oxirgi chora)
+### Ikki router-outlet — heading yangilanadi, lekin kontent hali eski (JIDDIY)
+- Sub-header (`app-form-stack-widget` title) va asosiy kontent (`smartup24-app-*-list`, "Создать" shu yerda) **alohida router-outlet**da va **asinxron** yangilanadi.
+- Товары -> Производители o'tishда title "Производители" ga o'tishi mumkin, lekin asosiy kontentда bir zum hali `product-list` (product'ning "Создать" tugmasi bilan) turadi. Faqat `expect_heading` bilan gate qilsang, `open_create` eski (product) formaning "Создать" ini bosib, **"Продукт (создание)"** ochilib qoladi.
+- **Yechim**: navigatsiya/link'dan keyin kontent to'liq almashishini kut. `BasePage.open_create()`, `click_link()`, `click_grid_row()` ichida `_settle()` (loader + `networkidle`) bor. Sub-nav bo'limlariga `page.get_by_role("link").click()` emas, **`BasePage.click_link(name)`** bilan o't.
 
-### 4. Session state muammolari
+### Switch (Статус) vs radio vs checkbox
+- Статус ba'zi formalarda `smt-radio-group` (product), ba'zilarida `smt-switch` (region). `smt-switch` gorizontal layoutda, labeli `<span>` ("Статус") — vertikal `div.flex.flex-col` emas.
+- `BasePage.checkbox(label="Статус", checked=True)` ikkala `smt-switch` va `smt-checkbox` ni qamraydi (ichki `input[type=checkbox]` orqali holat, `[role=switch]/[role=checkbox]` bosiladi). Radio uchun esa `BasePage.radio("Активный", label="Статус")`. Formani MCP bilan ochib qaysi turini avval aniqlab ol.
 
-`session_page` ishlatilganda testlar ketma-ket ishlaydi. Agar oldingi test muvaffaqiyatsiz bo'lsa:
-- `data_store.json` ni tekshir
-- `code` fixture qiymati to'g'ri saqlanganmi
+### Select (Подбор) — qiymat input value'sida
+- `smt-data-select` tanlangach tanlangan matn select TEXTIDA emas, ichki `input[placeholder="Подбор"]` VALUE'sida bo'ladi. `to_contain_text` bilan tekshirsang xato beradi; `BasePage.select()` input value orqali tasdiqlaydi.
+- Dropdown `.cdk-overlay-container` ichida `smt-select-dropdown li` sifatida (body'ga portal) render bo'ladi — select elementi ichida emas.
 
-### 5. Tuzatish
+### Ochiq dropdown backdrop clicklarni bloklaydi
+- Select dropdown ochilganda `cdk-overlay-backdrop` paydo bo'ladi; agar oldingi select yopilmay qolsa, keyingi click "backdrop intercepts pointer events" xatosini beradi.
+- **Yechim**: option tanlash dropdownni yopadi; kerak bo'lsa `Escape`. `BasePage.select/multiselect` buni boshqaradi (`close=True`).
 
-1. Xato sababini aniq ko'rsat
-2. Tuzatilgan kodni ko'rsat (faqat zarur qator)
-3. Qayta test ishga tushirish buyrug'ini ber
-4. Agar tizim muammosi bo'lsa (server, env) — foydalanuvchiga ayт
+### Dinamik locatorlar — ISHLATMA
+- `input[name="ng.formN.name"]` (`N` har run'da o'zgaradi) va `#cdk-drop-list-N` (dinamik CDK id) — **ishonchsiz**. Buning o'rniga `smt-input[smtid]`, `smt-data-select[smtid]`, `.smt-data-row`, label asosidagi `BasePage` funksiyalarini ishlat.
+
+### Radio (Статус) checkbox emas
+- Smartup24 da Статус `smt-radio-group` (value `A`/`P`/`S`), checkbox emas. `BasePage.radio("Активный", label="Статус")` bilan tanlanadi, `checkbox(...)` bilan emas.
+
+### logout teardown
+- `page`/`session_page` fixture teardownida `flows.flow_authorization.logout(page)` chaqiriladi (avatar → "Выйти", himoyalangan try/except). U seansni yopib parallel seans limitini bo'shatadi; xato bersa testni buzmaydi.
 
 ## Chiqish formati
 
@@ -64,44 +79,3 @@ Joyi: <fayl>:<qator>
 Sabab: <nima bo'ldi>
 Yechim: <nima qilish kerak>
 ```
-
-## Loyiha Xususiyatlari
-
-### #biruniConfirm modal (Bootstrap fade animatsiyasi)
-- `да` tugmani bosishdan **oldin** modal opacity `1` bo'lishini kutish shart, aks holda click register bo'lmaydi:
-  ```python
-  expect(page.locator("#biruniConfirm")).to_have_css("opacity", "1")
-  page.get_by_role("button", name="да", exact=True).click()
-  page.locator("#biruniConfirm").wait_for(state="hidden")
-  ```
-  (`wait_for_function` emas — loyihada standart pattern `to_have_css`, `test_room.py` da ham shunday)
-- `да` bosilgandan keyin modal **darhol** yopiladi, keyin loader (`wait_for_loader`) ishlaydi — `wait_for(state="hidden")` uchun uzun timeout kerak emas
-- `да` tugmani har doim `#biruniConfirm` ga scope qilish kerak — `page.get_by_role("button", name="да")` butun sahifada qidiradi va animatsiya davomida noto'g'ri elementni bosishi mumkin
-
-### session_page va domino effekti
-- `session_page` barcha testlar uchun umumiy — bitta test fail bo'lib modal qolsa, keyingi barcha testlar ham fail bo'ladi
-- `--maxfail=3` pytest.ini da sozlangan — 3 fail dan keyin sessiya to'xtatiladi
-- Test yozish/debug iteratsiyasida precondition entity `data_store.json` da mavjud bo'lsa, masalan contract yaratilgan va code/name saqlangan bo'lsa, keyingi order xatosini tekshirish uchun contract testni qayta run qilish shart emas; mavjud qiymatdan foydalan.
-
-### Form screenshot arxivi
-- Smartup formalarini debug qilganda avval `skills/smartup-guide/references/forms/screenshots/<form-slug>/` ichida shu forma uchun screenshot bor-yo'qligini tekshir.
-- Agar kerakli screenshot bo'lmasa yoki UI o'zgargan bo'lsa, formani ochib skill arxiviga saqla: `skills/smartup-guide/references/forms/screenshots/<form-slug>/<form-slug>__<state>__desktop-1920x1080.png`.
-- `test-results/screens/smartup/` forma/debug screenshot arxivi uchun ishlatilmasin; `test-results/allure-results` faqat pytest/Allure failure attachment outputi.
-- Yangi formaga kirilganda yoki URL/form state o'zgarganda screenshotni skill arxivida yangilab borish keyingi locator/debug ishlari uchun majburiy odat bo'lsin.
-
-### to_contain_text() da exact parametri yo'q
-- `expect(locator).to_contain_text("text", exact=True)` — **xato**, bu parametr mavjud emas
-- To'liq mos kelish uchun `to_have_text("text")` ishlatiladi
-
-### Orderda product chiqmasa
-- Order add product qadamida tovar/product topilmasa, zaxira/balans yo'qligi yoki product bron qilingan orderlarda bandligi ehtimolini tekshir.
-- Balans kerak bo'lsa setupdagi `test_20_init_balance` ni run qilib product balansini qo'shib kelish mumkin.
-- Agar product bron qilingan bo'lsa, order listdagi bron qilingan orderlarni `Canceled/Отменен` statusga o'tkazish kerak.
-
-### AI test summary
-- Test run tugagandan keyingi xulosa uchun OpenAI emas, Gemini API ishlatiladi; default model `gemini-2.5-flash`, key esa faqat `GEMINI_API_KEY` environment variable orqali olinadi va repo/chat/logga yozilmaydi.
-- `System summary` AI emas va har doim yoziladi: `test-results/system-summary.md/json`, Allure ichida `System Test Summary`; failed test, ichki Allure step, kod joyi, error turi, sabab va ta'sirni tizim o'zi chiqaradi.
-- AI summary default holatda off; faqat `scripts/run_tests.py ... --ai-summary` flagi berilganda ishlaydi va faqat 1-2 gaplik qo'shimcha xulosa yozadi.
-- AI xulosa `test-results/ai-summary.md/json` fayllariga yoziladi va Allure report ichida alohida `AI Test Summary` card sifatida attachment qilinadi; bu card test pass/fail statusini o'zgartirmaydi.
-- Telegramdagi asosiy natija xabari AIga bog'liq bo'lmasin; xom Gemini API error, uzun stacktrace yoki locator logini asosiy xabar sifatida yuborma.
-- `test_all_runner.py` kabi outer runner fail bo'lsa, Telegram xabarda faqat outer test nomi yetarli emas; Allure `steps` ichidan aynan qaysi ichki test/step yiqilganini (`inner_test`, `failed_step`, `source`) ko'rsatish shart.

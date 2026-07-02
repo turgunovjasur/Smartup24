@@ -7,7 +7,8 @@ import allure
 import pytest
 from typing import Any, Generator
 from playwright.sync_api import sync_playwright, Browser, Page, expect
-from flow_authorization import logout
+
+from flows.flow_authorization import logout
 
 TRACE_DIR = "test-results/traces"
 DATA_DIR = "test-results/data"
