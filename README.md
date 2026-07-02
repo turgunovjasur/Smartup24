@@ -1,2 +1,2 @@
 # Smartup24
-Smartup24 for Xasan
+Smartup24 by Playwright

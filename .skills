@@ -1,0 +1,85 @@
+# Smartup24 — Loyiha Bilim Bazasi
+
+## Proyekt haqida
+- Playwright + Python (pytest) UI test avtomatizatsiyasi — Smartup24 (x24) ERP tizimi
+- Framework: pytest + playwright-python (+ allure-pytest report uchun)
+- URL: https://app3.greenwhite.uz/x24/a2/auth/login
+- Default login: admin@autotest / greenwhite (flows/flow_authorization.py da)
+- UI: yangi Angular `smt-*` komponentlari (eski `b-input`/`biruni` EMAS)
+
+## Katalog tuzilmasi (tekis / flat)
+```
+conftest.py            — pytest fixtures + allure setup + failure screenshot
+utils/base_page.py     — BasePage: barcha forma amallari uchun universal funksiyalar
+flows/
+  flow_authorization.py  — authorization(page, email, password), logout(page)
+  flow_navbar.py         — flow_navigate(page, tab, name), flow_search(), flow_menu()
+tests/
+  test_manufacturer.py   — run_manufacturer / test_manufacturer  (eng sodda namuna)
+  test_industry.py       — run_industry / test_industry
+  test_category.py       — run_category / test_category
+  test_product.py        — run_product / test_product
+  test_all.py            — test_all: barcha run_* ni bitta login bilan zanjir qiladi
+skills/skills/*/SKILL.md — write-test, debug-test, run-smoke, new-flow, review-test, learn
+pytest.ini             — testpaths=., python_files=test_*.py
+```
+Eski `tests/smoke/`, group runnerlar, `scripts/run_tests.py`, `.env`, company/telegram mexanizmi YO'Q.
+
+## conftest.py — Fixtures
+
+| Fixture | Scope | Tavsif |
+|---------|-------|--------|
+| `browser` | function | Yangi Chromium (headless=False, --start-maximized) |
+| `page` | function | Yangi context+page + trace + teardownda `logout()` |
+| `session_browser`/`session_context`/`session_page` | session | Chain uchun yagona browser/context/page |
+| `code` | session | random 4-xonali son (str) — unikal nom uchun |
+| `save_data` / `load_data` | session | `test-results/data/data_store.json` ga yozish/o'qish |
+
+Timeout: `DEFAULT_TIMEOUT=10_000` ms, `NAVIGATION_TIMEOUT=60_000` ms.
+
+## BasePage (utils/base_page.py) — asosiy metodlar
+Element `label` (ko'rinadigan matn) yoki barqaror `smtid` orqali topiladi.
+
+```python
+m = BasePage(page)
+m.input(label="Название", value="...")            # smt-input (label yoki smtid=)
+m.select("кг", label="measure")                    # smt-data-select (Подбор)
+m.multiselect("A", "B", label="Роли")              # multi select
+m.radio("Активный", label="Статус")                # smt-radio-group (value A/P/S)
+m.checkbox(label="Статус", checked=True)           # smt-switch YOKI smt-checkbox (toggle)
+m.grid_row(name, "Активный")                       # .smt-data-row (matn + contains)
+m.click_grid_row("Отрасль")                        # qatorni bosish (+ _settle)
+m.search("matn")                                    # searchbox "Поиск..."
+m.click_link("Производители")                       # sub-nav bo'lim link (+ _settle)
+m.open_create()                                     # "Создать" (+ _settle)
+m.click_button("Подтипы")                          # ixtiyoriy tugma
+m.save_and_expect_heading("Товары")                 # "Сохранить" + heading
+m.expect_heading("...") / m.current_heading_text() # aktiv title span
+m.wait_for_loader()                                 # app-global-page-loader
+```
+
+## UI patternlar (Smartup24 x24)
+- Text input: `smt-input[smtid]` → ichki `input`; label `div.flex.flex-col > label`.
+- Select: `smt-data-select[smtid]` → `input[placeholder="Подбор"]`; dropdown `.cdk-overlay-container smt-select-dropdown li`. Tanlangach qiymat select MATNIDA emas, Подбор INPUT value'sida.
+- Radio (Статус): `smt-radio-group[smtid]` → `label[smt-radio]` (value A/P/S).
+- Grid qatori: `.smt-data-row`.
+- Radio vs Switch: Статус ba'zi formalarda `smt-radio-group` (radio), ba'zilarida `smt-switch` (gorizontal, `<span>` label) — `radio(...)` yoki `checkbox(...)`. Toggle ichida `input[type=checkbox]` (holat) + `[role=switch]` (bosiladi).
+- Heading: `app-form-stack-widget span.font-semibold.truncate` (FAQAT title). Widgetning butun matni sub-nav LINK nomlarini ham oladi — `to_contain_text` butun widgetda premature match beradi, shuning uchun `expect_heading` faqat title span ni tekshiradi.
+- Ikki router-outlet: sub-header (title) va asosiy kontent (`smartup24-app-*-list`, "Создать" shu yerda) asinxron yangilanadi. Faqat heading kutish yetmaydi — `click_link`/`open_create`/`click_grid_row` ichidagi `_settle()` (loader+networkidle) kontent almashguncha kutadi. Sub-nav'ga `click_link(name)` bilan o't.
+- Login tekshiruvi universal: `authorization` "Модератор" tugmasini emas, URL (login'dan chiqish) + `app-user-dropdown` (har login sahifada bor) ni kutadi.
+- **Dinamik `input[name="ng.formN.*"]` va `#cdk-drop-list-N` ISHLATMA** — har run'da o'zgaradi.
+
+## Test konvensiyasi (run_ + test_)
+- `run_<nomi>(page, code)` — biznes logika, login qilinganini kutadi; `test_all` chaqiradi.
+- `test_<nomi>(page, code)` — `authorization(page)` + `run_<nomi>(...)` (alohida run uchun).
+- Unikal nom `f"...{code}"`; har navigatsiya/save dan keyin `expect_heading(...)`.
+- Barcha forma amallari `BasePage` orqali; navbar/link/tugma uchun raw `get_by_role`.
+- Yangi test `tests/test_all.py` zanjiriga qo'shiladi.
+
+## Ishga tushirish
+```bash
+.venv/bin/python -m pytest tests/test_all.py -v          # to'liq zanjir
+.venv/bin/python -m pytest tests/test_product.py -v      # bitta fayl
+allure serve test-results/allure-results                 # report
+```
+Yangi UI patternni yozishdan oldin Playwright MCP bilan real DOM'da tasdiqla — fieldlarni taxmin qilma.
