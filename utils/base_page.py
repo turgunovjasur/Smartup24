@@ -513,6 +513,36 @@ class BasePage:
         self.wait_for_loader()
         return field
 
+    def show_all(self, *, button_name="Показать все"):
+        """List filtri dialogini ochib "Показать все" ni bosadi.
+
+        Passiv (Неактивный) qatorlar default ro'yxatda KO'RINMAYDI — status filtri
+        "Активный" bilan ochiladi. Qidiruv yonidagi voronka tugmasi
+        (``smt-data-table-filter``) "Фильтры" dialogini ochadi; "Показать все"
+        barcha statuslarni qo'llab dialogni O'ZI yopadi, qidiruv matni saqlanib
+        qoladi (MCP tasdiqlangan 2026-07-03)."""
+        self._settle()
+        trigger = self.page.locator("smt-data-table-filter button").first
+        expect(trigger).to_be_visible()
+        trigger.click()
+        button = self.page.locator(".cdk-overlay-container").get_by_role("button", name=button_name).first
+        expect(button).to_be_visible()
+        button.click()
+        expect(button).to_be_hidden()
+        self.wait_for_loader()
+
+    def confirm(self, answer="да"):
+        """"Подтверждение" dialogida (masalan Удалить -> "Удалить X?") javob
+        tugmasini bosadi — tugma nomlari kichik harfda: "да" / "нет".
+
+        ``click_button`` ISHLATILMAYDI: u boshida ``_close_overlay`` chaqirib,
+        ochiq tasdiqlash dialogini Escape bilan yopib yuborar edi."""
+        button = self.page.locator(".cdk-overlay-container").get_by_role("button", name=answer, exact=True).first
+        expect(button).to_be_visible()
+        button.click()
+        expect(button).to_be_hidden()
+        self.wait_for_loader()
+
     # ------------------------------------------------------------------------------------------------------------------
     # Navigatsiya settle / tugmalar / saqlash
     # ------------------------------------------------------------------------------------------------------------------
