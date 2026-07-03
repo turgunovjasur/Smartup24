@@ -185,6 +185,30 @@ def load_data():
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+def pytest_sessionfinish(session, exitstatus):
+    """Testlar tugagach Allure hisobot yaratadi va brauzerda ochadi."""
+    # --collect-only yoki boshqa rejimda haqiqiy test ishlamagan bo'lsa o'tkazib yuboramiz
+    if not session.items:
+        return
+    import subprocess
+    import shutil
+    allure_bin = shutil.which("allure") or shutil.which("allure.cmd")
+    if not allure_bin:
+        print(f"\n[Allure] CLI topilmadi. Qo'lda ishlatish: allure serve {ALLURE_RESULTS_DIR}")
+        return
+    try:
+        subprocess.run(
+            [allure_bin, "generate", "--clean", ALLURE_RESULTS_DIR, "-o", ALLURE_REPORT_DIR],
+            check=True,
+            timeout=120,
+        )
+        subprocess.Popen([allure_bin, "open", ALLURE_REPORT_DIR])
+    except Exception as e:
+        print(f"\n[Allure] Hisobot yaratishda xato: {e}")
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """Test xato bo'lganda screenshot olib Allure ga qo'shadi."""
