@@ -50,3 +50,8 @@ def run_supplier(page: Page, code) -> None:
 def test_supplier(page: Page, code) -> None:
     authorization(page)
     run_supplier(page, code)
+
+
+
+
+
