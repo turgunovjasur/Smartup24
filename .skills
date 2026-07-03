@@ -59,8 +59,10 @@ m.wait_for_loader()                                 # app-global-page-loader
 ```
 
 ## UI patternlar (Smartup24 x24)
-- Text input: `smt-input[smtid]` → ichki `input`; label `div.flex.flex-col > label`.
+- Text input: `smt-input[smtid]` → ichki `input`; label `div.flex.flex-col > label`. Textarea alohida tag: `smt-textarea`.
+- Date picker ("Начало"/"Конец"): `smt-date-picker` → ichki input (placeholder "Выберите дату") — sana MATN sifatida yoziladi (`m.input(label="Начало", value="01.07.2026")`); input click kalendar OCHMAYDI (faqat ikonka ochadi). Yangi field tag'i chiqsa `_CONTROL_XPATH`ga ham qo'shish SHART, aks holda label wrapper butun formagacha ko'tarilib qo'shni fieldga yozadi (bonus formasida "Начало" "Название"ni ustidan yozgan edi).
 - Select: `smt-data-select[smtid]` → `input[placeholder="Подбор"]`; dropdown `.cdk-overlay-container smt-select-dropdown li`. Tanlangach qiymat select MATNIDA emas, Подбор INPUT value'sida.
+- Tree select ("Регион"): `smt-tree-select[smtidfield]` — ichki input YO'Q, `smt-select-trigger` bosiladi; overlay'da `[role=tree]` panel: `input[placeholder="Поиск..."]` (filtr) + `[role=treeitem]`. Tanlangan qiymat trigger MATNIDA. Bitta variantli panel o'zi yopiladi; multi (`aria-multiselectable`, supplier/client) ochiq qoladi — faqat HAQIQIY Escape yopadi (backdrop yo'q, sintetik keydown ishlamaydi). `m.select(...)` uchalasini avtomatik ajratadi (MCP tasdiqlangan 2026-07-02).
 - Radio (Статус): `smt-radio-group[smtid]` → `label[smt-radio]` (value A/P/S).
 - Grid qatori: `.smt-data-row`.
 - Radio vs Switch: Статус ba'zi formalarda `smt-radio-group` (radio), ba'zilarida `smt-switch` (gorizontal, `<span>` label) — `radio(...)` yoki `checkbox(...)`. Toggle ichida `input[type=checkbox]` (holat) + `[role=switch]` (bosiladi).

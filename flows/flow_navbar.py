@@ -20,4 +20,5 @@ def flow_search(page: Page, name) -> None:
 
 def flow_navigate(page: Page, tab, name) -> None:
     page.get_by_role("button", name=tab).click()
-    page.get_by_role("menuitem", name=name).click()
+    page.get_by_role("menuitem", name=name, exact=True).click()
+

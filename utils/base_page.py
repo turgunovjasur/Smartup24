@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 
 from playwright.sync_api import expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -28,8 +29,14 @@ class BasePage:
 
     Asosiy komponentlar (MCP bilan tasdiqlangan, 2026-07-01):
       - text input : ``smt-input[smtid]`` -> ichki ``input``/``textarea``
+      - textarea   : ``smt-textarea`` ("Описание" va h.k.)
+      - date picker: ``smt-date-picker`` ("Начало"/"Конец") -> ichki input'ga sana
+                     matn sifatida yoziladi (kalendar ochilmaydi)
       - select     : ``smt-data-select[smtid]`` -> ``input[placeholder="Подбор"]``,
                      dropdown ``.cdk-overlay-container`` ichida ``smt-select-dropdown li``
+      - tree select: ``smt-tree-select[smtidfield]`` ("Регион") -> ``smt-select-trigger``
+                     bosiladi, overlay'da ``[role=tree]`` panel: "Поиск..." input +
+                     ``[role=treeitem]``; tanlangan qiymat trigger MATNIDA
       - radio      : ``smt-radio-group[smtid]`` -> ``label[smt-radio]`` (Статус: Активный/...)
       - checkbox   : ``label[smt-checkbox]`` -> ``input[type=checkbox]``
       - grid qatori: ``.smt-data-row``
@@ -83,10 +90,29 @@ class BasePage:
     # eng yaqin ajdod" predikati uchun ishlatiladi (layout klassiga bog'lanmaydi).
     _CONTROL_XPATH = (
         "ancestor::*["
-        ".//smt-input or .//smt-data-select or .//smt-radio-group"
-        " or .//smt-switch or .//smt-checkbox or .//*[@smt-checkbox]"
+        ".//smt-input or .//smt-textarea or .//smt-date-picker"
+        " or .//smt-data-select or .//smt-multi-data-select or .//smt-tree-select"
+        " or .//smt-radio-group or .//smt-switch or .//smt-checkbox or .//*[@smt-checkbox]"
         "][1]"
     )
+
+    # input() qamrab oladigan matnli field komponentlari. smt-date-picker ham shu yerda:
+    # ichida oddiy yozsa bo'ladigan input bor (placeholder "Выберите дату", kalendar
+    # faqat ikonkadan ochiladi) — sana matn sifatida to'g'ridan-to'g'ri kiritiladi.
+    # Bu tag'lar _CONTROL_XPATH da ham bo'lishi SHART, aks holda label wrapper butun
+    # formagacha ko'tarilib, qo'shni fieldning inputiga yozib yuboradi (bonus formasida
+    # "Начало" shu sabab "Название" ni ustidan yozgan edi).
+    _INPUT_CSS = "smt-input, smt-textarea, smt-date-picker"
+
+    # Select komponentlari (uch xil, MCP bilan tasdiqlangan 2026-07-02):
+    #   - smt-data-select       : bitta variant, ichki input[placeholder="Подбор"]
+    #   - smt-multi-data-select : ko'p variant (masalan "Отрасль"), ham Подбор input
+    #   - smt-tree-select       : daraxt variant (masalan "Регион"), input EMAS —
+    #     smt-select-trigger bosiladi, qidiruv inputi overlay'dagi [role=tree] panelda
+    _SELECT_CSS = "smt-data-select, smt-multi-data-select, smt-tree-select"
+
+    # smt-tree-select ochilganda cdk-overlay ichidagi daraxt paneli
+    _TREE_PANEL = ".cdk-overlay-container [role=tree]"
 
     def _label_pattern(self, label):
         # "Название", "Название *", " Название * " — barchasi mos; "Краткое название" MOS EMAS (anchored)
@@ -121,7 +147,16 @@ class BasePage:
         ``smtid`` yoki ``label`` orqali topadi."""
         root = root or self.page
         if smtid is not None:
-            return root.locator(f'{tag}[smtid="{smtid}"]').nth(index)
+            # `tag` bir nechta bo'lishi mumkin ("smt-data-select, smt-multi-data-select") —
+            # smtid filtrini har biriga alohida qo'llaymiz. smt-tree-select barqaror id'ni
+            # `smtid` emas, `smtidfield` atributida saqlaydi (masalan smtidfield="region_id").
+            parts = []
+            for t in tag.split(","):
+                t = t.strip()
+                attr = "smtidfield" if t == "smt-tree-select" else "smtid"
+                parts.append(f'{t}[{attr}="{smtid}"]')
+            sel = ", ".join(parts)
+            return root.locator(sel).nth(index)
         if label is not None:
             wrapper = self._field_wrapper(label, index=index, root=root)
             return wrapper.locator(tag).first
@@ -144,7 +179,9 @@ class BasePage:
         clear=True,
         press_tab=False,
     ):
-        """``smt-input`` (text/number/textarea) bilan ishlash uchun universal funksiya.
+        """Matnli field bilan ishlash uchun universal funksiya —
+        ``smt-input`` (text/number), ``smt-textarea`` va ``smt-date-picker``
+        (sana matn ko'rinishida yoziladi, masalan "01.07.2026").
 
         Inputni topish (bittasini bering):
           - ``label="Название"`` : ko'rinadigan field label orqali (asosiy usul)
@@ -156,7 +193,7 @@ class BasePage:
           - ``return_value=True`` : joriy qiymatni qaytaradi
           - ``press_tab=True`` : to'ldirgach Tab bosadi
         """
-        control = self._control("smt-input", label=label, smtid=smtid, index=index, root=root)
+        control = self._control(self._INPUT_CSS, label=label, smtid=smtid, index=index, root=root)
         field = control.locator("input, textarea").first
         expect(field).to_be_visible()
 
@@ -184,25 +221,84 @@ class BasePage:
     # ------------------------------------------------------------------------------------------------------------------
 
     def _open_select(self, label=None, smtid=None, index=0, root=None):
-        select = self._control("smt-data-select", label=label, smtid=smtid, index=index, root=root)
+        """Selectni topib, dropdownini ochadi. ``(select, trigger, tag_name)`` qaytaradi.
+
+        ``trigger`` — qidiruv matni yoziladigan input: smt-data-select/multi'da
+        komponent ichidagi Подбор input, smt-tree-select'da esa overlay'dagi
+        [role=tree] panel ichidagi "Поиск..." input (komponentda input yo'q,
+        smt-select-trigger bosib ochiladi)."""
+        select = self._control(self._SELECT_CSS, label=label, smtid=smtid, index=index, root=root)
         expect(select).to_be_visible()
+        tag_name = select.evaluate("el => el.tagName.toLowerCase()")
+
+        if tag_name == "smt-tree-select":
+            select.locator("smt-select-trigger").first.click()
+            trigger = self.page.locator(f'{self._TREE_PANEL} input[placeholder="Поиск..."]').last
+            expect(trigger).to_be_visible()
+            return select, trigger, tag_name
+
         trigger = select.locator('input[placeholder="Подбор"]').first
         if trigger.count() == 0:
             trigger = select.locator("input").first
         expect(trigger).to_be_visible()
         trigger.click()
-        return select, trigger
+        return select, trigger, tag_name
 
     def _click_option(self, option_text, *, exact=True, timeout=30_000):
-        """Ochilgan dropdown (``.cdk-overlay-container`` ichidagi ``smt-select-dropdown``)
-        dan ``option_text`` variantini bosadi. "Добавить"/"Показать все" harakat
-        elementlari inobatga olinmaydi (matn bo'yicha aniq filtrlanadi)."""
+        """Ochilgan dropdowndan ``option_text`` variantini bosadi.
+
+        Uch xil dropdown qo'llab-quvvatlanadi:
+          - bitta variantli ``smt-data-select`` : ``smt-select-dropdown`` ichida ``<li>``;
+          - ko'p variantli ``smt-multi-data-select`` : CDK ``role="menu"`` ichida
+            ``role="menuitemcheckbox"`` (masalan "Отрасль");
+          - daraxt ``smt-tree-select`` : overlay'da ``role="tree"`` panel ichida
+            ``role="treeitem"`` (masalan "Регион").
+        "Добавить"/"Показать все" harakat elementlari matn bo'yicha aniq filtrlanib
+        chetlab o'tiladi.
+
+        Dropdown/menu Angular'da fill'dan keyin KECHIKIB render bo'ladi — shuning uchun
+        variant qaysi konteynerda paydo bo'lishini deadline'gacha qayta-qayta tekshiramiz
+        (bir martalik ``count()`` tekshiruvi poyga tufayli noto'g'ri locatorda qotib
+        qolar edi)."""
+        pattern = re.compile(rf"^\s*{re.escape(option_text)}\s*$") if exact else re.compile(re.escape(option_text))
         dropdown = self.page.locator("smt-select-dropdown").last
-        option = dropdown.locator("li").filter(
-            has_text=re.compile(rf"^\s*{re.escape(option_text)}\s*$") if exact else re.compile(re.escape(option_text))
-        ).first
-        if option.count() == 0:
-            option = dropdown.get_by_text(option_text, exact=exact).first
+        li_option = dropdown.locator("li").filter(has_text=pattern).first
+        text_option = dropdown.get_by_text(option_text, exact=exact).first
+        overlay = self.page.locator(".cdk-overlay-container")
+        role_options = [
+            overlay.get_by_role(role, name=option_text, exact=exact).first
+            for role in ("menuitemcheckbox", "menuitem", "option", "treeitem")
+        ]
+
+        deadline = time.monotonic() + timeout / 1000
+        while True:
+            if li_option.count() > 0:
+                option = li_option
+                break
+            if text_option.count() > 0:
+                option = text_option
+                break
+            # smt-select-dropdown topilmasa — ko'p variantli menu (menuitemcheckbox/
+            # menuitem) yoki tree panel (treeitem). Menu transparent cdk-overlay-backdrop
+            # bilan ochilib oddiy klikni "intercepts pointer events" bilan to'sadi
+            # (dispatch esa Angular handlerni ishga tushirmaydi) — backdrop'ni
+            # pointer-events'siz qilib, haqiqiy klik yuboramiz.
+            candidate = next((c for c in role_options if c.count() > 0), None)
+            if candidate is not None:
+                expect(candidate).to_be_visible(timeout=timeout)
+                self.page.evaluate(
+                    "() => document.querySelectorAll('.cdk-overlay-backdrop')"
+                    ".forEach(b => { b.style.pointerEvents = 'none'; })"
+                )
+                candidate.click()
+                return
+            if time.monotonic() >= deadline:
+                # Hech qaysi konteynerда topilmadi — diagnostika uchun asosiy locator
+                # bo'yicha aniq assertion xatosi beramiz.
+                option = li_option
+                break
+            self.page.wait_for_timeout(100)
+
         expect(option).to_be_visible(timeout=timeout)
         option.click()
 
@@ -219,17 +315,19 @@ class BasePage:
         root=None,
         timeout=30_000,
     ):
-        """``smt-data-select`` (Подбор) dan bitta variant tanlaydi.
+        """Select'dan bitta variant tanlaydi — ``smt-data-select`` (Подбор),
+        ``smt-multi-data-select`` va ``smt-tree-select`` ("Регион") avtomatik ajratiladi.
 
         Selectni topish (bittasini bering):
           - ``label="Производитель"`` : field label orqali
           - ``smtid="producer_id"``   : barqaror ``smt-data-select[smtid]`` orqali
+            (tree-select uchun ``smtidfield`` qiymati, masalan ``smtid="region_id"``)
 
         ``search``: dropdownda filtrlash uchun yoziladigan matn (default = ``option_text``);
         ``exact``: variant matnini aniq moslashtirish; ``expect_selected``: tanlangach
         Подбор inputida tanlangan qiymat ko'rinishini tasdiqlaydi.
         """
-        select, trigger = self._open_select(label=label, smtid=smtid, index=index, root=root)
+        select, trigger, tag_name = self._open_select(label=label, smtid=smtid, index=index, root=root)
 
         query = option_text if search is None else search
         if query:
@@ -237,9 +335,48 @@ class BasePage:
 
         self._click_option(option_text, exact=exact, timeout=timeout)
 
-        # Tanlangach matn select textiga emas, Подбор inputining value'siga tushadi.
-        if expect_selected:
-            expect(trigger).to_have_value(re.compile(re.escape(option_text)), timeout=timeout)
+        if tag_name == "smt-tree-select":
+            # Daraxt select ("Регион"): tanlangan qiymat trigger MATNIDA ko'rinadi
+            # (Подбор input yo'q). Ko'p variantli (aria-multiselectable) rejimda panel
+            # tanlangach ochiq qoladi — keyingi amallarni to'sib qo'ymasligi uchun yopamiz.
+            if expect_selected:
+                expect(select).to_contain_text(re.compile(re.escape(option_text)), timeout=timeout)
+            self._close_tree_panel()
+        elif expect_selected:
+            # Bitta variantli select (smt-data-select): tanlangan qiymat Подбор input
+            # value'siga tushadi. Ko'p variantli (smt-multi-data-select, "Отрасль"):
+            # qiymat "chip" (matn) sifatida qo'shiladi va input tozalanadi — shuning
+            # uchun input value emas, komponent matnini tekshiramiz.
+            if tag_name == "smt-multi-data-select":
+                pattern = re.compile(re.escape(option_text))
+                try:
+                    expect(select).to_contain_text(pattern, timeout=10_000)
+                except AssertionError:
+                    # Flaky: klik menu qayta-render (filtr natijasi kelishi) paytiga
+                    # to'g'ri kelsa tanlov qo'llanmay qoladi — dropdown ochiq, filtr
+                    # yozilgan holda turadi. Variantni bir marta qayta bosamiz.
+                    self._click_option(option_text, exact=exact, timeout=timeout)
+                    expect(select).to_contain_text(pattern, timeout=timeout)
+                # Ko'p variantli menu tanlangach ochiq qoladi — keyingi amal (Сохранить)
+                # overlay backdrop ostida qolmasligi uchun yopamiz va yo'qolishini kutamiz.
+                self._close_overlay()
+            else:
+                # DIQQAT: trigger inputga filtr matnini O'ZIMIZ yozganmiz, shuning uchun
+                # to_have_value yolg'ondan o'tishi mumkin — tanlov commit bo'lganining
+                # haqiqiy belgisi dropdown O'ZI yopilishi. Klik dropdown qayta-render
+                # (filtr natijasi kelishi) paytiga to'g'ri kelib qo'llanmay qolsa,
+                # dropdown ochiq qoladi — variantni bir marta qayta bosamiz. Aks holda
+                # Сохранить'da majburiy select bo'sh qolib, forma jim ochiq qolaveradi.
+                expect(trigger).to_have_value(re.compile(re.escape(option_text)), timeout=timeout)
+                dropdown = self.page.locator("smt-select-dropdown").last
+                try:
+                    expect(dropdown).to_be_hidden(timeout=5_000)
+                except AssertionError:
+                    self._click_option(option_text, exact=exact, timeout=timeout)
+                    expect(dropdown).to_be_hidden(timeout=timeout)
+                # Backdrop fade-out ham kechikib keyingi klikni to'sishi mumkin —
+                # yopilishini kutamiz (flaky manbai).
+                self._close_overlay()
         return select
 
     def multiselect(
@@ -258,7 +395,7 @@ class BasePage:
         Har bir variant uchun dropdownga qidiruv matni yoziladi va mos ``li`` bosiladi;
         dropdown ochiq qoladi. ``close=True`` — oxirida Escape bilan yopiladi.
         """
-        select, trigger = self._open_select(label=label, smtid=smtid, index=index, root=root)
+        select, trigger, _ = self._open_select(label=label, smtid=smtid, index=index, root=root)
         for option_text in option_texts:
             trigger.fill(option_text)
             self._click_option(option_text, exact=exact, timeout=timeout)
@@ -376,9 +513,77 @@ class BasePage:
         self.wait_for_loader()
         return field
 
+    def show_all(self, *, button_name="Показать все"):
+        """List filtri dialogini ochib "Показать все" ni bosadi.
+
+        Passiv (Неактивный) qatorlar default ro'yxatda KO'RINMAYDI — status filtri
+        "Активный" bilan ochiladi. Qidiruv yonidagi voronka tugmasi
+        (``smt-data-table-filter``) "Фильтры" dialogini ochadi; "Показать все"
+        barcha statuslarni qo'llab dialogni O'ZI yopadi, qidiruv matni saqlanib
+        qoladi (MCP tasdiqlangan 2026-07-03)."""
+        self._settle()
+        trigger = self.page.locator("smt-data-table-filter button").first
+        expect(trigger).to_be_visible()
+        trigger.click()
+        button = self.page.locator(".cdk-overlay-container").get_by_role("button", name=button_name).first
+        expect(button).to_be_visible()
+        button.click()
+        expect(button).to_be_hidden()
+        self.wait_for_loader()
+
+    def confirm(self, answer="да"):
+        """"Подтверждение" dialogida (masalan Удалить -> "Удалить X?") javob
+        tugmasini bosadi — tugma nomlari kichik harfda: "да" / "нет".
+
+        ``click_button`` ISHLATILMAYDI: u boshida ``_close_overlay`` chaqirib,
+        ochiq tasdiqlash dialogini Escape bilan yopib yuborar edi."""
+        button = self.page.locator(".cdk-overlay-container").get_by_role("button", name=answer, exact=True).first
+        expect(button).to_be_visible()
+        button.click()
+        expect(button).to_be_hidden()
+        self.wait_for_loader()
+
     # ------------------------------------------------------------------------------------------------------------------
     # Navigatsiya settle / tugmalar / saqlash
     # ------------------------------------------------------------------------------------------------------------------
+
+    def _close_tree_panel(self, timeout=5_000):
+        """Ochiq qolgan smt-tree-select panelini (``[role=tree]``) yopadi.
+
+        Bitta variantli tree'da panel tanlangach O'ZI yopiladi (no-op); ko'p variantli
+        (aria-multiselectable, masalan supplier/client "Регион") rejimda ochiq qoladi.
+        Backdrop YO'Q, sintetik keydown ishlamaydi — faqat haqiqiy Escape yopadi
+        (MCP bilan tasdiqlangan 2026-07-02)."""
+        panel = self.page.locator(self._TREE_PANEL)
+        if panel.count() == 0:
+            return
+        self.page.keyboard.press("Escape")
+        try:
+            panel.first.wait_for(state="hidden", timeout=timeout)
+        except Exception:  # pragma: no cover - diagnostika uchun
+            logger.warning("smt-tree-select paneli %s ms ichida yopilmadi", timeout)
+
+    def _close_overlay(self, timeout=5_000):
+        """Ochiq CDK overlay (dropdown/menu) backdrop'ini yopadi va yo'qolishini kutadi.
+
+        ``.cdk-overlay-backdrop-showing`` darrov yo'qolmaydi va keyingi klikni
+        "intercepts pointer events" bilan to'sadi (masalan select tanlangach
+        Характеристика/Сохранить). Avval fade-out o'zi tugashini qisqa kutamiz
+        (bitta variantli select'da normal holat), yopilmasa Escape bosamiz.
+        Backdrop bo'lmasa no-op."""
+        backdrop = self.page.locator(".cdk-overlay-backdrop-showing")
+        if backdrop.count() == 0:
+            return
+        try:
+            backdrop.first.wait_for(state="hidden", timeout=1_500)
+            return
+        except Exception:
+            pass
+        self.page.keyboard.press("Escape")
+        try:
+            backdrop.first.wait_for(state="hidden", timeout=timeout)
+        except Exception:  # pragma: no cover - diagnostika uchun
+            logger.warning("cdk-overlay backdrop %s ms ichida yopilmadi", timeout)
 
     def _settle(self, timeout=10_000):
         """Sahifa transition tugashini kutadi.
@@ -405,6 +610,9 @@ class BasePage:
         return link
 
     def click_button(self, name, *, exact=True):
+        # Oldingi amaldan (select/dropdown) qolgan backdrop klikni "intercepts
+        # pointer events" bilan to'smasligi uchun avval yopilishini kutamiz.
+        self._close_overlay()
         button = self.page.get_by_role("button", name=name, exact=exact).first
         expect(button).to_be_visible()
         button.click()

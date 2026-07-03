@@ -15,8 +15,8 @@ def run_form_of_ownership(page: Page, code) -> None:
     4. Saqlab, ro'yxatda nom bo'yicha ko'rinishini tekshirish.
     """
     m = BasePage(page)
-    name = f"FormOfOwnership-{code}"
-    short_name = f"FOO-{code}"
+    name = f"MCHJ-{code}"
+    short_name = f"MCHJ-{code}"
 
     flow_navigate(page, tab="Модератор", name="Юридическое лицо")
     m.expect_heading("Юридическое лицо")
