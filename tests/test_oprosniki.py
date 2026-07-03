@@ -23,9 +23,6 @@ def run_oprsoniki(page: Page, code) -> None:
     m.open_create()
     m.expect_heading("Опросник (Создание)")
     m.input(label="Название", value=name)
-
-
-
     m.save_and_expect_heading("Опросники")
 
     m.search(name)

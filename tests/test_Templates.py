@@ -1,5 +1,3 @@
-import random
-
 from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization

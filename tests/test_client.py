@@ -35,9 +35,6 @@ def run_client(page: Page, code) -> None:
     m.select(option_text='MCHJ-1', label="Форма собственности")
     m.radio("Клиент", label="Тип Юр. лица")
     m.select(option_text=f"Region-{code}", label="Регион")
-
-
-
     m.click_button("Характеристика товаров")
     m.select(f"Industry-{code}", label="Отрасль")
 

@@ -27,7 +27,6 @@ def run_bonus(page: Page, code) -> None:
     m.input(label="Начало", value="01.07.2026")
     m.input(label="Конец", value="30.07.2026")
 
-
     m.save_and_expect_heading("Бонусная система")
 
     m.search(name)

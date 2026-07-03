@@ -16,7 +16,7 @@ from tests.test_oprosniki import run_oprsoniki
 from tests.test_product import run_product
 from tests.test_region import run_region
 from tests.test_supplier import run_supplier
-from tests.test_teritory import run_teritory
+from tests.test_teritory import run_territory
 from tests.test_Валюты import run_valyuta
 
 
@@ -47,7 +47,7 @@ def test_all(page: Page, code) -> None:
 
     run_bonus(page, code)
 
-    run_teritory(page, code)
+    run_territory(page, code)
 
     run_vaprost(page, code)
 
@@ -65,5 +65,5 @@ def test_all(page: Page, code) -> None:
 
 
 
-  
+
 
