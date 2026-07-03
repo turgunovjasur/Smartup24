@@ -34,4 +34,3 @@ def run_valyuta(page: Page, code) -> None:
 def test_valyuta(page: Page, code) -> None:
     authorization(page)
     run_valyuta(page, code)
-#msdnbfmndnbcdbncdbncvbdmnvbdmvnd
