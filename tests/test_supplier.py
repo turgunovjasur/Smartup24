@@ -23,7 +23,7 @@ def run_supplier(page: Page, code) -> None:
     name = f"Supplier-{code}"
     short_name = f"Sup-{code}"
     tin = random.randint(100000000, 999999999)
-    form = f"FormOfOwnership-{code}"
+    form = f"MCHJ-{code}"
 
     flow_navigate(page, tab="Модератор", name="Поставщики")
     m.expect_heading("Поставщики")
@@ -35,7 +35,11 @@ def run_supplier(page: Page, code) -> None:
     m.input(label="ИНН", value=tin)
     m.select(option_text=form, label="Форма собственности")
     m.radio("Поставщик", label="Тип Юр. лица")
-    m.radio("Активный", label="Статус")
+    m.select(option_text=f"Region-{code}", label="Регион")
+
+
+    m.click_button("Характеристика товаров")
+    m.select(f"Industry-{code}", label="Отрасль")
 
     m.save_and_expect_heading("Поставщики")
 

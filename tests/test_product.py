@@ -17,6 +17,7 @@ def run_product(page: Page, code) -> None:
     m = BasePage(page)
     name = f"product-{code}"
 
+
     flow_navigate(page, tab="Модератор", name="Товары")
     m.expect_heading("Товары")
 
@@ -27,6 +28,7 @@ def run_product(page: Page, code) -> None:
     m.input(label="Код", value=f"code-{code}")
     m.select(f"Manufacturer-{code}", label="Производитель")
     m.select("кг", label="measure")
+
 
     m.click_button("Характеристика")
     m.select(f"Industry-{code}", label="Отрасль")
