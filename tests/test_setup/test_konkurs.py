@@ -7,10 +7,14 @@ from tests.test_setup.test_region import run_region
 from utils.base_page import BasePage
 
 
-def run_konkurs(page: Page, code) -> None:
+def run_konkurs(page: Page, code, name=None, region=None) -> None:
+    """Yangi Конкурс yaratadi. ``region`` berilmasa Region-{code} (setup
+    zanjiri yaratgan region) ishlatiladi."""
     m = BasePage(page)
-    name = f"konkurs-{code}"
-    region = f"Region-{code}"
+    if name is None:
+        name = f"konkurs-{code}"
+    if region is None:
+        region = f"Region-{code}"
 
     with allure.step("Навигация: Модератор → Конкурсы"):
         flow_navigate(page, tab="Модератор", name="Конкурсы")
@@ -25,10 +29,14 @@ def run_konkurs(page: Page, code) -> None:
         m.input(label="Количество победителей", value=4)
         m.select(option_text=region, label="Регион")
 
-    with allure.step("Сохранить va ro'yxatga qaytish"):
-        m.save_and_expect_heading("Конкурсы")
+    with allure.step("Сохранить"):
+        # Saqlangach redirect barqaror emas (seansdagi keyingi create-savelarda
+        # ilova dashboard'ga qaytarib yuboradi) — ro'yxatga o'zimiz kiramiz
+        m.save()
 
     with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
+        flow_navigate(page, tab="Модератор", name="Конкурсы")
+        m.expect_heading("Конкурсы")
         m.search(name)
         m.grid_row(name)
 
@@ -43,3 +51,6 @@ def test_konkurs(page: Page, code) -> None:
     with allure.step("Oldindan: Region yaratish (test_konkurs uchun)"):
         run_region(page, code)
     run_konkurs(page, code)
+
+
+# CRUD testlari ko'chirilgan: tests/test_regression/ — bu yerda faqat basic create qoladi.

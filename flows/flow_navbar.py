@@ -19,6 +19,7 @@ def flow_search(page: Page, name) -> None:
 
 
 def flow_navigate(page: Page, tab, name) -> None:
-    page.get_by_role("button", name=tab).click()
-    page.get_by_role("menuitem", name=name, exact=True).click()
+    # Saqlashdan keyin dashboard sekin yuklanadi — default 10s yetmay qolgan
+    page.get_by_role("button", name=tab).click(timeout=30_000)
+    page.get_by_role("menuitem", name=name, exact=True).click(timeout=30_000)
 

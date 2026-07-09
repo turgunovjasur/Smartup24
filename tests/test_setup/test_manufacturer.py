@@ -28,7 +28,10 @@ def run_manufacturer(page: Page, code) -> None:
     with allure.step("Сохранить va ro'yxatga qaytish"):
         m.save_and_expect_heading("Производители")
 
-    with allure.step(f"Ro'yxatda '{name}' ko'rinishini tekshirish"):
+    with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
+        # Ro'yxat sahifalangan bo'lishi mumkin — qidiruvsiz yangi yozuv
+        # keyingi sahifada qolib ketadi
+        m.search(name)
         m.grid_row(name)
 
 

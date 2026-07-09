@@ -1,9 +1,9 @@
 from playwright.sync_api import Page, expect
 
-LOGIN_URL = "https://app3.greenwhite.uz/x24/a2/auth/login"
+LOGIN_URL = "https://app.smartup24.com/a2/auth/login"
 
 
-def authorization(page: Page, email="admin@autotest", password="greenwhite") -> None:
+def authorization(page: Page, email="admin@test", password="greenwhite") -> None:
     """Smartup24 ga login qiladi va ilova ochilishini kutadi.
 
     Login tugaganini **rolga/sahifaga bog'liq bo'lmagan** universal signal bilan

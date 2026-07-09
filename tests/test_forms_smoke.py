@@ -10,6 +10,7 @@ Bu test MUSTAQIL — mavjud testlarga (test_all va h.k.) aralashmaydi.
 Formalar ro'yxati MCP bilan real menyudan aniqlangan (2026-07-01).
 """
 import re
+import sys
 
 import allure
 from playwright.sync_api import Page, expect
@@ -156,7 +157,13 @@ def test_forms_smoke(page: Page) -> None:
         lines.append(row)
     report = "\n".join(lines)
 
-    print("\n" + report)
+    # Windows konsoli (cp1252) ✓/✗/• belgilarini chop eta olmaydi — UnicodeEncodeError
+    # testni yiqitmasligi uchun xavfsiz chop etamiz (UTF-8 konsol/Allure'da belgilar saqlanadi).
+    try:
+        print("\n" + report)
+    except UnicodeEncodeError:
+        enc = (sys.stdout.encoding or "ascii")
+        print("\n" + report.encode(enc, errors="replace").decode(enc))
     try:
         allure.attach(report, name="Formalar ochilish hisoboti", attachment_type=allure.attachment_type.TEXT)
     except Exception:

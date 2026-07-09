@@ -13,7 +13,7 @@ from tests.test_setup.test_industry import run_industry
 from tests.test_setup.test_konkurs import run_konkurs
 from tests.test_setup.test_legal_person import run_legal_person
 from tests.test_setup.test_manufacturer import run_manufacturer
-from tests.test_setup.test_oprosniki import run_oprsoniki
+from tests.test_setup.test_oprosniki import run_oprosniki
 from tests.test_setup.test_product import run_product
 from tests.test_setup.test_region import run_region
 from tests.test_setup.test_supplier import run_supplier
@@ -22,9 +22,10 @@ from tests.test_setup.test_Валюты import run_valyuta
 
 
 @allure.epic("Модератор")
-@allure.feature("Full chain")
-@allure.title("Барча moderator testlari — bitta seansda zanjir")
-def test_all(page: Page, code) -> None:
+@allure.feature("Setup chain")
+@allure.story("Basic create — barcha formalar")
+@allure.title("Setup: barcha formalarning basic create testlari — bitta seansda zanjir")
+def test_all_setup(page: Page, code) -> None:
     """Barcha moderator testlarini bitta seansda ketma-ket ishga tushiradi."""
     with allure.step("Tizimga kirish"):
         authorization(page)
@@ -72,7 +73,7 @@ def test_all(page: Page, code) -> None:
         run_vaprost(page, code)
 
     with allure.step("15. Опросник — yangi so'rovnoma"):
-        run_oprsoniki(page, code)
+        run_oprosniki(page, code)
 
     with allure.step("16. Критерий — yangi mezon"):
         run_criterya(page, code)

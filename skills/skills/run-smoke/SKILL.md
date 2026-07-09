@@ -56,7 +56,7 @@ allure serve test-results/allure-results
 - **Headed default** — `conftest.py` da `headless=False`, `--start-maximized`. Browser ekranда ko'rinadi (bu to'g'ri holat).
 - `pytest.ini`: `testpaths = .`, `python_files = test_*.py`, `python_functions = test_*`.
 - Trace fayllari `test-results/traces/` ga, failure screenshot va Allure natijalar `test-results/allure-results/` ga yoziladi.
-- Login credential `flows/flow_authorization.py` da (`admin@autotest` / `greenwhite`) va login URL shu faylda.
+- Login credential `flows/flow_authorization.py` da (`admin@test` / `greenwhite`) va login URL shu faylda.
 - Test teardownida `logout` avtomatik chaqiriladi (seansni yopadi).
 
 ## Ish tartibi

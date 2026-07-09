@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import shutil
 import socket
 import random
@@ -63,6 +64,49 @@ def pytest_configure(config):
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+def _auto_continue_session(page_obj: Page, password: str = "greenwhite") -> None:
+    """``app-session-lock`` overlay'ini avtomatik yopadi.
+
+    Sessiya ochilganidan ~30 daqiqa o'tgach app to'liq ekranli overlay
+    chiqaradi va BARCHA kliklarni to'sib qo'yadi. Ikki holati bor:
+    1) "Закрытие сессии" countdown dialogi (~20 sek) — "Продолжить" bosiladi;
+    2) countdown o'tib ketgan bo'lsa "Блокировка экрана" parol qulfi
+       (input#password + "Войти") — parol kiritib "Войти" bosiladi.
+    Handler ichidagi xato yutiladi — trigger ko'rinib tursa keyingi amalda
+    qayta uriniladi (regression 2026-07-08)."""
+    # Trigger ikkala holatni ham qamraydi: countdown backdrop YOKI parol input
+    lock = page_obj.locator(
+        "app-session-lock button[aria-label='Продолжить'], app-session-lock form input"
+    )
+
+    def _unlock(_) -> None:
+        # MUHIM: qulfning IKKALA bosqich elementlari DOMda bir vaqtda turadi
+        # (biri yashirin) — count() bilan tarmoqlash parol bosqichida ham
+        # yashirin "Продолжить"ni bosishga urinib, parol tarmog'iga hech
+        # yetmay abadiy timeout bo'lar edi (runner 2026-07-09 12:11 trace).
+        # Shuning uchun KO'RINADIGAN holatga qarab tarmoqlanadi, parol
+        # bosqichi (terminal holat) birinchi tekshiriladi.
+        # force=True: qulf bilan birga boshqa overlay (masalan Ошибка dialogi)
+        # ochiq bo'lsa ham klik "intercepts pointer events" bilan to'silmasin.
+        root = page_obj.locator("app-session-lock")
+        try:
+            # Parol qulfi: forma ichida bitta input (id yo'q, placeholder "Пароль")
+            pwd = root.locator("form input")
+            if pwd.count() and pwd.first.is_visible():
+                pwd.first.fill(password, timeout=3_000, force=True)
+                root.locator("button", has_text="Войти").first.click(timeout=3_000, force=True)
+                return
+            cont = root.locator("button", has_text="Продолжить")
+            if cont.count() and cont.first.is_visible():
+                cont.first.click(timeout=3_000, force=True)
+        except Exception as exc:  # countdown -> qulf o'tish payti bo'lishi mumkin
+            print(f"[session-lock] handler xatosi (qayta urinadi): {exc}")
+
+    page_obj.add_locator_handler(lock, _unlock)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
 @pytest.fixture
 def browser():
     """Bitta browser instance, to'liq ekranda ochiladi."""
@@ -107,6 +151,7 @@ def session_context(session_browser):
 def session_page(session_context) -> Generator[Page, Any, None]:
     """Barcha smoke testlar uchun yagona sahifa — holat saqlanadi."""
     page_obj = session_context.new_page()
+    _auto_continue_session(page_obj)
     yield page_obj
     logout(page_obj)  # seansni yopamiz — parallel seans limiti to'lib qolmasligi uchun
     page_obj.close()
@@ -122,6 +167,7 @@ def page(browser: Browser, request) -> Generator[Page, Any, None]:
 
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page_obj = context.new_page()
+    _auto_continue_session(page_obj)
 
     yield page_obj
 
@@ -136,8 +182,13 @@ def page(browser: Browser, request) -> Generator[Page, Any, None]:
 
 @pytest.fixture(scope="session")
 def code():
-    """Test sessiyasi uchun yagona cod qiymati"""
-    return str(random.randint(1000, 9999))
+    """Test sessiyasi uchun yagona cod qiymati.
+
+    Vaqtga asoslangan (epoch sekundlarining oxirgi 7 raqami): vaqt orqaga
+    qaytmagani uchun oldingi runlar yaratgan yozuvlar bilan HECH QACHON
+    to'qnashmaydi — random 4 xonali kod baza to'lgan sari dublikat
+    (dup_val_on_index) xatolarini chiqarayotgan edi."""
+    return str(int(time.time()))[-7:]
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -187,8 +238,9 @@ def load_data():
 
 def pytest_sessionfinish(session, exitstatus):
     """Testlar tugagach Allure hisobot yaratadi va brauzerda ochadi."""
-    # --collect-only yoki boshqa rejimda haqiqiy test ishlamagan bo'lsa o'tkazib yuboramiz
-    if not session.items:
+    # --collect-only da session.items TO'LADI, lekin test ishlamaydi — hisobot
+    # yaratmaymiz (aks holda collection ham allure generate/open qilib yuboradi)
+    if not session.items or session.config.option.collectonly:
         return
     import subprocess
     import shutil
