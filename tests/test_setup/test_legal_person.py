@@ -70,4 +70,3 @@ def test_legal_person(page: Page, code) -> None:
     run_legal_person(page, code)
 
 
-# CRUD testlari ko'chirilgan: tests/test_regression/ — bu yerda faqat basic create qoladi.

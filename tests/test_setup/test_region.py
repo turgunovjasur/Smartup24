@@ -1,3 +1,5 @@
+import random
+
 import allure
 from playwright.sync_api import Page
 
@@ -22,8 +24,18 @@ def run_region(page: Page, code, name=None, active=True) -> None:
         m.open_create()
         m.expect_heading("Регион (Создания)")
 
-    with allure.step(f"Форма: Название = {name}, Статус = {'Активный' if active else 'Неактивный'}"):
-        m.input(label="Название", value=name)
+    # "Код *" GLOBAL UNIKAL bo'lishi kerak — run_region zanjirda KO'P marta
+    # chaqiriladi (edit/view/delete/status/duplicate), shu `code`ni Код sifatida
+    # ishlatsa 2-chidan boshlab server JIM rad etadi (forma yopiladi-yu, saqlanmaydi,
+    # ro'yxatda yo'q). Har chaqiruvda unikal Код beramiz (MCP tasdiqlangan 2026-07-30).
+    kod = str(random.randint(10**8, 10**9 - 1))
+
+    with allure.step(f"Форма: Код = {kod}, Название = {name}, Статус = {'Активный' if active else 'Неактивный'}"):
+        # smtid ISHLATILADI (label EMAS): ikkinchi create formada region-code
+        # input'ining yonidagi label "Код сервера *" ga aralashib, `label="Код"`
+        # regex'i mos kelmay topolmaydi — smtid ikkala formada barqaror (dump 2026-07-30).
+        m.input(smtid="region-code", value=kod)
+        m.input(smtid="region-name", value=name)
         m.checkbox(label="Статус", checked=active)
 
     with allure.step("Сохранить"):

@@ -1,9 +1,18 @@
+from datetime import date, timedelta
+
 import allure
 from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
+
+# Dinamik sanalar — hardcoded "01.07.2026" o'tmishga aylanib (validatsiya xatosi
+# xavfi) qolmasligi uchun har run bugundan hisoblanadi. Bu konstantalar
+# regression run_bonus_view assertion'ida ham IMPORT qilinadi (kiritilgan sana =
+# tekshirilgan sana bo'lishi shart).
+BONUS_START = date.today().strftime("%d.%m.%Y")
+BONUS_END = (date.today() + timedelta(days=30)).strftime("%d.%m.%Y")
 
 
 def run_bonus(page: Page, code, name=None, active=True) -> None:
@@ -21,11 +30,11 @@ def run_bonus(page: Page, code, name=None, active=True) -> None:
         m.open_create()
         m.expect_heading("Создать бонусную систему")
 
-    with allure.step(f"Форма: Название = {name}, Значение = 5, Начало = 01.07.2026, Конец = 30.07.2026"):
+    with allure.step(f"Форма: Название = {name}, Значение = 5, Начало = {BONUS_START}, Конец = {BONUS_END}"):
         m.input(label="Название", value=name)
         m.input(label="Значение", value="5")
-        m.input(label="Начало", value="01.07.2026")
-        m.input(label="Конец", value="30.07.2026")
+        m.input(label="Начало", value=BONUS_START)
+        m.input(label="Конец", value=BONUS_END)
         m.checkbox(label="Статус", checked=active)
 
     if active:

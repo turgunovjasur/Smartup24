@@ -22,7 +22,14 @@ def run_shablon(page: Page, code) -> None:
         m.input(label="Название", value=name)
 
     with allure.step("Сохранить va ro'yxatga qaytish"):
-        m.save_and_expect_heading("Шаблоны отчетов по опросам")
+        # Saqlashdan keyingi redirect BARQAROR EMAS — ba'zan ro'yxat o'rniga
+        # dashboardga (/biruni/intro/dashboard) ketib qoladi (2026-07-31 runner,
+        # shablon create). save_and_expect_heading shu sababli timeout berardi.
+        # run_shablon_basic/full/edit kabi: save'ni tasdiqlab (forma yopiladi),
+        # ro'yxatga o'zimiz kiramiz.
+        m.save()
+        flow_navigate(page, tab="Модератор", name="Шаблоны отчетов по опросам")
+        m.expect_heading("Шаблоны отчетов по опросам")
 
     with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
         m.search(name)

@@ -2,7 +2,7 @@ import allure
 from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
-from flows.flow_navbar import flow_navigate
+from flows.flow_navbar import flow_menu, flow_navigate
 from utils.base_page import BasePage
 
 
@@ -26,7 +26,7 @@ def run_valyuta(page: Page, code, name=None, kod=None, active=True) -> dict:
 
     with allure.step(f"Форма: Название = {name}, Код = {kod}"):
         m.input(label="Название", value=name)
-        m.input(label="Код", value=kod)
+        m.input(smtid="code", value=kod)  # label "Код" ikkinchi formada "Код сервера" ga aralashadi
         m.input(label="Базовая денежная единица", value=kod)
         m.checkbox(label="Статус", checked=active)
 
@@ -37,6 +37,9 @@ def run_valyuta(page: Page, code, name=None, kod=None, active=True) -> dict:
             m.save()
             flow_navigate(page, tab="Модератор", name="Валюты")
             m.expect_heading("Валюты")
+            # Валютыда qidiruv default Название bo'yicha ISHLAMAYDI —
+            # "Настройки поиска" orqali yoqiladi
+            flow_menu(page)
             m.search(name)
             m.grid_row(name)
     else:
@@ -46,6 +49,7 @@ def run_valyuta(page: Page, code, name=None, kod=None, active=True) -> dict:
             m.save()
             flow_navigate(page, tab="Модератор", name="Валюты")
             m.expect_heading("Валюты")
+            flow_menu(page)
             m.search(name)
             m.show_all()
             m.grid_row(name, "Неактивный")
