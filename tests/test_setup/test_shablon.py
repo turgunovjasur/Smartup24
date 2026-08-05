@@ -6,9 +6,13 @@ from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
 
 
-def run_shablon(page: Page, code) -> None:
+def run_shablon(page: Page, code, name=None) -> str:
+    """Yangi Шаблон отчета по опросам yaratadi (faqat majburiy Название).
+    ``name`` berilmasa Shablon-{code}. Yaratilgan nomni qaytaradi (regression
+    CRUD testlari edit/view/delete/status shunga tayanadi)."""
     m = BasePage(page)
-    name = f"Shablon-{code}"
+    if name is None:
+        name = f"Shablon-{code}"
 
     with allure.step("Навигация: Модератор → Шаблоны отчетов по опросам"):
         flow_navigate(page, tab="Модератор", name="Шаблоны отчетов по опросам")
@@ -34,6 +38,8 @@ def run_shablon(page: Page, code) -> None:
     with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
         m.search(name)
         m.grid_row(name)
+
+    return name
 
 
 @allure.epic("Модератор")

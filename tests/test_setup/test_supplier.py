@@ -12,12 +12,20 @@ from tests.test_setup.test_region import run_region
 from utils.base_page import BasePage
 
 
-def run_supplier(page: Page, code) -> None:
+def run_supplier(page: Page, code, name=None, status=None) -> dict:
+    """Yangi Поставщик (Тип=Поставщик) yaratadi. ``name`` berilmasa
+    Supplier-{code}; ``status`` berilsa shu status radiosi tanlanadi (masalan
+    "Пассивный"/"Приостановлено" — bunda passiv yozuv default ro'yxatda
+    ko'rinmagani uchun tekshiruv "Показать все" bilan bajariladi). Yaratilgan
+    qiymatlarni qaytaradi (regression CRUD testlari view/duplicate uchun
+    Краткое = name va ``tin``/``form``/``region`` ga tayanadi — run_client
+    bilan bir xil naqsh, ikkalasi ham umumiy person moduli)."""
     m = BasePage(page)
-    name = f"Supplier-{code}"
-    short_name = f"Sup-{code}"
+    if name is None:
+        name = f"Supplier-{code}"
     tin = random.randint(100000000, 999999999)
     form = f"MCHJ-{code}"
+    region = f"Region-{code}"
 
     with allure.step("Навигация: Модератор → Поставщики"):
         flow_navigate(page, tab="Модератор", name="Поставщики")
@@ -29,24 +37,36 @@ def run_supplier(page: Page, code) -> None:
 
     with allure.step(f"Форма asosiy: Юр. лица название = {name}, ИНН = {tin}"):
         m.input(label="Юр. лица название", value=name)
-        m.input(label="Краткое название", value=short_name)
+        m.input(label="Краткое название", value=name)
         m.input(label="ИНН", value=tin)
 
-    with allure.step(f"Форма: Форма собственности = {form}, Тип = Поставщик, Регион = Region-{code}"):
+    with allure.step(f"Форма: Форма собственности = {form}, Тип = Поставщик, Регион = {region}"):
         m.select(option_text=form, label="Форма собственности")
         m.radio("Поставщик", label="Тип Юр. лица")
-        m.select(option_text=f"Region-{code}", label="Регион")
+        if status is not None:
+            m.radio(status, label="Статус")
+        m.select(option_text=region, label="Регион")
 
     with allure.step(f"Характеристика товаров: Отрасль = Industry-{code}"):
         m.click_button("Характеристика товаров")
         m.select(f"Industry-{code}", label="Отрасль")
 
-    with allure.step("Сохранить va ro'yxatga qaytish"):
-        m.save_and_expect_heading("Поставщики")
+    with allure.step("Сохранить"):
+        # Saqlangach redirect barqaror emas (seansdagi keyingi create-savelarda
+        # ilova dashboard'ga qaytarib yuboradi) — ro'yxatga o'zimiz kiramiz
+        m.save()
 
     with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
+        flow_navigate(page, tab="Модератор", name="Поставщики")
+        m.expect_heading("Поставщики")
         m.search(name)
-        m.grid_row(name)
+        if status in (None, "Активный"):
+            m.grid_row(name)
+        else:
+            m.show_all()
+            m.grid_row(name, status)
+
+    return {"name": name, "tin": str(tin), "form": form, "region": region}
 
 
 @allure.epic("Модератор")

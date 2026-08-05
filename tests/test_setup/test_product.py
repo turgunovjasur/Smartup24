@@ -3,6 +3,8 @@ from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
+from tests.test_setup.test_industry import run_industry
+from tests.test_setup.test_manufacturer import run_manufacturer
 from utils.base_page import BasePage
 
 
@@ -66,8 +68,17 @@ def run_product(page: Page, code, name=None, status=None) -> dict:
 @allure.story("Создание продукта")
 @allure.title("Yangi Продукт yaratish")
 def test_product(page: Page, code) -> None:
+    """Standalone: kerakli ma'lumotnomalarni (Manufacturer/Industry) O'ZI yaratib,
+    keyin tovar ochadi — istalgan TOZA serverda ishlaydi (oldindan mavjud refga
+    tayanmaydi; "кг" measure tizimda global). Alohida ``{code}p`` kodi setup'dagi
+    test_manufacturer/test_industry ({code}) va runner ({code}2/{code}3) nomlari
+    bilan to'qnashmaydi. ``run_product`` (runner import qiladi) O'ZGARMAYDI."""
     with allure.step("Tizimga kirish"):
         authorization(page)
+    code = f"{code}p"
+    with allure.step("Ma'lumotnomalar: Manufacturer/Industry yaratish"):
+        run_manufacturer(page, code)
+        run_industry(page, code)
     run_product(page, code)
 
 

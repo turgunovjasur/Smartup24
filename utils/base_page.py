@@ -396,10 +396,27 @@ class BasePage:
         select, trigger, tag_name = self._open_select(label=label, smtid=smtid, index=index, root=root)
 
         query = option_text if search is None else search
-        if query and trigger is not None:
-            trigger.fill(query)
-
-        self._click_option(option_text, exact=exact, timeout=timeout)
+        # RETRY: dropdown qidiruvi ba'zan bir lahza BO'SH ("Ничего не найдено")
+        # qaytaradi — variant MAVJUD bo'lsa ham (server qidiruv-indeks lag / dropdown
+        # race; prod'da kuchayadi — 2026-08-03 prod runner test_421 "Отрасль" shu
+        # sabab yiqilgan: Category o'sha zahoti topilgan, Industry topilmagan). Bunday
+        # holда qidiruvni tozalab qayta yozamiz va variantni qayta kutamiz. Faqat
+        # OXIRGI urinishда to'liq ``timeout`` beriladi (oldingilarда qisqa — umumiy
+        # vaqt cho'zilib ketmasin; happy path'да 1-urinish darhol o'tadi).
+        attempts = 3
+        for attempt in range(attempts):
+            last = attempt == attempts - 1
+            if query and trigger is not None:
+                trigger.fill("")           # tozalash — server qidiruvini qayta triggerlaydi
+                trigger.fill(query)
+            try:
+                self._click_option(option_text, exact=exact,
+                                   timeout=timeout if last else 8_000)
+                break
+            except (AssertionError, PlaywrightTimeoutError):
+                if last:
+                    raise
+                self.page.wait_for_timeout(800)   # qisqa kutib qidiruvni qayta yuboramiz
 
         if tag_name == "smt-select":
             # Qidiruvsiz select: tanlangan qiymat trigger MATNIDA, dropdown o'zi
