@@ -25,6 +25,8 @@ Modul xususiyatlari (MCP tasdiqlangan 2026-07-07):
   biriktirilgan qator bosilsa "Открепить" tugmasi chiqadi → "Да".
 """
 
+import re
+
 import allure
 from playwright.sync_api import Page, expect
 
@@ -372,14 +374,23 @@ def run_oprosniki_attach(page: Page, code) -> None:
         m.expect_heading("Опросник (прикрепление вопросов)")
 
     with allure.step(f"Доступные tabда '{question}' ni tanlab biriktirish"):
-        m.click_button("Доступные")
+        # DIQQAT (2026-08-07): ilova bu tab nomini IKKI UI versiyasi orasida FLIP
+        # qiladi — yangi "Доступные" ↔ eski "Неприкреплённые" (аттач tab: "Прикрепленные"
+        # ↔ "Прикреплённые"). Bir run'да "Доступные", boshqasida "Неприкреплённые"
+        # chiqadi (SANA emas, server UI-holatiga bog'liq flip) — ikkalasini ham qabul
+        # qilamiz, aks holda test beqaror yiqiladi.
+        m.click_button(re.compile(r"^(?:Доступные|Неприкреплённые)$"))
         row = m.grid_row(question)
         row.locator("[role=checkbox]").first.click()
-        m.click_button("Прикрепить 1")
+        # UI tugma nomi ilova versiyalari orasida almashadi: "Прикрепить 1" (qavssiz,
+        # 2026-07-31) ↔ "Прикрепить (1)" (qavs bilan, 2026-08-10 prod) — ikkalasini
+        # ham qabul qiladigan regex (UI yana almashsa ham chidasin).
+        m.click_button(re.compile(r"^Прикрепить\s*\(?1\)?$"))
         m.confirm("да")
 
     with allure.step("Прикрепленные tabда savol ko'rinishini tekshirish"):
-        m.click_button("Прикрепленные")
+        # yangi "Прикрепленные" (е) ↔ eski "Прикреплённые" (ё) — ikkalasini qabul qilamiz
+        m.click_button(re.compile(r"^Прикрепл[её]нные$"))
         m.grid_row(question)
 
     with allure.step("Salbiy holat: savolli опросникни o'chirish TAQIQLANGAN"):

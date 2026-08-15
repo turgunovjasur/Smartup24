@@ -28,9 +28,11 @@ def run_organization(page: Page, code, name=None) -> dict:
     m = BasePage(page)
     if name is None:
         name = f"org-{code}"
-    # Порядковый номер maydoni maksimal 6 belgi qabul qiladi ("N/6" hisoblagich,
-    # ortiqcha belgilar jim kesiladi) — zanjir code'i 7 xonali bo'lishi mumkin
-    order_no = str(code)[-6:]
+    # Порядковый номер maydoni maskali decimal (RAQAM), maksimal 6 belgi ("N/6").
+    # DIQQAT: boshidagi nolni yutadi ("082764"→"82 764", MCP 2026-08-07) — shuning uchun
+    # str(int(...)) bilan leading-zero'siz normallashtiramiz, aks holda input()ning
+    # expect_value tekshiruvi mos kelmaydi (sana-bog'liq flaky).
+    order_no = str(int(str(code)[-6:]))
 
     with allure.step("Навигация: Модератор → Организации"):
         flow_navigate(page, tab="Модератор", name="Организации")
@@ -83,10 +85,10 @@ def run_organization_minimal(page: Page, code) -> None:
         m.open_create()
         m.expect_heading("Организация (создание)")
 
-    with allure.step(f"Форма (minimal): Название = {name}, Порядковый номер = {str(code)[-6:]}"):
+    with allure.step(f"Форма (minimal): Название = {name}, Порядковый номер = {str(int(str(code)[-6:]))}"):
         m.input(label="Название", value=name)
         # Порядковый номер maksimal 6 belgi ("N/6" hisoblagich)
-        m.input(label="Порядковый номер", value=str(code)[-6:])
+        m.input(label="Порядковый номер", value=str(int(str(code)[-6:])))
 
     with allure.step("Сохранить va ro'yxatda tekshirish"):
         m.save()
@@ -299,7 +301,7 @@ def run_organization_duplicate(page: Page, code) -> None:
         m.expect_heading("Организация (создание)")
         m.input(label="Название", value=name)
         # Порядковый номер maksimal 6 belgi ("N/6" hisoblagich)
-        m.input(label="Порядковый номер", value=str(code)[-6:])
+        m.input(label="Порядковый номер", value=str(int(str(code)[-6:])))
         m.click_button("Сохранить")
 
     with allure.step("Ошибка dialogi chiqishini tekshirish (dup_val_on_index)"):

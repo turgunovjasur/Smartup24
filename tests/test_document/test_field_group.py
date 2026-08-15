@@ -16,6 +16,8 @@ Modul xususiyatlari (MCP tasdiqlangan):
 - Подтипы → "Поля" ro'yxati → "Добавить" → "Поля (Создания)": Название *, Тип поля *
   radio (default "Выпадающий список"; "Текст (строка)" Элементы поля talab qilmaydi).
 """
+import re
+
 import allure
 from playwright.sync_api import Page, expect
 
@@ -166,10 +168,23 @@ def run_field_group_subtypes(page: Page, code) -> None:
     with allure.step(f"'{group}' → Подтипы (Поля ro'yxati)"):
         m.click_grid_row(group)
         m.click_button("Подтипы")
+        # DIQQAT (ikki router-outlet): Подтипы field_list'ga o'tsa ham, oldingi
+        # Группа полей LIST outlet'i (o'zining "Добавить" tugmasi bilan) darrov
+        # yo'q bo'lmaydi. _settle'siz keyingi click_button("Добавить").first aynan
+        # STALE guruh-ro'yxat "Добавить"ini bosib, field_group+add (guruh yaratish)
+        # formasini ochib yuborardi — heading "Группа полей (Создания)" bo'lib flaky
+        # yiqilardi (runner test_013, 2026-08-05). field_list URL + settle bilan
+        # stale outlet yo'qolguncha kutamiz, keyingina to'g'ri "Добавить" bosiladi.
+        page.wait_for_url(re.compile(r"field_list"), timeout=30_000)
+        m._settle()
         m.expect_heading("Поля")
 
     with allure.step(f"Добавить: yangi Поле ({field_name}), Тип поля = Текст (строка)"):
         m.click_button("Добавить", exact=True)
+        # field-add'ga o'tishni tasdiqlaymiz (agar noto'g'ri/stale "Добавить" bosilsa
+        # field_group+add'ga ketardi — bu kutish aniq xato beradi).
+        page.wait_for_url(re.compile(r"field%2[Bb]add|field\+add"), timeout=30_000)
+        m._settle()
         m.expect_heading("Поля (Создания)")
         m.input(label="Название", value=field_name)
         # "Текст (строка)" — Элементы поля bo'limini talab qilmaydi (Выпадающий список'дан farqli)

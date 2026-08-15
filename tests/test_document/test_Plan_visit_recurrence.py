@@ -348,7 +348,12 @@ def run_create_agent(page: Page) -> str:
 
     with allure.step("Сохранить"):
         m.save()
-        m.expect_heading("Пользователи")
+        # Saqlangach redirect BARQAROR EMAS: ba'zан person ro'yxatiga, ba'zан
+        # biruni/intro/dashboard'ga o'tadi (uzoq zanjirda kuzatilgan, 2026-08-05
+        # test_050). expect_heading("Пользователи") shu sabab flaky yiqilar edi —
+        # ro'yxatga ISHONCHLI qayta kiramiz (run_field_group ham save'дан keyin
+        # flow_navigate bilan qaytadi). Agent baribir yaratilgan (save o'tgan).
+        _goto_person_users(page, m)
     return name
 
 
@@ -482,10 +487,22 @@ def _plan_dates(page: Page) -> list[date]:
 
 
 def _expected_week_dates(n: int, start: date, offset: int) -> list[date]:
-    """Har N-hafta modeli: birinchi sana = start + (N-1)*7 + offset kun
-    (offset — tanlangan hafta kunining bugungi kundan siljishi, 0..6),
-    keyingilari +N*7; oynadan (31 kun) chiqqani kesiladi."""
-    out, d = [], start + timedelta(days=(n - 1) * 7 + offset)
+    """Har N-hafta modeli: tanlangan hafta kuni start HAFTASIDAN (dushanba-anchored)
+    (N-1)-haftada, keyin har N-hafta; oynadan (31 kun) chiqqani kesiladi.
+
+    DIQQAT (2026-08-06 tuzatildi): oldingi model `start + (N-1)*7 + offset` — offset
+    hafta kunini KEYINGA suradi deb faraz qilardi. Aslida ilova tanlangan hafta kunini
+    o'sha rekurrens HAFTASINING kuniga joylaydi; agar tanlangan kun start kunidan hafta
+    ichida OLDINROQ bo'lsa (offset 7 dan oshib WRAP qilsa), sana 7 kun OLDINGA tushadi.
+    Bu 2026-08-06 (Пайшанба) da every_5_weeks chained (Пн tanlanib, sana Sep 7 emas
+    Aug 31 bo'lgan) da noto'g'ri 0 kutib yiqilgan edi. Endi start haftasining
+    dushanbasidan + (N-1)*7 + wd bilan aniq kalendar sanaga bog'lanadi (offset=0
+    standalone testlarga ta'sir yo'q — wrap faqat chained variantlarda bo'ladi)."""
+    wd = (start.weekday() + offset) % 7
+    week0_monday = start - timedelta(days=start.weekday())
+    out, d = [], week0_monday + timedelta(days=(n - 1) * 7 + wd)
+    while (d - start).days < 0:            # tanlangan kun start'dan oldin qolsa keyingi tsiklga
+        d += timedelta(days=n * 7)
     while (d - start).days <= WINDOW_DAYS:
         out.append(d)
         d += timedelta(days=n * 7)

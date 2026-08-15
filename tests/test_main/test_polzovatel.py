@@ -12,7 +12,8 @@ DIQQAT: Пользователи moduli IKKI joyda bor (MCP tasdiqlangan 2026-07
   ro'yxatда.
 
 Muhim jihatlar:
-- Yaratish majburiy maydonlari: Название (ФИО emas!), Логин, Пароль. Телефon bu
+- Yaratish majburiy maydonlari: Ф.И.О. (prod'da label "Название"дан "Ф.И.О."ga
+  o'zgargan — 2026-08-10), Логин, Пароль. Телефon bu
   formada majburiy EMAS. Barcha inputlar sahifa ochilganda readonly (autofill
   himoyasi) — FOCUS qilinganda tahrirlanadi; BasePage.input avval click qilib
   keyin fill qilgani uchun ishlaydi. To'liq login = "<Логин>@sm24".
@@ -58,7 +59,7 @@ def run_user(page: Page, code, name=None) -> dict:
         m.expect_heading("Пользователь (создание)")
 
     with allure.step(f"Форма: Название={name}, Логин={login}, Пароль"):
-        m.input(label="Название", value=name)
+        m.input(label="Ф.И.О.", value=name)
         # Логин/Пароль sahifa ochilganda readonly — input() avval click (focus)
         # qilib readonly'ni ochadi, keyin fill qiladi
         m.input(label="Логин", value=login)
@@ -102,11 +103,12 @@ def run_user_full(page: Page, code) -> None:
         m.expect_heading("Пользователь (создание)")
 
     with allure.step(f"Форма (to'liq): {name}"):
-        m.input(label="Название", value=name)
+        m.input(label="Ф.И.О.", value=name)
         m.input(label="Логин", value=login)
         m.input(label="Пароль", value="1")
         m.input(label="Код", value=f"code-{code}")
-        m.input(label="Эл. адрес", value=f"{login}@example.com")
+        # Email maydoni: prod'da label "Эл. адрес"дан "Email"ga o'zgargan (MCP 2026-08-06)
+        m.input(label="Email", value=f"{login}@example.com")
         m.radio("Женский", label="Пол")
 
     with allure.step("Сохранить va ro'yxatda tekshirish"):
@@ -174,7 +176,7 @@ def run_user_edit(page: Page, code) -> None:
         m.expect_heading("Пользователь (изменение)")
 
     with allure.step(f"Tahrirlash: Название {old_name} → {new_name}"):
-        m.input(label="Название", value=new_name)
+        m.input(label="Ф.И.О.", value=new_name)
 
     with allure.step("Сохранить va ro'yxatga qaytish"):
         m.save()
