@@ -127,6 +127,36 @@ from tests.test_regression.test_shablon import (
     run_shablon_report, run_shablon_status, run_shablon_view,
 )
 
+# --- Main: "Главное" modullari (Организации/Роли/Пользователи/Объявления/OAuth2/
+#     Шаблоны отчетов/Перевод/Настройка) — alohida run_* funksiyalari ---
+from tests.test_main.test_organization import (
+    run_organization, run_organization_delete, run_organization_duplicate,
+    run_organization_edit, run_organization_minimal, run_organization_status,
+    run_organization_view,
+)
+from tests.test_main.test_role import (
+    run_role, run_role_delete, run_role_duplicate, run_role_edit,
+    run_role_minimal, run_role_status, run_role_view,
+)
+from tests.test_main.test_polzovatel import (
+    run_user, run_user_delete, run_user_edit, run_user_full,
+    run_user_status, run_user_view,
+)
+from tests.test_main.test_announcement import (
+    run_announcement, run_announcement_delete, run_announcement_edit,
+    run_announcement_full, run_announcement_publish, run_announcement_view,
+)
+from tests.test_main.test_company_client import (
+    run_company_client, run_company_client_delete, run_company_client_edit,
+    run_company_client_full,
+)
+from tests.test_main.test_report_template import (
+    run_report_template, run_report_template_delete, run_report_template_edit,
+    run_report_template_negative, run_report_template_status,
+)
+from tests.test_main.test_table_translate import run_table_translate
+from tests.test_main.test_settings import run_settings
+
 
 # ── Bo'lim kodlari — session ``code`` dan deterministik variantlar ────────────
 def _setup_code(code) -> str:
@@ -139,6 +169,10 @@ def _ga_code(code) -> str:
 
 def _reg_code(code) -> str:
     return f"{code}3"
+
+
+def _main_code(code) -> str:
+    return f"{code}4"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -993,3 +1027,275 @@ def test_525_shablon_delete(session_page: Page, code) -> None:
 @allure.title("Шаблон: Статус — Неактивный/Активный")
 def test_526_shablon_status(session_page: Page, code) -> None:
     run_shablon_status(session_page, _reg_code(code))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IV. MAIN — "Главное" modullari (Организации/Роли/Пользователи/Объявления/OAuth2/
+#     Шаблоны отчетов/Перевод/Настройка). Regression admin'да tugadi — main ham
+#     admin (rol almashish yo'q). Alohida ``{code}4`` kodi setup/ga/reg bilan
+#     to'qnashmaydi. test_all_main.py bilan bir xil (ALOHIDA test'lar).
+# ══════════════════════════════════════════════════════════════════════════════
+# ── Организации ───────────────────────────────────────────────────────────────
+@allure.epic("Модератор")
+@allure.feature("Организации")
+@allure.title("Main Организации: Создание")
+def test_600_organization_create(session_page: Page, code) -> None:
+    run_organization(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Организации")
+@allure.title("Main Организации: Создание — minimal")
+def test_601_organization_minimal(session_page: Page, code) -> None:
+    run_organization_minimal(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Организации")
+@allure.title("Main Организации: Просмотр")
+def test_602_organization_view(session_page: Page, code) -> None:
+    run_organization_view(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Организации")
+@allure.title("Main Организации: Редактирование")
+def test_603_organization_edit(session_page: Page, code) -> None:
+    run_organization_edit(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Организации")
+@allure.title("Main Организации: Статус")
+def test_604_organization_status(session_page: Page, code) -> None:
+    run_organization_status(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Организации")
+@allure.title("Main Организации: Удаление")
+def test_605_organization_delete(session_page: Page, code) -> None:
+    run_organization_delete(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Организации")
+@allure.title("Main Организации: Дубликат")
+def test_606_organization_duplicate(session_page: Page, code) -> None:
+    run_organization_duplicate(session_page, _main_code(code))
+
+
+# ── Роли ──────────────────────────────────────────────────────────────────────
+@allure.epic("Модератор")
+@allure.feature("Роли")
+@allure.title("Main Роли: Создание")
+def test_610_role_create(session_page: Page, code) -> None:
+    run_role(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Роли")
+@allure.title("Main Роли: Создание — minimal")
+def test_611_role_minimal(session_page: Page, code) -> None:
+    run_role_minimal(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Роли")
+@allure.title("Main Роли: Просмотр")
+def test_612_role_view(session_page: Page, code) -> None:
+    run_role_view(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Роли")
+@allure.title("Main Роли: Редактирование")
+def test_613_role_edit(session_page: Page, code) -> None:
+    run_role_edit(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Роли")
+@allure.title("Main Роли: Статус")
+def test_614_role_status(session_page: Page, code) -> None:
+    run_role_status(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Роли")
+@allure.title("Main Роли: Удаление")
+def test_615_role_delete(session_page: Page, code) -> None:
+    run_role_delete(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Роли")
+@allure.title("Main Роли: Дубликат")
+def test_616_role_duplicate(session_page: Page, code) -> None:
+    run_role_duplicate(session_page, _main_code(code))
+
+
+# ── Пользователи ──────────────────────────────────────────────────────────────
+@allure.epic("Модератор")
+@allure.feature("Пользователи")
+@allure.title("Main Пользователи: Создание")
+def test_620_user_create(session_page: Page, code) -> None:
+    run_user(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Пользователи")
+@allure.title("Main Пользователи: barcha maydonlar")
+def test_621_user_full(session_page: Page, code) -> None:
+    run_user_full(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Пользователи")
+@allure.title("Main Пользователи: Просмотр")
+def test_622_user_view(session_page: Page, code) -> None:
+    run_user_view(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Пользователи")
+@allure.title("Main Пользователи: Редактирование")
+def test_623_user_edit(session_page: Page, code) -> None:
+    run_user_edit(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Пользователи")
+@allure.title("Main Пользователи: Статус")
+def test_624_user_status(session_page: Page, code) -> None:
+    run_user_status(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Пользователи")
+@allure.title("Main Пользователи: Удаление")
+def test_625_user_delete(session_page: Page, code) -> None:
+    run_user_delete(session_page, _main_code(code))
+
+
+# ── Объявления ────────────────────────────────────────────────────────────────
+@allure.epic("Модератор")
+@allure.feature("Объявления")
+@allure.title("Main Объявления: Создание (Черновик)")
+def test_630_announcement_create(session_page: Page, code) -> None:
+    run_announcement(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Объявления")
+@allure.title("Main Объявления: Отрасли bilan")
+def test_631_announcement_full(session_page: Page, code) -> None:
+    run_announcement_full(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Объявления")
+@allure.title("Main Объявления: Просмотр")
+def test_632_announcement_view(session_page: Page, code) -> None:
+    run_announcement_view(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Объявления")
+@allure.title("Main Объявления: Редактирование")
+def test_633_announcement_edit(session_page: Page, code) -> None:
+    run_announcement_edit(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Объявления")
+@allure.title("Main Объявления: Публикация")
+def test_634_announcement_publish(session_page: Page, code) -> None:
+    run_announcement_publish(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Объявления")
+@allure.title("Main Объявления: Удаление")
+def test_635_announcement_delete(session_page: Page, code) -> None:
+    run_announcement_delete(session_page, _main_code(code))
+
+
+# ── Клиенты OAuth2 ────────────────────────────────────────────────────────────
+@allure.epic("Модератор")
+@allure.feature("Клиенты OAuth2")
+@allure.title("Main OAuth2: Создание")
+def test_640_company_client_create(session_page: Page, code) -> None:
+    run_company_client(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Клиенты OAuth2")
+@allure.title("Main OAuth2: оба доступа (Read/Write)")
+def test_641_company_client_full(session_page: Page, code) -> None:
+    run_company_client_full(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Клиенты OAuth2")
+@allure.title("Main OAuth2: Редактирование")
+def test_642_company_client_edit(session_page: Page, code) -> None:
+    run_company_client_edit(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Клиенты OAuth2")
+@allure.title("Main OAuth2: Удаление")
+def test_643_company_client_delete(session_page: Page, code) -> None:
+    run_company_client_delete(session_page, _main_code(code))
+
+
+# ── Шаблоны отчетов ───────────────────────────────────────────────────────────
+@allure.epic("Модератор")
+@allure.feature("Шаблоны отчетов")
+@allure.title("Main Шаблоны отчетов: Создание (.xlsx)")
+def test_650_report_template_create(session_page: Page, code) -> None:
+    run_report_template(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Шаблоны отчетов")
+@allure.title("Main Шаблоны отчетов: Редактирование")
+def test_651_report_template_edit(session_page: Page, code) -> None:
+    run_report_template_edit(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Шаблоны отчетов")
+@allure.title("Main Шаблоны отчетов: Статус")
+def test_652_report_template_status(session_page: Page, code) -> None:
+    run_report_template_status(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Шаблоны отчетов")
+@allure.title("Main Шаблоны отчетов: Удаление")
+def test_653_report_template_delete(session_page: Page, code) -> None:
+    run_report_template_delete(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Шаблоны отчетов")
+@allure.title("Main Шаблоны отчетов: Негатив — bo'sh forma")
+def test_654_report_template_negative(session_page: Page) -> None:
+    run_report_template_negative(session_page)
+
+
+# ── Перевод строки таблицы + Настройка ────────────────────────────────────────
+@allure.epic("Модератор")
+@allure.feature("Перевод строки таблицы")
+@allure.title("Main Перевод строки таблицы: uz round-trip")
+def test_660_table_translate(session_page: Page, code) -> None:
+    run_table_translate(session_page, _main_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Настройка")
+@allure.title("Main Настройка: sozlamalar sahifasi (smoke)")
+def test_670_settings(session_page: Page, code) -> None:
+    run_settings(session_page, _main_code(code))

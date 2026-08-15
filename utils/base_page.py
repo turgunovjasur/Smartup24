@@ -124,9 +124,13 @@ class BasePage:
     # label'lari SPA'да keyingi formalarга yuqadi — "Код"→"Код сервера",
     # "Примечания"→"Примечание". Field'ни topishда IKKALA variantni ham qabul qilamiz
     # (bir joyda, har formada smtid'ga o'tkazmasdan). [[oauth2-i18n-leak-contamination]]
+    # OAuth2 (biruni/kauth) formasi PROD'da i18n kalitni tarjima qilmay xom ko'rsatadi:
+    # "Название"→"table.name" (2026-08-10). Ikkala variantni ham qabul qilamiz — i18n
+    # tuzalsa "Название"ga qaytadi. Boshqa formalarda "table.name" yo'q, ta'sir qilmaydi.
     _LABEL_SYNONYMS = {
         "Примечания": ("Примечания", "Примечание"),
         "Код": ("Код", "Код сервера"),
+        "Название": ("Название", "table.name"),
     }
 
     def _label_pattern(self, label):
@@ -366,7 +370,20 @@ class BasePage:
             self.page.wait_for_timeout(100)
 
         expect(option).to_be_visible(timeout=timeout)
-        option.click()
+        # cdk-overlay dropdown sahifaning PASTIDA ochilsa (trigger past bo'lsa), variant
+        # "visible" bo'lsa ham VIEWPORT'дан tashqarida qolib, oddiy click 60s scroll
+        # qilib ham yetolmay timeout beradi (product Отрасль, combined run 2026-08-06).
+        # Avval markazga scroll qilamiz; oddiy click baribir viewport tufayli yiqilsa,
+        # DOM click (JS) fallback — Angular li (click) handleri ishlaydi, viewport
+        # talab qilmaydi. [[cdk-overlay-flaky-clicks]]
+        try:
+            option.scroll_into_view_if_needed(timeout=5_000)
+        except Exception:
+            pass
+        try:
+            option.click(timeout=15_000)
+        except PlaywrightTimeoutError:
+            option.evaluate("el => el.click()")
 
     def select(
         self,

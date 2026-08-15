@@ -15,6 +15,7 @@ test_organization.py patterni. Biruni farqlar (MCP tasdiqlangan 2026-07-20):
 - DIQQAT: tizim rollari (Админ (Поставщик) va h.k.) ishlatilmoqda — testlar
   faqat o'zi yaratgan Role-{code} yozuvlari bilan ishlaydi.
 """
+import re
 import time
 
 import allure
@@ -46,7 +47,9 @@ def run_role(page: Page, code, name=None) -> dict:
 
     with allure.step(f"Форма: Название = {name}, Порядок = {order_no}"):
         m.input(label="Название", value=name)
-        m.input(label="Порядок", value=order_no)
+        # Tartib maydoni: prod'da label "Порядок"дан "Порядковый номер"ga o'zgargan
+        # (MCP 2026-08-06) — barqaror smtid ishlatamiz (label'ga bog'liq emas).
+        m.input(smtid="role-order-no", value=order_no)
 
     with allure.step("Сохранить va ro'yxatda tekshirish"):
         # Saqlangach redirect barqaror emas — ro'yxatga o'zimiz kiramiz
@@ -121,12 +124,26 @@ def run_role_view(page: Page, code) -> None:
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
         m.click_button("Просмотр")
+        # Просмотр biruni forma — stale-heading race'ni oldini olish uchun view URL'ini
+        # kutamiz (aks holda ro'yxatga qaytib qolib, qiymat topilmaydi — 2026-08-10)
+        page.wait_for_url(re.compile(r"role_view"), timeout=30_000)
+        m._settle()
         m.expect_heading("Роль (Просмотр)")
 
-    with allure.step("Qiymatlar: Название, Порядок, Статус"):
-        m.input(label="Название", expect_value=data["name"])
-        m.input(label="Порядок", expect_value=data["order_no"])
-        m.input(label="Статус", expect_value="Активный")
+    with allure.step("Qiymatlar: Название/Порядок/Статус view formada ko'rinishi"):
+        # PROD'da Просмотр forma maydonlari label-bog'liq smt-input EMAS, oddiy
+        # (label'siz) readonly textbox'lar va biruni forma #main-content'да EMAS —
+        # qiymatni label bo'yicha ham, #main-content scope bilan ham o'qib bo'lmaydi
+        # (2026-08-10). Shuning uchun BUTUN page textbox'lari orasidan qidiramiz.
+        values = {(tb.input_value() or "").strip()
+                  for tb in page.get_by_role("textbox").all()}
+        assert data["name"] in values, f"Название '{data['name']}' view'da yo'q: {values}"
+        # order_no bazада RAQAM — boshidagi nol yutiladi ('0815'→'815'), shuning uchun
+        # int-normallashtirib solishtiramiz (chain code'i leading-zero'li bo'lishi mumkin)
+        order_norm = str(int(data["order_no"]))
+        assert order_norm in values, f"Порядок '{order_norm}' view'da yo'q: {values}"
+        # Статус qiymati til bo'yicha almashadi (ruscha "Активный" ↔ inglizcha "active")
+        assert values & {"Активный", "active"}, f"Статус (Активный/active) view'da yo'q: {values}"
 
     with allure.step("View bo'limlari: Пользователи → Формы → Продукты → История изменений"):
         m.click_button("Пользователи")

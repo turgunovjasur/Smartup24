@@ -8,12 +8,12 @@ from playwright.sync_api import Page, expect
 # app.smartup24.com/login.html — ESKI biruni UI, testlar u yerda ishlamaydi.
 
 # x24 production — kompaniya "test" (admin@test):
-# LOGIN_URL = "https://app.smartup24.com/a2/auth/login"
-# COMPANY_CODE = "test"
+LOGIN_URL = "https://app.smartup24.com/a2/auth/login"
+COMPANY_CODE = "test"
 
 # x24 dev (app3) — kompaniya "sm24" (admin@sm24):
-LOGIN_URL = "https://app3.greenwhite.uz/x24/a2/auth/login"
-COMPANY_CODE = "sm24"
+# LOGIN_URL = "https://app3.greenwhite.uz/x24/a2/auth/login"
+# COMPANY_CODE = "sm24"
 
 
 def authorization(page: Page, email=None, password="greenwhite") -> None:

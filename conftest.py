@@ -112,7 +112,11 @@ def _auto_continue_session(page_obj: Page, password: str | None = None) -> None:
         # dispatch_event — DOM darajasidagi klik: backdrop hit-testini chetlab
         # tugmaning o'z handleriga boradi.
         root = page_obj.locator("app-session-lock")
-        deadline = time.monotonic() + 60
+        # 60→20s: qulf normalда ~2-3s da yechiladi; yechilmasa (uzoq run'da seans
+        # SERVER'да expire bo'lgan — 2026-08-11 test_641 4.4 SOAT osilishi) tez
+        # qaytamiz, add_locator_handler(no_wait_after) amalни o'z timeoutida davom
+        # ettiradi, cheksiz qayta-o'q YO'Q.
+        deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             try:
                 # DIQQAT: app-session-lock elementi O'ZI o'lchamsiz konteyner
@@ -151,9 +155,15 @@ def _auto_continue_session(page_obj: Page, password: str | None = None) -> None:
                     page_obj.wait_for_timeout(300)
                 except Exception:
                     return  # page yopilgan — handlerdan chiqamiz
-        print("[session-lock] 60s ichida qulf yechilmadi")
+        print("[session-lock] 20s ichida qulf yechilmadi — amal o'z timeout'ida davom etadi")
 
-    page_obj.add_locator_handler(lock, _unlock)
+    # no_wait_after=True: handler ishlagach Playwright qulf YO'QOLISHINI KUTMAYDI —
+    # seans o'lib qulf yopilmasa ham handler cheksiz qayta-o'q UZMAYDI (default
+    # no_wait_after=False shu sabab 2026-08-11 da test_641'ni 4.4 SOAT osdirgan:
+    # qulf yechilmay Playwright handlerni ~260 marta qayta chaqirib sahifani
+    # crash'gacha olib borgan). times=40: qo'shimcha qattiq cheklov (uzoq run'da
+    # legit qulf ~30 daqiqada bir marta chiqadi — 40 martaga yetadi).
+    page_obj.add_locator_handler(lock, _unlock, no_wait_after=True, times=40)
 
 
 # ----------------------------------------------------------------------------------------------------------------------

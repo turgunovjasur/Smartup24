@@ -253,7 +253,7 @@ def run_report_type(page: Page, dest_dir: str, report_type: str) -> None:
 
 def run_required_fields(page: Page) -> None:
     """Majburiy sanalar (Начало/Конец) bo'sh bo'lsa Сформировать hisobot bermasligi
-    kerak. DIQQAT: forma ochilганда sanalar DEFAULT bilan to'ladi — shuning uchun
+    kerak. DIQQAT: forma ochилganда sanalar DEFAULT bilan to'ladi — shuning uchun
     ularni ATAYLAB tozalaymiz (aks holda "bo'sh" test soxta bo'lardi). Tozalangach
     ham yuklansa — required validatsiyasi yo'q (bug, xfail)."""
     m = BasePage(page)
