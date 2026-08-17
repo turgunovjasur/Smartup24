@@ -21,7 +21,7 @@ def flow_menu(page, field="Название") -> None:
     dialog.get_by_role("button", name="Сохранить").click()
 
 
-def flow_navigate(page: Page, tab, name) -> None:
+def flow_navigate(page: Page, tab, name, expect_url=None) -> None:
     # Oldingi amal (odatda Сохранить) so'rovi hali tugamagan bo'lishi mumkin:
     # uning KECHIKKAN redirecti (ro'yxat YOKI dashboard) allaqachon bosilgan
     # menyu navigatsiyasini yutib yuboradi — bonus 2026-07-10: save javobi
@@ -88,6 +88,25 @@ def flow_navigate(page: Page, tab, name) -> None:
         # oynasida URL dashboard'ga qaytsa — redirect yutgan, qayta bosamiz.
         try:
             page.wait_for_url(lambda url: "intro/dashboard" in url, timeout=2_500)
+            continue  # grace ichida dashboard keldi — redirect yutgan, qayta bosamiz
         except Exception:
-            return  # grace ichida dashboard kelmadi — navigatsiya barqaror
+            pass  # dashboard kelmadi — navigatsiya barqaror
+        # Kontent outleti mo'ljallangan modulga o'tganini URL bilan TASDIQLAYMIZ.
+        # Sub-header (title span) va asosiy kontent alohida router-outlet'da ASINXRON
+        # yangilanadi: menyu bosilganda title darhol yangi modulga o'tadi, ammo URL
+        # va kontent (list + "Создать") biruni→Angular o'tishida ~2s KECH keladi
+        # (MCP tasdiqlangan 2026-08-17: OAuth2 menyusi bosilganda title darhol, URL
+        # 2s keyin company_client_list bo'ldi). Faqat heading kutish yetmaydi —
+        # expect_heading erta mos kelib, open_create() eski list'ning STALE "Создать"
+        # tugmasini bosadi (2026-08-15 runner: Пользователи→Объявления o'tishida
+        # "Пользователь (создание)" ochilib, 16 ta main test cascade bilan yiqildi).
+        # expect_url berilgan bo'lsa mo'ljal URL kelguncha kutamiz; kelmasa qayta bosamiz.
+        if expect_url is not None:
+            try:
+                page.wait_for_url(lambda url: expect_url in url, timeout=30_000)
+            except Exception:
+                if attempt == 2:
+                    raise
+                continue
+        return
 

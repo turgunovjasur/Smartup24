@@ -121,6 +121,39 @@ def _save_functions(page: Page, m: BasePage) -> None:
     m._settle()
 
 
+def _criteria_root(page: Page):
+    """"Критерии функций визита" ekranidagi 'Форма визита' funksiyasi <article>'i.
+
+    SAFE_ROLE'да default faqat "Форма визита" yoqilgan → yagona article. Heading
+    bo'yicha filtrlaymiz (boshqa funksiya yoqilib qolsa ham to'g'ri bo'limni olamiz)."""
+    return page.locator("article").filter(
+        has=page.get_by_role("heading", name="Форма визита")).first
+
+
+def _open_role_criteria(page: Page, m: BasePage, role: str = SAFE_ROLE):
+    """Роли визитов → rol qatori → "Критерии" ekranini ochadi va 'Форма визита'
+    article'ini qaytaradi.
+
+    Har chaqiruvда serverdan YANGI o'qiladi (readback uchun) — save AYNAN shu
+    ekranда qolgani uchun UI orqali qайta ochamiz."""
+    _goto_visit_section(page, m, "Роли визитов")
+    m.expect_heading("Роли визитов")
+    m.click_grid_row(role)
+    m._close_overlay()
+    m.click_button("Критерии")
+    m.expect_heading("Критерии функций визита")
+    return _criteria_root(page)
+
+
+def _save_criteria(page: Page, m: BasePage) -> None:
+    """Критерии konfiguratsiyasini saqlaydi. Функции визитдан FARQLI — save AYNAN
+    shu ekranда qoladi (dashboard'ga redirect YO'Q, MCP prod 2026-08-15), shuning
+    uchun URL o'zgarishini emas, loader tinishini kutamiz."""
+    m.click_button("Сохранить")
+    m.wait_for_loader()
+    m._settle()
+
+
 def _open_visit_row(page: Page, m: BasePage, agent: str, visit_id: str) -> None:
     """Визиты ro'yxatida agent vizitini tanlaydi (action panel chiqadi).
 
@@ -315,6 +348,54 @@ def run_visit_functions_roundtrip(page: Page, count: int) -> None:
             _save_functions(page, m)
 
 
+def run_visit_criteria_roundtrip(page: Page, code) -> None:
+    """Критерии функций визита CRUD round-trip (xavfsiz SAFE_ROLE, "Форма визита").
+
+    Kriteriy (+ ichida bitta Требование: Название + Правила) qo'shib saqlaydi →
+    qayta ochib nomlarni O'QIYDI (readback) → kriteriyni Удалить + saqlab ro'yxat
+    bo'shashini ("Критерии не заданы") tekshiradi. Vizit API orqali bajarilgani
+    uchun "kriteriy vizitда qo'llandi"ni web'да tekshirib bo'lmaydi — SAQLASH↔O'QISH
+    mutanosibligi tekshiriladi (Функции визита round-trip bilan bir xil dizayn).
+
+    Ekran (MCP prod 2026-08-15): "Добавить критерий" → Критерий #1 bloki (Активный
+    switch, Удалить, Название * smt-input); "Добавить требование" → Требование #1
+    (Название * + Правила smt-input). Удалить darhol o'chiradi (tasdiqlash YO'Q),
+    Сохранить bilan serverга yoziladi. Kriteriy Удалить ichidagi Требованиени ham
+    olib tashlaydi."""
+    m = BasePage(page)
+    crit = f"crit-{code}"
+    req = f"req-{code}"
+    rules = f"rule-{code}"
+
+    try:
+        with allure.step(f"'{SAFE_ROLE}' → Критерии: kriteriy + требование qo'shib saqlash"):
+            root = _open_role_criteria(page, m)
+            root.get_by_role("button", name="Добавить критерий").click()
+            m.input(label="Название", value=crit, index=0, root=root)  # kriteriy nomi
+            root.get_by_role("button", name="Добавить требование").click()
+            m.input(label="Название", value=req, index=1, root=root)   # требование nomi
+            m.input(label="Правила", value=rules, root=root)
+            _save_criteria(page, m)
+
+        with allure.step("Qayta ochib saqlangan nomlarni o'qish (readback)"):
+            root = _open_role_criteria(page, m)
+            m.input(label="Название", expect_value=crit, index=0, root=root)
+            m.input(label="Название", expect_value=req, index=1, root=root)
+            m.input(label="Правила", expect_value=rules, root=root)
+            allure.attach(
+                f"criterion={crit}; requirement={req}; rules={rules}",
+                name="saved_criteria", attachment_type=allure.attachment_type.TEXT)
+    finally:
+        with allure.step("Tozalash: kriteriyni Удалить + saqlash (ro'yxat bo'shaydi)"):
+            root = _open_role_criteria(page, m)
+            del_btn = root.get_by_role("button", name="Удалить").first
+            if del_btn.count() > 0:
+                del_btn.click()  # kriteriyni (ichidagi требование bilan) olib tashlaydi
+                _save_criteria(page, m)
+            root = _open_role_criteria(page, m)
+            expect(root.get_by_text("Критерии не заданы")).to_be_visible()
+
+
 def run_visit_form_default(page: Page) -> None:
     """"Форма визита" — asosiy funksiya, default'da YOQILGAN bo'lishini tasdiqlaydi.
 
@@ -381,6 +462,15 @@ def test_visit_role_functions_count(page: Page, count: int) -> None:
 
 @allure.epic("Документы")
 @allure.feature("Визиты")
+@allure.story("Роли визитов / Критерии функций визита")
+@allure.title("Критерии функций визита CRUD round-trip (kriteriy + требование)")
+def test_visit_role_criteria(page: Page, code) -> None:
+    authorization(page)
+    run_visit_criteria_roundtrip(page, code)
+
+
+@allure.epic("Документы")
+@allure.feature("Визиты")
 @allure.story("Роли визитов / Функции визита")
 @allure.title("Форма визита — asosiy funksiya default'да yoqilgan (regression)")
 def test_visit_form_default(page: Page) -> None:
@@ -402,3 +492,4 @@ def test_vizit_all(page: Page, code: str) -> None:
     run_vizit_prichina(page, code)
     run_visit_roles_overview(page)
     run_visit_functions_roundtrip(page, 3)
+    run_visit_criteria_roundtrip(page, code)

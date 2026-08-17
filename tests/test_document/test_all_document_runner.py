@@ -58,8 +58,8 @@ from tests.test_document.test_route_analysis import (
 )
 # --- Визиты ---
 from tests.test_document.test_vizit import (
-    run_visit_functions_roundtrip, run_visit_roles_overview, run_vizit_check,
-    run_vizit_leads, run_vizit_prichina,
+    run_visit_criteria_roundtrip, run_visit_functions_roundtrip,
+    run_visit_roles_overview, run_vizit_check, run_vizit_leads, run_vizit_prichina,
 )
 # --- Планирование визитов (recurrence + mobil vizit bridge) ---
 from tests.test_document.test_Plan_visit_recurrence import (
@@ -258,6 +258,13 @@ def test_033_visit_roles_overview(session_page: Page) -> None:
 @allure.title("Визиты: Функции визита round-trip (3 funksiya saqlash↔o'qish)")
 def test_034_visit_role_functions(session_page: Page) -> None:
     run_visit_functions_roundtrip(session_page, 3)
+
+
+@allure.epic("Документы")
+@allure.feature("Визиты")
+@allure.title("Визиты: Критерии функций визита CRUD (kriteriy + требование round-trip)")
+def test_035_visit_role_criteria(session_page: Page, code: str) -> None:
+    run_visit_criteria_roundtrip(session_page, code)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -636,22 +636,55 @@ class BasePage:
         indeks yetguncha qayta-qayta urinamiz."""
         row = self.page.locator(row_selector).filter(has_text=text).first
 
-        def _try_find() -> bool:
-            """Joriy sahifada, topilmasa keyingi sahifalarda qatorni qidiradi."""
+        def _row_visible(timeout) -> bool:
             try:
-                expect(row).to_be_visible(timeout=5_000)
+                expect(row).to_be_visible(timeout=timeout)
                 return True
             except AssertionError:
-                pass
+                return False
+
+        def _try_find() -> bool:
+            """Joriy sahifada, topilmasa keyingi sahifalarda qatorni qidiradi."""
+            if _row_visible(5_000):
+                return True
+            # 1) Ba'zi ro'yxatlarda per-sahifa "Next page" tugmasi bor — u bilan yuramiz.
             next_btn = self.page.get_by_role("button", name="Next page").first
             while next_btn.count() and next_btn.is_enabled():
                 next_btn.click()
                 self.wait_for_loader()
-                try:
-                    expect(row).to_be_visible(timeout=3_000)
+                if _row_visible(3_000):
                     return True
-                except AssertionError:
-                    continue
+            # 2) Boshqa ro'yxatlarda (Бонус: qidiruv nom bo'yicha filtrlamaydi + 50/71,
+            #    MCP tasdiqlangan 2026-08-17) per-sahifa "Next page" YO'Q — navigatsiya
+            #    RAQAMLI sahifa tugmalari ("1"/"2") orqali; "Next pages" faqat sahifa
+            #    GURUHINI siljitadi (5 dan ortiq sahifada) va odatda disabled. Yaratilgan
+            #    yozuv (masalan bonus-upd-*) alifbo tartibida 2-sahifaga tushib, eski
+            #    "Next page" mantig'i disabled "Next pages"ga tushib 2-sahifага UMUMAN
+            #    o'tmasdi. Har raqamli sahifani bosib qidiramiz, guruh tugasa keyingisiga.
+            pagination = self.page.get_by_role("group", name="Pagination").first
+            seen = set()
+            for _ in range(30):  # xavfsizlik chegarasi (cheksiz sikldan himoya)
+                if not pagination.count():
+                    break
+                num_buttons = pagination.get_by_role("button", name=re.compile(r"^\d+$"))
+                advanced = False
+                for i in range(num_buttons.count()):
+                    btn = pagination.get_by_role("button", name=re.compile(r"^\d+$")).nth(i)
+                    label = (btn.text_content() or "").strip()
+                    if label in seen:
+                        continue
+                    seen.add(label)
+                    advanced = True
+                    btn.click()
+                    self.wait_for_loader()
+                    if _row_visible(3_000):
+                        return True
+                group_next = pagination.get_by_role("button", name="Next pages").first
+                if group_next.count() and group_next.is_enabled():
+                    group_next.click()
+                    self.wait_for_loader()
+                elif not advanced:
+                    break
             return False
 
         if not _try_find():
@@ -914,16 +947,24 @@ class BasePage:
         ochildi) bir necha marta bosamiz."""
         self._settle()
         button = self.page.get_by_role("button", name=button_name, exact=True).first
-        result = None
         for _ in range(3):
+            # Forma ALLAQACHON ochilgan bo'lsa (oldingi urinishning kliki sekin
+            # navigatsiya qildi — 2026-08-17 runner: producer+add / person+add ochiq
+            # bo'lsa ham retry "Создать"ni qayta qidirib None/60s timeout bilan
+            # yiqilardi) list "Создать" DOM'da bo'lmaydi — URL create formaga (`+add`)
+            # o'tган bo'lsa MUVAFFAQIYAT deb qaytaramiz, spurious re-click qilmaymiz.
+            if "add" in self.page.url.lower() and not button.is_visible():
+                return button
             result = self.click_button(button_name)
             self._settle()
             try:
-                # Create forma ochilsa list "Создать" tugmasi DOM'dan ketadi.
-                expect(button).to_be_hidden(timeout=8_000)
+                # Create forma ochilsa list "Создать" tugmasi DOM'dan ketadi. Sekin
+                # ochilishga (loader ostида) chidamli bo'lish uchun kutish oralig'i
+                # 8s → 15s ga oshirildi (erta timeout retry'ни qo'zg'atardi).
+                expect(button).to_be_hidden(timeout=15_000)
                 return result
             except AssertionError:
-                # Hali ro'yxatда — chunk-reload qaytardi, qayta bosamiz.
+                # Hali ro'yxатда — chunk-reload qaytardi, qayta bosamiz.
                 continue
         return result
 
