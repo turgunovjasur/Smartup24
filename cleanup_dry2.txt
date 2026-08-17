@@ -1,0 +1,21 @@
+[cleanup] Muhit: kompaniya 'test' | dry-run=True
+[cleanup] Модератор → Регионы: 50 topildi (topildi)
+[cleanup] Модератор → Поставщики: 50 topildi (topildi)
+[cleanup] Модератор → Клиенты: 50 topildi (topildi)
+[cleanup] Модератор → Юридическое лицо: 2 topildi (topildi)
+[cleanup] Модератор → Товары: 50 topildi (topildi)
+[cleanup] Модератор → Конкурсы: 40 topildi (topildi)
+[cleanup] Модератор → Бонусная система: 50 topildi (topildi)
+[cleanup] Модератор → Tерритории: 50 topildi (topildi)
+[cleanup] Модератор → Вопросы: 50 topildi (topildi)
+[cleanup] Модератор → Опросники: 50 topildi (topildi)
+[cleanup] Модератор → Шаблоны отчетов по опросам: 7 topildi (topildi)
+[cleanup] Модератор → Товары → Производители: 3 topildi (topildi)
+[cleanup] Модератор → Товары → Отрасль: 50 topildi (topildi)
+[cleanup] Модератор → Товары → Категория: 50 topildi (topildi)
+[cleanup] Модератор → Юридическое лицо → Организационно-правовые формы: 50 topildi (topildi)
+[cleanup] Модератор → Группа полей: 0 topildi (topildi)
+[cleanup] Модератор → Валюты: 91 topildi (topildi)
+[cleanup] Модератор → Пользователи: 0 topildi (topildi)
+[cleanup] YAKUN: topildi=693, o'chirildi=0, deaktiv=0, bloklangan=0
+EXIT=0

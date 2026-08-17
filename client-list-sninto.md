@@ -1,0 +1,88 @@
+- generic [ref=f1e3]:
+  - link "Перейти к основному содержимому" [ref=f1e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=f1e5]:
+    - banner [ref=f1e7]:
+      - generic [ref=f1e8]:
+        - link "smartup" [ref=f1e9] [cursor=pointer]:
+          - /url: /a2/sb/intro/dashboard
+          - img "smartup" [ref=f1e10]
+        - navigation [ref=f1e12]:
+          - list [ref=f1e13]:
+            - listitem [ref=f1e14]:
+              - button "Модератор" [ref=f1e15] [cursor=pointer]:
+                - generic [ref=f1e16]: Модератор
+            - listitem [ref=f1e17]:
+              - button "Поставщик" [ref=f1e18] [cursor=pointer]:
+                - generic [ref=f1e19]: Поставщик
+            - listitem [ref=f1e20]:
+              - button "Клиент" [ref=f1e21] [cursor=pointer]:
+                - generic [ref=f1e22]: Клиент
+      - generic [ref=f1e23]:
+        - generic [ref=f1e25]:
+          - button "Поиск" [ref=f1e28] [cursor=pointer]:
+            - img [ref=f1e29]:
+              - img [ref=f1e30]:
+                - img [ref=f1e31]
+          - button "tb_barcode_scanner" [ref=f1e35] [cursor=pointer]:
+            - img [ref=f1e36]:
+              - img [ref=f1e37]:
+                - img [ref=f1e38]
+          - button "Quick Actions" [ref=f1e41] [cursor=pointer]:
+            - img [ref=f1e42]:
+              - img [ref=f1e43]:
+                - img [ref=f1e44]
+          - button "Notifications" [ref=f1e47] [cursor=pointer]:
+            - img [ref=f1e49]:
+              - img [ref=f1e50]:
+                - img [ref=f1e51]
+        - button "A" [ref=f1e57] [cursor=pointer]:
+          - generic [ref=f1e60]: A
+        - button "Smartup24 Администрирование" [ref=f1e62] [cursor=pointer]:
+          - generic [ref=f1e63]:
+            - paragraph [ref=f1e64]: Smartup24
+            - paragraph [ref=f1e65]: Администрирование
+          - img [ref=f1e66]:
+            - img [ref=f1e67]:
+              - img [ref=f1e68]
+    - main [ref=f1e70]:
+      - navigation [ref=f1e74]:
+        - list [ref=f1e75]:
+          - listitem [ref=f1e76]:
+            - button "Добавить задачу" [ref=f1e77] [cursor=pointer]:
+              - img [ref=f1e78]:
+                - img [ref=f1e79]:
+                  - img [ref=f1e80]
+          - listitem [ref=f1e82]:
+            - button "Объявления" [ref=f1e83] [cursor=pointer]:
+              - img [ref=f1e84]:
+                - img [ref=f1e85]:
+                  - img [ref=f1e86]
+      - generic [ref=f1e90]:
+        - link "smartup" [ref=f1e91] [cursor=pointer]:
+          - /url: /a2/
+          - img "smartup" [ref=f1e92]
+        - generic [ref=f1e93]: "404"
+        - generic [ref=f1e94]:
+          - heading "Страница не найдена" [level=2] [ref=f1e95]
+          - generic [ref=f1e96]:
+            - button "Обновить страницу" [ref=f1e97] [cursor=pointer]:
+              - generic [ref=f1e98]: Обновить страницу
+            - button "Вернуться назад" [ref=f1e99] [cursor=pointer]:
+              - img [ref=f1e100]:
+                - img [ref=f1e101]:
+                  - img [ref=f1e102]
+              - generic [ref=f1e104]: Вернуться назад
+    - contentinfo [ref=f1e106]:
+      - paragraph [ref=f1e107]:
+        - generic [ref=f1e108]: Copyright © 2012-2026,
+        - generic [ref=f1e109]:
+          - link "Green White Solutions LLC" [ref=f1e110] [cursor=pointer]:
+            - /url: https://www.greenwhite.uz/
+          - text: .
+        - generic [ref=f1e111]: All rights reserved.
+    - generic:
+      - button:
+        - img:
+          - img:
+            - img
