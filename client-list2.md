@@ -1,0 +1,266 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - link "Перейти к основному содержимому" [ref=f1e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - generic [ref=f1e5]:
+      - banner [ref=f1e7]:
+        - generic [ref=f1e8]:
+          - link "smartup" [ref=f1e9] [cursor=pointer]:
+            - /url: /a2/sb/intro/dashboard
+            - img "smartup" [ref=f1e10]
+          - navigation [ref=f1e12]:
+            - list [ref=f1e13]:
+              - listitem [ref=f1e14]:
+                - button "Модератор" [expanded] [ref=f1e15] [cursor=pointer]:
+                  - generic [ref=f1e16]: Модератор
+              - listitem [ref=f1e17]:
+                - button "Поставщик" [ref=f1e18] [cursor=pointer]:
+                  - generic [ref=f1e19]: Поставщик
+              - listitem [ref=f1e20]:
+                - button "Клиент" [ref=f1e21] [cursor=pointer]:
+                  - generic [ref=f1e22]: Клиент
+        - generic [ref=f1e23]:
+          - generic [ref=f1e25]:
+            - button "Поиск" [ref=f1e28] [cursor=pointer]:
+              - img [ref=f1e29]:
+                - img [ref=f1e30]:
+                  - img [ref=f1e31]
+            - button "tb_barcode_scanner" [ref=f1e35] [cursor=pointer]:
+              - img [ref=f1e36]:
+                - img [ref=f1e37]:
+                  - img [ref=f1e38]
+            - button "Quick Actions" [ref=f1e41] [cursor=pointer]:
+              - img [ref=f1e42]:
+                - img [ref=f1e43]:
+                  - img [ref=f1e44]
+            - button "Notifications" [ref=f1e47] [cursor=pointer]:
+              - img [ref=f1e49]:
+                - img [ref=f1e50]:
+                  - img [ref=f1e51]
+          - button "A" [ref=f1e57] [cursor=pointer]:
+            - generic [ref=f1e60]: A
+          - button "Smartup24 Администрирование" [ref=f1e62] [cursor=pointer]:
+            - generic [ref=f1e63]:
+              - paragraph [ref=f1e64]: Smartup24
+              - paragraph [ref=f1e65]: Администрирование
+            - img [ref=f1e66]:
+              - img [ref=f1e67]:
+                - img [ref=f1e68]
+      - main [ref=f1e70]:
+        - navigation [ref=f1e74]:
+          - list [ref=f1e75]:
+            - listitem [ref=f1e76]:
+              - button "Добавить задачу" [ref=f1e77] [cursor=pointer]:
+                - img [ref=f1e78]:
+                  - img [ref=f1e79]:
+                    - img [ref=f1e80]
+            - listitem [ref=f1e82]:
+              - button "Объявления" [ref=f1e83] [cursor=pointer]:
+                - img [ref=f1e84]:
+                  - img [ref=f1e85]:
+                    - img [ref=f1e86]
+        - generic [ref=f1e90]:
+          - link "smartup" [ref=f1e91] [cursor=pointer]:
+            - /url: /a2/
+            - img "smartup" [ref=f1e92]
+          - generic [ref=f1e93]: "404"
+          - generic [ref=f1e94]:
+            - heading "Страница не найдена" [level=2] [ref=f1e95]
+            - generic [ref=f1e96]:
+              - button "Обновить страницу" [ref=f1e97] [cursor=pointer]:
+                - generic [ref=f1e98]: Обновить страницу
+              - button "Вернуться назад" [ref=f1e99] [cursor=pointer]:
+                - img [ref=f1e100]:
+                  - img [ref=f1e101]:
+                    - img [ref=f1e102]
+                - generic [ref=f1e104]: Вернуться назад
+      - contentinfo [ref=f1e106]:
+        - paragraph [ref=f1e107]:
+          - generic [ref=f1e108]: Copyright © 2012-2026,
+          - generic [ref=f1e109]:
+            - link "Green White Solutions LLC" [ref=f1e110] [cursor=pointer]:
+              - /url: https://www.greenwhite.uz/
+            - text: .
+          - generic [ref=f1e111]: All rights reserved.
+      - generic:
+        - button:
+          - img:
+            - img:
+              - img
+  - menu [ref=f1e113]:
+    - group [ref=f1e114]:
+      - listitem [ref=f1e115]:
+        - heading "Главное" [level=3] [ref=f1e116]
+        - group [ref=f1e117]:
+          - listitem [ref=f1e118]:
+            - menuitem "Организации" [active] [ref=f1e119] [cursor=pointer]:
+              - generic [ref=f1e120]: Организации
+            - menuitem "Организация (создание)" [ref=f1e121] [cursor=pointer]:
+              - img [ref=f1e122]:
+                - img [ref=f1e123]:
+                  - img [ref=f1e124]
+          - listitem [ref=f1e126]:
+            - menuitem "Роли" [ref=f1e127] [cursor=pointer]:
+              - generic [ref=f1e128]: Роли
+            - menuitem "Роль (создание)" [ref=f1e129] [cursor=pointer]:
+              - img [ref=f1e130]:
+                - img [ref=f1e131]:
+                  - img [ref=f1e132]
+          - listitem [ref=f1e134]:
+            - menuitem "Пользователи" [ref=f1e135] [cursor=pointer]:
+              - generic [ref=f1e136]: Пользователи
+          - listitem [ref=f1e137]:
+            - menuitem "Шаблоны отчетов" [ref=f1e138] [cursor=pointer]:
+              - generic [ref=f1e139]: Шаблоны отчетов
+            - menuitem "Настройки шаблонов" [ref=f1e140] [cursor=pointer]:
+              - img [ref=f1e141]:
+                - img [ref=f1e142]:
+                  - img [ref=f1e143]
+          - listitem [ref=f1e145]:
+            - menuitem "Объявления" [ref=f1e146] [cursor=pointer]:
+              - generic [ref=f1e147]: Объявления
+          - listitem [ref=f1e148]:
+            - menuitem "Настройка" [ref=f1e149] [cursor=pointer]:
+              - generic [ref=f1e150]: Настройка
+          - listitem [ref=f1e151]:
+            - menuitem "Клиенты OAuth2 сервера для компании" [ref=f1e152] [cursor=pointer]:
+              - generic [ref=f1e153]: Клиенты OAuth2 сервера для компании
+            - menuitem "Клиенты OAuth2 сервера для компании (создание)" [ref=f1e154] [cursor=pointer]:
+              - img [ref=f1e155]:
+                - img [ref=f1e156]:
+                  - img [ref=f1e157]
+          - listitem [ref=f1e159]:
+            - menuitem "Перевод строки таблицы" [ref=f1e160] [cursor=pointer]:
+              - generic [ref=f1e161]: Перевод строки таблицы
+      - listitem [ref=f1e162]:
+        - heading "Продажи" [level=3] [ref=f1e163]
+        - group [ref=f1e164]:
+          - listitem [ref=f1e165]:
+            - menuitem "Заказы" [ref=f1e166] [cursor=pointer]:
+              - generic [ref=f1e167]: Заказы
+          - listitem [ref=f1e168]:
+            - menuitem "Возвраты" [ref=f1e169] [cursor=pointer]:
+              - generic [ref=f1e170]: Возвраты
+          - listitem [ref=f1e171]:
+            - menuitem "Дашборд по продажам" [ref=f1e172] [cursor=pointer]:
+              - generic [ref=f1e173]: Дашборд по продажам
+          - listitem [ref=f1e174]:
+            - menuitem "Конструктор отчетов по продажам" [ref=f1e175] [cursor=pointer]:
+              - generic [ref=f1e176]: Конструктор отчетов по продажам
+          - listitem [ref=f1e177]:
+            - menuitem "Воронка заказов" [ref=f1e178] [cursor=pointer]:
+              - generic [ref=f1e179]: Воронка заказов
+      - listitem [ref=f1e180]:
+        - heading "Справочники" [level=3] [ref=f1e181]
+        - group [ref=f1e182]:
+          - listitem [ref=f1e183]:
+            - menuitem "Юридическое лицо" [ref=f1e184] [cursor=pointer]:
+              - generic [ref=f1e185]: Юридическое лицо
+            - menuitem "Юр. Лицо (Создания)" [ref=f1e186] [cursor=pointer]:
+              - img [ref=f1e187]:
+                - img [ref=f1e188]:
+                  - img [ref=f1e189]
+          - listitem [ref=f1e191]:
+            - menuitem "Поставщики" [ref=f1e192] [cursor=pointer]:
+              - generic [ref=f1e193]: Поставщики
+            - menuitem "Юр. Лицо (Создания)" [ref=f1e194] [cursor=pointer]:
+              - img [ref=f1e195]:
+                - img [ref=f1e196]:
+                  - img [ref=f1e197]
+          - listitem [ref=f1e199]:
+            - menuitem "Клиенты" [ref=f1e200] [cursor=pointer]:
+              - generic [ref=f1e201]: Клиенты
+            - menuitem "Юр. Лицо (Создания)" [ref=f1e202] [cursor=pointer]:
+              - img [ref=f1e203]:
+                - img [ref=f1e204]:
+                  - img [ref=f1e205]
+          - listitem [ref=f1e207]:
+            - menuitem "Валюты" [ref=f1e208] [cursor=pointer]:
+              - generic [ref=f1e209]: Валюты
+            - menuitem "Валюта (Создания)" [ref=f1e210] [cursor=pointer]:
+              - img [ref=f1e211]:
+                - img [ref=f1e212]:
+                  - img [ref=f1e213]
+          - listitem [ref=f1e215]:
+            - menuitem "Бонусная система" [ref=f1e216] [cursor=pointer]:
+              - generic [ref=f1e217]: Бонусная система
+            - menuitem "Создать бонусную систему" [ref=f1e218] [cursor=pointer]:
+              - img [ref=f1e219]:
+                - img [ref=f1e220]:
+                  - img [ref=f1e221]
+          - listitem [ref=f1e223]:
+            - menuitem "Регионы" [ref=f1e224] [cursor=pointer]:
+              - generic [ref=f1e225]: Регионы
+            - menuitem "Регион (Создания)" [ref=f1e226] [cursor=pointer]:
+              - img [ref=f1e227]:
+                - img [ref=f1e228]:
+                  - img [ref=f1e229]
+          - listitem [ref=f1e231]:
+            - menuitem "Виды оплаты" [ref=f1e232] [cursor=pointer]:
+              - generic [ref=f1e233]: Виды оплаты
+          - listitem [ref=f1e234]:
+            - menuitem "Товары" [ref=f1e235] [cursor=pointer]:
+              - generic [ref=f1e236]: Товары
+            - menuitem "Продукт (создание)" [ref=f1e237] [cursor=pointer]:
+              - img [ref=f1e238]:
+                - img [ref=f1e239]:
+                  - img [ref=f1e240]
+          - listitem [ref=f1e242]:
+            - menuitem "Регистрационные запросы" [ref=f1e243] [cursor=pointer]:
+              - generic [ref=f1e244]: Регистрационные запросы
+          - listitem [ref=f1e245]:
+            - menuitem "Конкурсы" [ref=f1e246] [cursor=pointer]:
+              - generic [ref=f1e247]: Конкурсы
+          - listitem [ref=f1e248]:
+            - menuitem "Tерритории" [ref=f1e249] [cursor=pointer]:
+              - generic [ref=f1e250]: Tерритории
+            - menuitem "Tерритория (Создания)" [ref=f1e251] [cursor=pointer]:
+              - img [ref=f1e252]:
+                - img [ref=f1e253]:
+                  - img [ref=f1e254]
+          - listitem [ref=f1e256]:
+            - menuitem "Вопросы" [ref=f1e257] [cursor=pointer]:
+              - generic [ref=f1e258]: Вопросы
+            - menuitem "Вопрос (Создание)" [ref=f1e259] [cursor=pointer]:
+              - img [ref=f1e260]:
+                - img [ref=f1e261]:
+                  - img [ref=f1e262]
+          - listitem [ref=f1e264]:
+            - menuitem "Опросники" [ref=f1e265] [cursor=pointer]:
+              - generic [ref=f1e266]: Опросники
+            - menuitem "Опросник (Создание)" [ref=f1e267] [cursor=pointer]:
+              - img [ref=f1e268]:
+                - img [ref=f1e269]:
+                  - img [ref=f1e270]
+          - listitem [ref=f1e272]:
+            - menuitem "Критерии" [ref=f1e273] [cursor=pointer]:
+              - generic [ref=f1e274]: Критерии
+            - menuitem "Критерия (Создание)" [ref=f1e275] [cursor=pointer]:
+              - img [ref=f1e276]:
+                - img [ref=f1e277]:
+                  - img [ref=f1e278]
+          - listitem [ref=f1e280]:
+            - menuitem "Шаблоны отчетов по опросам" [ref=f1e281] [cursor=pointer]:
+              - generic [ref=f1e282]: Шаблоны отчетов по опросам
+            - menuitem "Шаблон отчета по опросам (Создание)" [ref=f1e283] [cursor=pointer]:
+              - img [ref=f1e284]:
+                - img [ref=f1e285]:
+                  - img [ref=f1e286]
+      - listitem [ref=f1e288]:
+        - heading "Документы" [level=3] [ref=f1e289]
+        - group [ref=f1e290]:
+          - listitem [ref=f1e291]:
+            - menuitem "Планирование визитов" [ref=f1e292] [cursor=pointer]:
+              - generic [ref=f1e293]: Планирование визитов
+          - listitem [ref=f1e294]:
+            - menuitem "Визиты" [ref=f1e295] [cursor=pointer]:
+              - generic [ref=f1e296]: Визиты
+          - listitem [ref=f1e297]:
+            - menuitem "Анализ маршрутов" [ref=f1e298] [cursor=pointer]:
+              - generic [ref=f1e299]: Анализ маршрутов
+          - listitem [ref=f1e300]:
+            - menuitem "Отслеживание пользователей" [ref=f1e301] [cursor=pointer]:
+              - generic [ref=f1e302]: Отслеживание пользователей
+          - listitem [ref=f1e303]:
+            - menuitem "Группа полей" [ref=f1e304] [cursor=pointer]:
+              - generic [ref=f1e305]: Группа полей
