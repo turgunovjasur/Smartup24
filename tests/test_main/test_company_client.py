@@ -62,7 +62,7 @@ def run_company_client(page: Page, code, name=None) -> dict:
         name = f"oauth-{code}"
 
     with allure.step(f"Навигация: Модератор → {MENU}"):
-        flow_navigate(page, tab="Модератор", name=MENU)
+        flow_navigate(page, tab="Модератор", name=MENU, expect_url="company_client_list")
         m.expect_heading(MENU)
 
     with allure.step("Создать: yangi mijoz formasi ochish"):
@@ -76,7 +76,7 @@ def run_company_client(page: Page, code, name=None) -> dict:
 
     with allure.step("Сохранить va ro'yxatda tekshirish (Client credentials, Read)"):
         m.save()
-        flow_navigate(page, tab="Модератор", name=MENU)
+        flow_navigate(page, tab="Модератор", name=MENU, expect_url="company_client_list")
         m.expect_heading(MENU)
         m.search(name)
         m.grid_row(name, "Client credentials", "Read")
@@ -104,7 +104,7 @@ def run_company_client_full(page: Page, code) -> None:
     name = f"oauth-full-{code}"
 
     with allure.step(f"Навигация: Модератор → {MENU}"):
-        flow_navigate(page, tab="Модератор", name=MENU)
+        flow_navigate(page, tab="Модератор", name=MENU, expect_url="company_client_list")
         m.expect_heading(MENU)
 
     with allure.step("Создать: yangi mijoz formasi ochish"):
@@ -119,7 +119,7 @@ def run_company_client_full(page: Page, code) -> None:
 
     with allure.step("Сохранить va ro'yxatda 'Read/Write' bo'lib ko'rinishi"):
         m.save()
-        flow_navigate(page, tab="Модератор", name=MENU)
+        flow_navigate(page, tab="Модератор", name=MENU, expect_url="company_client_list")
         m.expect_heading(MENU)
         m.search(name)
         m.grid_row(name, "Client credentials", "Read/Write")
@@ -161,7 +161,7 @@ def run_company_client_edit(page: Page, code) -> None:
 
     with allure.step("Сохранить va ro'yxatga qaytish"):
         m.save()
-        flow_navigate(page, tab="Модератор", name=MENU)
+        flow_navigate(page, tab="Модератор", name=MENU, expect_url="company_client_list")
         m.expect_heading(MENU)
 
     with allure.step(f"Ro'yxatda yangi nom '{new_name}' bor"):

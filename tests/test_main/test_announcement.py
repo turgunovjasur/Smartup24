@@ -43,7 +43,7 @@ def run_announcement(page: Page, code, name=None) -> dict:
     description = f"Описание {name}"
 
     with allure.step("Навигация: Модератор → Объявления"):
-        flow_navigate(page, tab="Модератор", name="Объявления")
+        flow_navigate(page, tab="Модератор", name="Объявления", expect_url="announcement_list")
         m.expect_heading("Объявления")
 
     with allure.step("Создать: yangi Объявление formasi ochish"):
@@ -57,7 +57,7 @@ def run_announcement(page: Page, code, name=None) -> dict:
     with allure.step("Сохранить va ro'yxatda 'Черновик' bo'lib ko'rinishini tekshirish"):
         # Saqlangach redirect barqaror emas — ro'yxatga o'zimiz kiramiz
         m.save()
-        flow_navigate(page, tab="Модератор", name="Объявления")
+        flow_navigate(page, tab="Модератор", name="Объявления", expect_url="announcement_list")
         m.expect_heading("Объявления")
         m.search(name)
         m.grid_row(name, "Черновик")
@@ -91,7 +91,7 @@ def run_announcement_full(page: Page, code) -> None:
     name = f"ann-full-{code}"
 
     with allure.step("Навигация: Модератор → Объявления"):
-        flow_navigate(page, tab="Модератор", name="Объявления")
+        flow_navigate(page, tab="Модератор", name="Объявления", expect_url="announcement_list")
         m.expect_heading("Объявления")
 
     with allure.step("Создать: yangi Объявление formasi ochish"):
@@ -109,7 +109,7 @@ def run_announcement_full(page: Page, code) -> None:
 
     with allure.step("Сохранить va ro'yxatda Отрасли bilan ko'rinishini tekshirish"):
         m.save()
-        flow_navigate(page, tab="Модератор", name="Объявления")
+        flow_navigate(page, tab="Модератор", name="Объявления", expect_url="announcement_list")
         m.expect_heading("Объявления")
         m.search(name)
         m.grid_row(name, "Sport Clothes", "Черновик")
@@ -146,7 +146,7 @@ def run_announcement_view(page: Page, code) -> None:
 
     with allure.step("Ro'yxatga qaytish"):
         # View read-only forma; navbar orqali ro'yxatga qaytamiz
-        flow_navigate(page, tab="Модератор", name="Объявления")
+        flow_navigate(page, tab="Модератор", name="Объявления", expect_url="announcement_list")
         m.expect_heading("Объявления")
 
 
@@ -183,7 +183,7 @@ def run_announcement_edit(page: Page, code) -> None:
 
     with allure.step("Сохранить va ro'yxatga qaytish"):
         m.save()
-        flow_navigate(page, tab="Модератор", name="Объявления")
+        flow_navigate(page, tab="Модератор", name="Объявления", expect_url="announcement_list")
         m.expect_heading("Объявления")
 
     with allure.step(f"Ro'yxatda yangi nom '{new_name}' bor"):
@@ -227,7 +227,7 @@ def run_announcement_publish(page: Page, code) -> None:
         m.confirm("да")
 
     with allure.step(f"Ro'yxatda '{name}' 'Опубликовано' bo'lib ko'rinishi"):
-        flow_navigate(page, tab="Модератор", name="Объявления")
+        flow_navigate(page, tab="Модератор", name="Объявления", expect_url="announcement_list")
         m.expect_heading("Объявления")
         m.search(name)
         m.grid_row(name, "Опубликовано")
