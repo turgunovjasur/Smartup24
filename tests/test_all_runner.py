@@ -109,7 +109,7 @@ from tests.test_regression.test_legal_person import (
     run_legal_person_delete, run_legal_person_duplicate, run_legal_person_edit,
     run_legal_person_full, run_legal_person_status, run_legal_person_view,
 )
-from tests.test_regression.test_valyuta import (
+from flows.flow_valyuta import (
     run_valyuta_delete, run_valyuta_duplicate, run_valyuta_edit,
     run_valyuta_full, run_valyuta_status, run_valyuta_view,
 )
