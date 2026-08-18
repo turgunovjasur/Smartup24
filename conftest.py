@@ -331,6 +331,11 @@ def pytest_sessionfinish(session, exitstatus):
     # yaratmaymiz (aks holda collection ham allure generate/open qilib yuboradi)
     if not session.items or session.config.option.collectonly:
         return
+    # CI/headless yoki fon rejimida hisobotni avtomatik OCHMAYMIZ — `allure open`
+    # web-serveri osilib qolib, background/CI runni tugamagan holda ushlab turadi.
+    # Natijalar baribir yoziladi; qo'lda `allure serve test-results/allure-results`.
+    if os.getenv("HEADLESS") == "1" or os.getenv("NO_ALLURE_SERVE") == "1":
+        return
     import subprocess
     import shutil
     allure_bin = shutil.which("allure") or shutil.which("allure.cmd")

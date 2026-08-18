@@ -38,13 +38,23 @@ ISHGA TUSHIRISH
     python -m pytest tests/test_all_runner.py --alluredir=test-results/allure-results
     allure serve test-results/allure-results
 
-Faqat shu faylni bersangiz duplikat bo'lmaydi. Bare ``pytest`` (butun repo)
-individual ``test_...`` va ``test_..._all`` aggregatorlarni ham yig'adi —
-ular DEBUG uchun qoladi, runner esa yagona "hammasini bir seansda" kirish nuqtasi.
-"""
-import time
+Bu fayl SETUP + GROUP A + REGRESSION bo'limlarini o'z ichiga oladi. MAIN
+("Главное") va DOCUMENT bo'limlari ALOHIDA fayllarda (takror bo'lmasligi uchun) —
+``tests/test_main/test_all_main.py`` va ``tests/test_document/test_all_document_runner.py``.
+Hammasini bitta seansda (bitta login) ketma-ket ishlatish uchun uch faylni bitta
+``pytest`` chaqiruvida bering — ``session_page`` session-scope bo'lgani uchun
+yagona browser/login bo'ladi:
 
+    python -m pytest tests/test_all_runner.py \
+        tests/test_main/test_all_main.py \
+        tests/test_document/test_all_document_runner.py \
+        --alluredir=test-results/allure-results
+
+Bare ``pytest`` (butun repo) individual ``test_...`` fayllarni ham yig'adi — ular
+DEBUG uchun qoladi (har biri o'z login bilan).
+"""
 import allure
+import pytest
 from playwright.sync_api import Page
 
 from flows.flow_authorization import COMPANY_CODE, authorization, logout
@@ -127,36 +137,6 @@ from tests.test_regression.test_shablon import (
     run_shablon_report, run_shablon_status, run_shablon_view,
 )
 
-# --- Main: "Главное" modullari (Организации/Роли/Пользователи/Объявления/OAuth2/
-#     Шаблоны отчетов/Перевод/Настройка) — alohida run_* funksiyalari ---
-from tests.test_main.test_organization import (
-    run_organization, run_organization_delete, run_organization_duplicate,
-    run_organization_edit, run_organization_minimal, run_organization_status,
-    run_organization_view,
-)
-from tests.test_main.test_role import (
-    run_role, run_role_delete, run_role_duplicate, run_role_edit,
-    run_role_minimal, run_role_status, run_role_view,
-)
-from tests.test_main.test_polzovatel import (
-    run_user, run_user_delete, run_user_edit, run_user_full,
-    run_user_status, run_user_view,
-)
-from tests.test_main.test_announcement import (
-    run_announcement, run_announcement_delete, run_announcement_edit,
-    run_announcement_full, run_announcement_publish, run_announcement_view,
-)
-from tests.test_main.test_company_client import (
-    run_company_client, run_company_client_delete, run_company_client_edit,
-    run_company_client_full,
-)
-from tests.test_main.test_report_template import (
-    run_report_template, run_report_template_delete, run_report_template_edit,
-    run_report_template_negative, run_report_template_status,
-)
-from tests.test_main.test_table_translate import run_table_translate
-from tests.test_main.test_settings import run_settings
-
 
 # ── Bo'lim kodlari — session ``code`` dan deterministik variantlar ────────────
 def _setup_code(code) -> str:
@@ -169,10 +149,6 @@ def _ga_code(code) -> str:
 
 def _reg_code(code) -> str:
     return f"{code}3"
-
-
-def _main_code(code) -> str:
-    return f"{code}4"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -458,46 +434,29 @@ def test_410_region_create(session_page: Page, code) -> None:
     setup_region(session_page, reg, name=f"Region-basic-{reg}")
 
 
-@allure.epic("Модератор")
-@allure.feature("Регион")
-@allure.title("Регион: Создание — barcha maydonlar bilan")
-def test_411_region_full(session_page: Page, code) -> None:
-    run_region_full(session_page, _reg_code(code))
+# 411-416: bir xil imzoli CRUD amallari — parametrize bilan bitta testga siqilgan.
+# Har biri baribir ALOHIDA Allure test bo'lib qoladi; TARTIB o'zgarmaydi (ro'yxat
+# tartibi = avvalgi test_411..416): full → edit → view → delete → status → duplicate.
+_REGION_CRUD = [
+    ("full",      "Создание — barcha maydonlar bilan", run_region_full),
+    ("edit",      "Редактирование",                    run_region_edit),
+    ("view",      "Просмотр",                          run_region_view),
+    ("delete",    "Удаление",                          run_region_delete),
+    ("status",    "Статус — Неактивный/Активный",      run_region_status),
+    ("duplicate", "Дубликат — nom bilan xatolik",      run_region_duplicate),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Регион")
-@allure.title("Регион: Редактирование")
-def test_412_region_edit(session_page: Page, code) -> None:
-    run_region_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Регион")
-@allure.title("Регион: Просмотр")
-def test_413_region_view(session_page: Page, code) -> None:
-    run_region_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Регион")
-@allure.title("Регион: Удаление")
-def test_414_region_delete(session_page: Page, code) -> None:
-    run_region_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Регион")
-@allure.title("Регион: Статус — Неактивный/Активный")
-def test_415_region_status(session_page: Page, code) -> None:
-    run_region_status(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Регион")
-@allure.title("Регион: Дубликат — nom bilan xatolik")
-def test_416_region_duplicate(session_page: Page, code) -> None:
-    run_region_duplicate(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _REGION_CRUD],
+    ids=[c[0] for c in _REGION_CRUD],
+)
+def test_411_region_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Регион: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 2. Продукт ────────────────────────────────────────────────────────────────
@@ -510,39 +469,25 @@ def test_420_product_create(session_page: Page, code) -> None:
     setup_product(session_page, reg)
 
 
-@allure.epic("Модератор")
-@allure.feature("Продукт")
-@allure.title("Продукт: Создание — barcha maydonlar bilan")
-def test_421_product_full(session_page: Page, code) -> None:
-    run_product_full(session_page, _reg_code(code))
+_PRODUCT_CRUD = [
+    ("full",   "Создание — barcha maydonlar bilan", run_product_full),
+    ("edit",   "Редактирование",                    run_product_edit),
+    ("view",   "Просмотр",                          run_product_view),
+    ("delete", "Удаление",                          run_product_delete),
+    ("status", "Статус — Пассивный/Активный",       run_product_status),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Продукт")
-@allure.title("Продукт: Редактирование")
-def test_422_product_edit(session_page: Page, code) -> None:
-    run_product_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Продукт")
-@allure.title("Продукт: Просмотр")
-def test_423_product_view(session_page: Page, code) -> None:
-    run_product_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Продукт")
-@allure.title("Продукт: Удаление")
-def test_424_product_delete(session_page: Page, code) -> None:
-    run_product_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Продукт")
-@allure.title("Продукт: Статус — Пассивный/Активный")
-def test_425_product_status(session_page: Page, code) -> None:
-    run_product_status(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _PRODUCT_CRUD],
+    ids=[c[0] for c in _PRODUCT_CRUD],
+)
+def test_421_product_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Продукт: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 3. Поставщик ──────────────────────────────────────────────────────────────
@@ -555,46 +500,26 @@ def test_430_supplier_create(session_page: Page, code) -> None:
     setup_supplier(session_page, reg)
 
 
-@allure.epic("Модератор")
-@allure.feature("Поставщик")
-@allure.title("Поставщик: Создание — barcha maydonlar bilan")
-def test_431_supplier_full(session_page: Page, code) -> None:
-    run_supplier_full(session_page, _reg_code(code))
+_SUPPLIER_CRUD = [
+    ("full",      "Создание — barcha maydonlar bilan", run_supplier_full),
+    ("edit",      "Редактирование",                    run_supplier_edit),
+    ("view",      "Просмотр",                          run_supplier_view),
+    ("delete",    "Удаление",                          run_supplier_delete),
+    ("status",    "Статус — Пассивный/Активный",       run_supplier_status),
+    ("duplicate", "Дубликат — nom/ИНН bilan xatolik",  run_supplier_duplicate),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Поставщик")
-@allure.title("Поставщик: Редактирование")
-def test_432_supplier_edit(session_page: Page, code) -> None:
-    run_supplier_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Поставщик")
-@allure.title("Поставщик: Просмотр")
-def test_433_supplier_view(session_page: Page, code) -> None:
-    run_supplier_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Поставщик")
-@allure.title("Поставщик: Удаление")
-def test_434_supplier_delete(session_page: Page, code) -> None:
-    run_supplier_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Поставщик")
-@allure.title("Поставщик: Статус — Пассивный/Активный")
-def test_435_supplier_status(session_page: Page, code) -> None:
-    run_supplier_status(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Поставщик")
-@allure.title("Поставщик: Дубликат — nom/ИНН bilan xatolik")
-def test_436_supplier_duplicate(session_page: Page, code) -> None:
-    run_supplier_duplicate(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _SUPPLIER_CRUD],
+    ids=[c[0] for c in _SUPPLIER_CRUD],
+)
+def test_431_supplier_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Поставщик: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 4. Клиент ─────────────────────────────────────────────────────────────────
@@ -605,46 +530,26 @@ def test_440_client_create(session_page: Page, code) -> None:
     setup_client(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Клиент")
-@allure.title("Клиент: Создание — barcha maydonlar bilan")
-def test_441_client_full(session_page: Page, code) -> None:
-    run_client_full(session_page, _reg_code(code))
+_CLIENT_CRUD = [
+    ("full",      "Создание — barcha maydonlar bilan", run_client_full),
+    ("edit",      "Редактирование",                    run_client_edit),
+    ("view",      "Просмотр",                          run_client_view),
+    ("delete",    "Удаление",                          run_client_delete),
+    ("status",    "Статус — Пассивный/Активный",       run_client_status),
+    ("duplicate", "Дубликат — nom/ИНН bilan xatolik",  run_client_duplicate),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Клиент")
-@allure.title("Клиент: Редактирование")
-def test_442_client_edit(session_page: Page, code) -> None:
-    run_client_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиент")
-@allure.title("Клиент: Просмотр")
-def test_443_client_view(session_page: Page, code) -> None:
-    run_client_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиент")
-@allure.title("Клиент: Удаление")
-def test_444_client_delete(session_page: Page, code) -> None:
-    run_client_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиент")
-@allure.title("Клиент: Статус — Пассивный/Активный")
-def test_445_client_status(session_page: Page, code) -> None:
-    run_client_status(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиент")
-@allure.title("Клиент: Дубликат — nom/ИНН bilan xatolik")
-def test_446_client_duplicate(session_page: Page, code) -> None:
-    run_client_duplicate(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _CLIENT_CRUD],
+    ids=[c[0] for c in _CLIENT_CRUD],
+)
+def test_441_client_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Клиент: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 5. Юридическое лицо ───────────────────────────────────────────────────────
@@ -655,46 +560,26 @@ def test_450_legal_person_create(session_page: Page, code) -> None:
     setup_legal_person(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Юридическое лицо")
-@allure.title("Юр.лицо: Создание — barcha maydonlar bilan")
-def test_451_legal_person_full(session_page: Page, code) -> None:
-    run_legal_person_full(session_page, _reg_code(code))
+_LEGAL_PERSON_CRUD = [
+    ("full",      "Создание — barcha maydonlar bilan", run_legal_person_full),
+    ("edit",      "Редактирование",                    run_legal_person_edit),
+    ("view",      "Просмотр",                          run_legal_person_view),
+    ("delete",    "Удаление",                          run_legal_person_delete),
+    ("status",    "Статус — Пассивный/Активный",       run_legal_person_status),
+    ("duplicate", "Дубликат — nom/ИНН bilan xatolik",  run_legal_person_duplicate),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Юридическое лицо")
-@allure.title("Юр.лицо: Редактирование")
-def test_452_legal_person_edit(session_page: Page, code) -> None:
-    run_legal_person_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Юридическое лицо")
-@allure.title("Юр.лицо: Просмотр")
-def test_453_legal_person_view(session_page: Page, code) -> None:
-    run_legal_person_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Юридическое лицо")
-@allure.title("Юр.лицо: Удаление")
-def test_454_legal_person_delete(session_page: Page, code) -> None:
-    run_legal_person_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Юридическое лицо")
-@allure.title("Юр.лицо: Статус — Пассивный/Активный")
-def test_455_legal_person_status(session_page: Page, code) -> None:
-    run_legal_person_status(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Юридическое лицо")
-@allure.title("Юр.лицо: Дубликат — nom/ИНН bilan xatolik")
-def test_456_legal_person_duplicate(session_page: Page, code) -> None:
-    run_legal_person_duplicate(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _LEGAL_PERSON_CRUD],
+    ids=[c[0] for c in _LEGAL_PERSON_CRUD],
+)
+def test_451_legal_person_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Юр.лицо: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 6. Валюта ─────────────────────────────────────────────────────────────────
@@ -705,46 +590,26 @@ def test_460_valyuta_create(session_page: Page, code) -> None:
     setup_valyuta(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Валюта")
-@allure.title("Валюта: Создание — barcha maydonlar bilan")
-def test_461_valyuta_full(session_page: Page, code) -> None:
-    run_valyuta_full(session_page, _reg_code(code))
+_VALYUTA_CRUD = [
+    ("full",      "Создание — barcha maydonlar bilan", run_valyuta_full),
+    ("edit",      "Редактирование",                    run_valyuta_edit),
+    ("view",      "Просмотр",                          run_valyuta_view),
+    ("delete",    "Удаление",                          run_valyuta_delete),
+    ("status",    "Статус — Неактивный/Активный",      run_valyuta_status),
+    ("duplicate", "Дубликат — Код bilan xatolik",      run_valyuta_duplicate),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Валюта")
-@allure.title("Валюта: Редактирование")
-def test_462_valyuta_edit(session_page: Page, code) -> None:
-    run_valyuta_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Валюта")
-@allure.title("Валюта: Просмотр")
-def test_463_valyuta_view(session_page: Page, code) -> None:
-    run_valyuta_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Валюта")
-@allure.title("Валюта: Удаление")
-def test_464_valyuta_delete(session_page: Page, code) -> None:
-    run_valyuta_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Валюта")
-@allure.title("Валюта: Статус — Неактивный/Активный")
-def test_465_valyuta_status(session_page: Page, code) -> None:
-    run_valyuta_status(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Валюта")
-@allure.title("Валюта: Дубликат — Код bilan xatolik")
-def test_466_valyuta_duplicate(session_page: Page, code) -> None:
-    run_valyuta_duplicate(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _VALYUTA_CRUD],
+    ids=[c[0] for c in _VALYUTA_CRUD],
+)
+def test_461_valyuta_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Валюта: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 7. Конкурс ────────────────────────────────────────────────────────────────
@@ -765,32 +630,24 @@ def test_471_konkurs_full(session_page: Page, code, runner_state) -> None:
     run_konkurs_full(session_page, _reg_code(code), region=runner_state.get("konkurs_region"))
 
 
-@allure.epic("Модератор")
-@allure.feature("Конкурс")
-@allure.title("Конкурс: Редактирование")
-def test_472_konkurs_edit(session_page: Page, code) -> None:
-    run_konkurs_edit(session_page, _reg_code(code))
+_KONKURS_CRUD = [
+    ("edit",   "Редактирование",                      run_konkurs_edit),
+    ("view",   "Просмотр",                            run_konkurs_view),
+    ("delete", "Удаление",                            run_konkurs_delete),
+    ("status", "Статус — Черновик → Активный → Завершен", run_konkurs_status),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Конкурс")
-@allure.title("Конкурс: Просмотр")
-def test_473_konkurs_view(session_page: Page, code) -> None:
-    run_konkurs_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Конкурс")
-@allure.title("Конкурс: Удаление")
-def test_474_konkurs_delete(session_page: Page, code) -> None:
-    run_konkurs_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Конкурс")
-@allure.title("Конкурс: Статус — Черновик → Активный → Завершен")
-def test_475_konkurs_status(session_page: Page, code) -> None:
-    run_konkurs_status(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _KONKURS_CRUD],
+    ids=[c[0] for c in _KONKURS_CRUD],
+)
+def test_472_konkurs_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Конкурс: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 8. Бонусная система ───────────────────────────────────────────────────────
@@ -801,39 +658,25 @@ def test_480_bonus_create(session_page: Page, code) -> None:
     setup_bonus(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Бонусная система")
-@allure.title("Бонус: Создание — barcha maydonlar bilan")
-def test_481_bonus_full(session_page: Page, code) -> None:
-    run_bonus_full(session_page, _reg_code(code))
+_BONUS_CRUD = [
+    ("full",   "Создание — barcha maydonlar bilan", run_bonus_full),
+    ("edit",   "Редактирование",                    run_bonus_edit),
+    ("view",   "Просмотр",                          run_bonus_view),
+    ("delete", "Удаление",                          run_bonus_delete),
+    ("status", "Статус — Неактивный/Активный",      run_bonus_status),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Бонусная система")
-@allure.title("Бонус: Редактирование")
-def test_482_bonus_edit(session_page: Page, code) -> None:
-    run_bonus_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Бонусная система")
-@allure.title("Бонус: Просмотр")
-def test_483_bonus_view(session_page: Page, code) -> None:
-    run_bonus_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Бонусная система")
-@allure.title("Бонус: Удаление")
-def test_484_bonus_delete(session_page: Page, code) -> None:
-    run_bonus_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Бонусная система")
-@allure.title("Бонус: Статус — Неактивный/Активный")
-def test_485_bonus_status(session_page: Page, code) -> None:
-    run_bonus_status(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _BONUS_CRUD],
+    ids=[c[0] for c in _BONUS_CRUD],
+)
+def test_481_bonus_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Бонус: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 9. Территория ─────────────────────────────────────────────────────────────
@@ -844,32 +687,24 @@ def test_490_territory_create(session_page: Page, code) -> None:
     setup_territory(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Территория")
-@allure.title("Территория: Редактирование")
-def test_491_territory_edit(session_page: Page, code) -> None:
-    run_territory_edit(session_page, _reg_code(code))
+_TERRITORY_CRUD = [
+    ("edit",   "Редактирование",               run_territory_edit),
+    ("view",   "Просмотр",                     run_territory_view),
+    ("delete", "Удаление",                     run_territory_delete),
+    ("status", "Статус — Неактивный/Активный", run_territory_status),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Территория")
-@allure.title("Территория: Просмотр")
-def test_492_territory_view(session_page: Page, code) -> None:
-    run_territory_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Территория")
-@allure.title("Территория: Удаление")
-def test_493_territory_delete(session_page: Page, code) -> None:
-    run_territory_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Территория")
-@allure.title("Территория: Статус — Неактивный/Активный")
-def test_494_territory_status(session_page: Page, code) -> None:
-    run_territory_status(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _TERRITORY_CRUD],
+    ids=[c[0] for c in _TERRITORY_CRUD],
+)
+def test_491_territory_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Территория: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 10. Вопрос ────────────────────────────────────────────────────────────────
@@ -880,46 +715,26 @@ def test_500_vaprost_create(session_page: Page, code) -> None:
     setup_vaprost(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Вопрос")
-@allure.title("Вопрос: Создание — barcha maydonlar bilan")
-def test_501_vaprost_full(session_page: Page, code) -> None:
-    run_vaprost_full(session_page, _reg_code(code))
+_VAPROST_CRUD = [
+    ("full",      "Создание — barcha maydonlar bilan", run_vaprost_full),
+    ("edit",      "Редактирование",                    run_vaprost_edit),
+    ("view",      "Просмотр",                          run_vaprost_view),
+    ("delete",    "Удаление",                          run_vaprost_delete),
+    ("status",    "Статус — Неактивный/Активный",      run_vaprost_status),
+    ("duplicate", "Дубликат — nom bilan xatolik",      run_vaprost_duplicate),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Вопрос")
-@allure.title("Вопрос: Редактирование")
-def test_502_vaprost_edit(session_page: Page, code) -> None:
-    run_vaprost_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Вопрос")
-@allure.title("Вопрос: Просмотр")
-def test_503_vaprost_view(session_page: Page, code) -> None:
-    run_vaprost_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Вопрос")
-@allure.title("Вопрос: Удаление")
-def test_504_vaprost_delete(session_page: Page, code) -> None:
-    run_vaprost_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Вопрос")
-@allure.title("Вопрос: Статус — Неактивный/Активный")
-def test_505_vaprost_status(session_page: Page, code) -> None:
-    run_vaprost_status(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Вопрос")
-@allure.title("Вопрос: Дубликат — nom bilan xatolik")
-def test_506_vaprost_duplicate(session_page: Page, code) -> None:
-    run_vaprost_duplicate(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _VAPROST_CRUD],
+    ids=[c[0] for c in _VAPROST_CRUD],
+)
+def test_501_vaprost_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Вопрос: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 11. Опросник ──────────────────────────────────────────────────────────────
@@ -930,53 +745,27 @@ def test_510_oprosniki_create(session_page: Page, code) -> None:
     setup_oprosniki(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Опросник")
-@allure.title("Опросник: Создание — barcha maydonlar bilan")
-def test_511_oprosniki_full(session_page: Page, code) -> None:
-    run_oprosniki_full(session_page, _reg_code(code))
+_OPROSNIKI_CRUD = [
+    ("full",      "Создание — barcha maydonlar bilan",                run_oprosniki_full),
+    ("edit",      "Редактирование",                                   run_oprosniki_edit),
+    ("view",      "Просмотр",                                         run_oprosniki_view),
+    ("delete",    "Удаление",                                         run_oprosniki_delete),
+    ("status",    "Статус — Неактивный/Активный",                     run_oprosniki_status),
+    ("duplicate", "Дубликат — nom bilan xatolik",                     run_oprosniki_duplicate),
+    ("attach",    "Прикрепление вопросов — biriktirish/ajratish",     run_oprosniki_attach),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Опросник")
-@allure.title("Опросник: Редактирование")
-def test_512_oprosniki_edit(session_page: Page, code) -> None:
-    run_oprosniki_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Опросник")
-@allure.title("Опросник: Просмотр")
-def test_513_oprosniki_view(session_page: Page, code) -> None:
-    run_oprosniki_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Опросник")
-@allure.title("Опросник: Удаление")
-def test_514_oprosniki_delete(session_page: Page, code) -> None:
-    run_oprosniki_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Опросник")
-@allure.title("Опросник: Статус — Неактивный/Активный")
-def test_515_oprosniki_status(session_page: Page, code) -> None:
-    run_oprosniki_status(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Опросник")
-@allure.title("Опросник: Дубликат — nom bilan xatolik")
-def test_516_oprosniki_duplicate(session_page: Page, code) -> None:
-    run_oprosniki_duplicate(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Опросник")
-@allure.title("Опросник: Прикрепление вопросов — biriktirish/ajratish")
-def test_517_oprosniki_attach(session_page: Page, code) -> None:
-    run_oprosniki_attach(session_page, _reg_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _OPROSNIKI_CRUD],
+    ids=[c[0] for c in _OPROSNIKI_CRUD],
+)
+def test_511_oprosniki_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Опросник: {title}")
+    run(session_page, _reg_code(code))
 
 
 # ── 12. Шаблон отчета ─────────────────────────────────────────────────────────
@@ -987,315 +776,23 @@ def test_520_shablon_create(session_page: Page, code) -> None:
     setup_shablon(session_page, _reg_code(code))
 
 
-@allure.epic("Модератор")
-@allure.feature("Шаблон отчета")
-@allure.title("Шаблон: Создание — barcha maydonlar bilan")
-def test_521_shablon_full(session_page: Page, code) -> None:
-    run_shablon_full(session_page, _reg_code(code))
+_SHABLON_CRUD = [
+    ("full",   "Создание — barcha maydonlar bilan", run_shablon_full),
+    ("edit",   "Редактирование",                    run_shablon_edit),
+    ("view",   "Просмотр",                          run_shablon_view),
+    ("report", "Отчет — 'Открыть' sahifasi",        run_shablon_report),
+    ("delete", "Удаление",                          run_shablon_delete),
+    ("status", "Статус — Неактивный/Активный",      run_shablon_status),
+]
 
 
 @allure.epic("Модератор")
 @allure.feature("Шаблон отчета")
-@allure.title("Шаблон: Редактирование")
-def test_522_shablon_edit(session_page: Page, code) -> None:
-    run_shablon_edit(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблон отчета")
-@allure.title("Шаблон: Просмотр")
-def test_523_shablon_view(session_page: Page, code) -> None:
-    run_shablon_view(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблон отчета")
-@allure.title("Шаблон: Отчет — 'Открыть' sahifasi")
-def test_524_shablon_report(session_page: Page, code) -> None:
-    run_shablon_report(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблон отчета")
-@allure.title("Шаблон: Удаление")
-def test_525_shablon_delete(session_page: Page, code) -> None:
-    run_shablon_delete(session_page, _reg_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблон отчета")
-@allure.title("Шаблон: Статус — Неактивный/Активный")
-def test_526_shablon_status(session_page: Page, code) -> None:
-    run_shablon_status(session_page, _reg_code(code))
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# IV. MAIN — "Главное" modullari (Организации/Роли/Пользователи/Объявления/OAuth2/
-#     Шаблоны отчетов/Перевод/Настройка). Regression admin'да tugadi — main ham
-#     admin (rol almashish yo'q). Alohida ``{code}4`` kodi setup/ga/reg bilan
-#     to'qnashmaydi. test_all_main.py bilan bir xil (ALOHIDA test'lar).
-# ══════════════════════════════════════════════════════════════════════════════
-# ── Организации ───────────────────────────────────────────────────────────────
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.title("Main Организации: Создание")
-def test_600_organization_create(session_page: Page, code) -> None:
-    run_organization(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.title("Main Организации: Создание — minimal")
-def test_601_organization_minimal(session_page: Page, code) -> None:
-    run_organization_minimal(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.title("Main Организации: Просмотр")
-def test_602_organization_view(session_page: Page, code) -> None:
-    run_organization_view(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.title("Main Организации: Редактирование")
-def test_603_organization_edit(session_page: Page, code) -> None:
-    run_organization_edit(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.title("Main Организации: Статус")
-def test_604_organization_status(session_page: Page, code) -> None:
-    run_organization_status(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.title("Main Организации: Удаление")
-def test_605_organization_delete(session_page: Page, code) -> None:
-    run_organization_delete(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.title("Main Организации: Дубликат")
-def test_606_organization_duplicate(session_page: Page, code) -> None:
-    run_organization_duplicate(session_page, _main_code(code))
-
-
-# ── Роли ──────────────────────────────────────────────────────────────────────
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.title("Main Роли: Создание")
-def test_610_role_create(session_page: Page, code) -> None:
-    run_role(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.title("Main Роли: Создание — minimal")
-def test_611_role_minimal(session_page: Page, code) -> None:
-    run_role_minimal(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.title("Main Роли: Просмотр")
-def test_612_role_view(session_page: Page, code) -> None:
-    run_role_view(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.title("Main Роли: Редактирование")
-def test_613_role_edit(session_page: Page, code) -> None:
-    run_role_edit(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.title("Main Роли: Статус")
-def test_614_role_status(session_page: Page, code) -> None:
-    run_role_status(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.title("Main Роли: Удаление")
-def test_615_role_delete(session_page: Page, code) -> None:
-    run_role_delete(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.title("Main Роли: Дубликат")
-def test_616_role_duplicate(session_page: Page, code) -> None:
-    run_role_duplicate(session_page, _main_code(code))
-
-
-# ── Пользователи ──────────────────────────────────────────────────────────────
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
-@allure.title("Main Пользователи: Создание")
-def test_620_user_create(session_page: Page, code) -> None:
-    run_user(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
-@allure.title("Main Пользователи: barcha maydonlar")
-def test_621_user_full(session_page: Page, code) -> None:
-    run_user_full(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
-@allure.title("Main Пользователи: Просмотр")
-def test_622_user_view(session_page: Page, code) -> None:
-    run_user_view(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
-@allure.title("Main Пользователи: Редактирование")
-def test_623_user_edit(session_page: Page, code) -> None:
-    run_user_edit(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
-@allure.title("Main Пользователи: Статус")
-def test_624_user_status(session_page: Page, code) -> None:
-    run_user_status(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
-@allure.title("Main Пользователи: Удаление")
-def test_625_user_delete(session_page: Page, code) -> None:
-    run_user_delete(session_page, _main_code(code))
-
-
-# ── Объявления ────────────────────────────────────────────────────────────────
-@allure.epic("Модератор")
-@allure.feature("Объявления")
-@allure.title("Main Объявления: Создание (Черновик)")
-def test_630_announcement_create(session_page: Page, code) -> None:
-    run_announcement(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Объявления")
-@allure.title("Main Объявления: Отрасли bilan")
-def test_631_announcement_full(session_page: Page, code) -> None:
-    run_announcement_full(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Объявления")
-@allure.title("Main Объявления: Просмотр")
-def test_632_announcement_view(session_page: Page, code) -> None:
-    run_announcement_view(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Объявления")
-@allure.title("Main Объявления: Редактирование")
-def test_633_announcement_edit(session_page: Page, code) -> None:
-    run_announcement_edit(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Объявления")
-@allure.title("Main Объявления: Публикация")
-def test_634_announcement_publish(session_page: Page, code) -> None:
-    run_announcement_publish(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Объявления")
-@allure.title("Main Объявления: Удаление")
-def test_635_announcement_delete(session_page: Page, code) -> None:
-    run_announcement_delete(session_page, _main_code(code))
-
-
-# ── Клиенты OAuth2 ────────────────────────────────────────────────────────────
-@allure.epic("Модератор")
-@allure.feature("Клиенты OAuth2")
-@allure.title("Main OAuth2: Создание")
-def test_640_company_client_create(session_page: Page, code) -> None:
-    run_company_client(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиенты OAuth2")
-@allure.title("Main OAuth2: оба доступа (Read/Write)")
-def test_641_company_client_full(session_page: Page, code) -> None:
-    run_company_client_full(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиенты OAuth2")
-@allure.title("Main OAuth2: Редактирование")
-def test_642_company_client_edit(session_page: Page, code) -> None:
-    run_company_client_edit(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиенты OAuth2")
-@allure.title("Main OAuth2: Удаление")
-def test_643_company_client_delete(session_page: Page, code) -> None:
-    run_company_client_delete(session_page, _main_code(code))
-
-
-# ── Шаблоны отчетов ───────────────────────────────────────────────────────────
-@allure.epic("Модератор")
-@allure.feature("Шаблоны отчетов")
-@allure.title("Main Шаблоны отчетов: Создание (.xlsx)")
-def test_650_report_template_create(session_page: Page, code) -> None:
-    run_report_template(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблоны отчетов")
-@allure.title("Main Шаблоны отчетов: Редактирование")
-def test_651_report_template_edit(session_page: Page, code) -> None:
-    run_report_template_edit(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблоны отчетов")
-@allure.title("Main Шаблоны отчетов: Статус")
-def test_652_report_template_status(session_page: Page, code) -> None:
-    run_report_template_status(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблоны отчетов")
-@allure.title("Main Шаблоны отчетов: Удаление")
-def test_653_report_template_delete(session_page: Page, code) -> None:
-    run_report_template_delete(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблоны отчетов")
-@allure.title("Main Шаблоны отчетов: Негатив — bo'sh forma")
-def test_654_report_template_negative(session_page: Page) -> None:
-    run_report_template_negative(session_page)
-
-
-# ── Перевод строки таблицы + Настройка ────────────────────────────────────────
-@allure.epic("Модератор")
-@allure.feature("Перевод строки таблицы")
-@allure.title("Main Перевод строки таблицы: uz round-trip")
-def test_660_table_translate(session_page: Page, code) -> None:
-    run_table_translate(session_page, _main_code(code))
-
-
-@allure.epic("Модератор")
-@allure.feature("Настройка")
-@allure.title("Main Настройка: sozlamalar sahifasi (smoke)")
-def test_670_settings(session_page: Page, code) -> None:
-    run_settings(session_page, _main_code(code))
+@pytest.mark.parametrize(
+    "title, run",
+    [(c[1], c[2]) for c in _SHABLON_CRUD],
+    ids=[c[0] for c in _SHABLON_CRUD],
+)
+def test_521_shablon_crud(session_page: Page, code, title, run) -> None:
+    allure.dynamic.title(f"Шаблон: {title}")
+    run(session_page, _reg_code(code))

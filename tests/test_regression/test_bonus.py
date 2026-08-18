@@ -189,10 +189,11 @@ def test_bonus_delete(page: Page, code) -> None:
 
 
 def run_bonus_status(page: Page, code) -> None:
-    """Status ikki yo'nalishda tekshiriladi. Бонусная системада "Изменить
-    статус" tugmasi menyu OCHMAYDI — to'g'ridan-to'g'ri qarama-qarshi statusga
-    o'tkazish dialogi chiqadi: "Изменить статус {nom} на Неактивный?" → да
-    (MCP tasdiqlangan 2026-07-05).
+    """Status ikki yo'nalishda tekshiriladi. Бонусная системада status UI'si
+    opros modullaridagidek: qator panelida "Изменить статус" tugmasi EMAS,
+    MAQSAD status nomidagi TOGGLE tugma ("Неактивный"/"Активный") bosiladi va
+    tasdiqlash dialogi ("да") chiqadi (UI 2026-08-18 da o'zgardi — avval
+    "Изменить статус" edi, 2026-07-05).
 
     1) Aktiv yaratilgan bonus Неактивный qilinadi — default ro'yxatdan
        yo'qoladi, "Показать все"da "Неактивный" ko'rinadi.
@@ -205,7 +206,7 @@ def run_bonus_status(page: Page, code) -> None:
 
     with allure.step(f"1) '{active_name}' ni Неактивный qilish"):
         m.click_grid_row(active_name)
-        m.click_button("Изменить статус")
+        m.click_button("Неактивный")  # maqsad status toggle tugmasi (UI 2026-08-18)
         m.confirm("да")
 
     with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish"):
@@ -220,7 +221,7 @@ def run_bonus_status(page: Page, code) -> None:
 
     with allure.step(f"2) Passiv yaratilgan '{passive_name}' ni Активный qilish"):
         m.click_grid_row(passive_name)
-        m.click_button("Изменить статус")
+        m.click_button("Активный")  # maqsad status toggle tugmasi (UI 2026-08-18)
         m.confirm("да")
 
     with allure.step("2) Ro'yxatda 'Активный' bo'lib ko'rinishini tekshirish"):
