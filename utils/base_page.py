@@ -716,9 +716,22 @@ class BasePage:
         """``text`` matnli grid qatori ro'yxatda YO'Qligini tasdiqlaydi
         (o'chirilgan/passiv/qayta nomlangan yozuv).
 
-        DIQQAT: hozircha oddiy ``count==0`` tekshiruvi — grid hali render
-        bo'lmagan lahzada ham o'tishi mumkin (false-pass xavfi). Grid
-        tayyorligini kutish keyinroq qo'shiladi."""
+        FALSE-PASS himoyasi: yalang'och ``count==0`` grid HALI yuklanmagan/bo'sh
+        DOM lahzasida ham o'tib ketardi. Bu funksiya doim ``m.search(...)`` dan
+        keyin chaqiriladi — qidiruv 0 natija berganda grid "Нет результатов"
+        bo'sh-holat xabarini ko'rsatadi (MCP tasdiqlangan 2026-08-18,
+        currency_list: xabar sarlavha qatori bilan birga render bo'ladi,
+        pagination "0/0"). Shu sabab avval settle qilamiz, keyin bo'sh-holat
+        xabari KO'RINISHINI kutamiz (= grid haqiqatan 0-natija holatini render
+        qildi), so'ng qator YO'Qligini tasdiqlaymiz. Agar yozuv kutilmaganda
+        HALI mavjud bo'lsa, grid xabarni ko'rsatmaydi va bu tasdiq yiqiladi
+        (false-pass emas). Xabar matni server i18n'iga qarab o'zgarishi mumkin —
+        "Нет результатов"/"Нет данных" ikkalasi ham qabul qilinadi."""
+        self._settle()
+        empty_state = self.page.get_by_text(
+            re.compile(r"Нет результатов|Нет данных")
+        ).first
+        expect(empty_state).to_be_visible()
         self.expect_grid_row_count(text, 0, row_selector=row_selector)
 
     def _grid_row_selected(self, row) -> bool:
