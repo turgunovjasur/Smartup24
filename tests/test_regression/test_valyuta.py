@@ -10,7 +10,6 @@ status, duplicate. Har test o'z unikal Код bilan ishlaydi (kod prefikslari:
 import allure
 from playwright.sync_api import Page, expect
 
-from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_menu, flow_navigate
 from tests.test_setup.test_valyuta import run_valyuta
 from utils.base_page import BasePage
@@ -61,9 +60,7 @@ def run_valyuta_full(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Создание валюты — все поля")
 @allure.title("Валютани BARCHA maydonlar bilan yaratish")
-def test_valyuta_full(page: Page, code) -> None:
-    with allure.step("Tizimga kirish"):
-        authorization(page)
+def test_valyuta_full(m: BasePage, page: Page, code) -> None:
     run_valyuta_full(page, code)
 
 
@@ -107,9 +104,7 @@ def run_valyuta_edit(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Редактирование валюты")
 @allure.title("Валютани tahrirlash va o'zgarishni tekshirish")
-def test_valyuta_edit(page: Page, code) -> None:
-    with allure.step("Tizimga kirish"):
-        authorization(page)
+def test_valyuta_edit(m: BasePage, page: Page, code) -> None:
     run_valyuta_edit(page, code)
 
 
@@ -145,9 +140,7 @@ def run_valyuta_view(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Просмотр валюты")
 @allure.title("Валюта ma'lumotlari Просмотр formasida to'g'ri ko'rinishi")
-def test_valyuta_view(page: Page, code) -> None:
-    with allure.step("Tizimga kirish"):
-        authorization(page)
+def test_valyuta_view(m: BasePage, page: Page, code) -> None:
     run_valyuta_view(page, code)
 
 
@@ -178,9 +171,7 @@ def run_valyuta_delete(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Удаление валюты")
 @allure.title("Валютани o'chirish va ro'yxatdan yo'qolganini tekshirish")
-def test_valyuta_delete(page: Page, code) -> None:
-    with allure.step("Tizimga kirish"):
-        authorization(page)
+def test_valyuta_delete(m: BasePage, page: Page, code) -> None:
     run_valyuta_delete(page, code)
 
 
@@ -231,9 +222,7 @@ def run_valyuta_status(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Статус валюты")
 @allure.title("Валюта statusini Неактивный/Активный qilish va tekshirish")
-def test_valyuta_status(page: Page, code) -> None:
-    with allure.step("Tizimga kirish"):
-        authorization(page)
+def test_valyuta_status(m: BasePage, page: Page, code) -> None:
     run_valyuta_status(page, code)
 
 
@@ -282,7 +271,5 @@ def run_valyuta_duplicate(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Дубликат валюты")
 @allure.title("Bir xil Код bilan Валюта qayta yaratishda xatolik chiqishi")
-def test_valyuta_duplicate(page: Page, code) -> None:
-    with allure.step("Tizimga kirish"):
-        authorization(page)
+def test_valyuta_duplicate(m: BasePage, page: Page, code) -> None:
     run_valyuta_duplicate(page, code)

@@ -9,7 +9,8 @@ import pytest
 from typing import Any, Generator
 from playwright.sync_api import sync_playwright, Browser, Page, expect
 
-from flows.flow_authorization import logout
+from flows.flow_authorization import authorization, logout
+from utils.base_page import BasePage
 
 TRACE_DIR = "test-results/traces"
 ALLURE_RESULTS_DIR = "test-results/allure-results"
@@ -295,6 +296,20 @@ def page(browser: Browser, request) -> Generator[Page, Any, None]:
     context.tracing.stop(path=os.path.join(TRACE_DIR, f"{safe_name}.zip"))
     page_obj.close()
     context.close()
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+@pytest.fixture
+def m(page: Page) -> BasePage:
+    """Avtorizatsiyadan o'tgan BasePage.
+
+    ``page`` fixture'iga tayanadi (yangi context+page+trace+teardown logout), so'ng
+    login qiladi va shu sahifa uchun ``BasePage`` qaytaradi — standalone regression
+    testlarida takrorlanuvchi ``authorization(page)`` + ``BasePage(page)`` juftligini
+    almashtiradi. Runner testlari ``session_page`` bilan ishlagani (yagona login)
+    uchun bu fixture'ga tegmaydi."""
+    authorization(page)
+    return BasePage(page)
 
 # ----------------------------------------------------------------------------------------------------------------------
 
