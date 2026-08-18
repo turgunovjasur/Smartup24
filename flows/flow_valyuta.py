@@ -5,6 +5,21 @@ from flows.flow_navbar import flow_menu, flow_navigate
 from utils.base_page import BasePage
 
 
+# Har CRUD ssenariysi Код'ni o'z prefiksi + sessiya {code}'sidan quradi — shunda
+# bitta runda ssenariylar bir-birining yozuviga urilmaydi (Код bazada unikal).
+# DIQQAT: status ikkita yozuv yaratadi (aktiv va passiv) — shuning uchun ikki
+# alohida prefiks (status_active/status_passive).
+CODE_PREFIX = {
+    "full": "1",
+    "edit": "2",
+    "view": "3",
+    "delete": "4",
+    "status_active": "5",
+    "status_passive": "6",
+    "duplicate": "7",
+}
+
+
 def run_valyuta(page: Page, code, name=None, kod=None, active=True) -> dict:
     """Yangi Валюта yaratadi. ``name``/``kod`` berilmasa so`m{code}/{code};
     ``active=False`` bo'lsa Статус switch o'chirib yaratiladi. Yaratilgan
@@ -68,7 +83,7 @@ def run_valyuta_full(page: Page, code) -> None:
     Статус (MCP tasdiqlangan 2026-07-05)."""
     m = BasePage(page)
     name = f"val-full-{code}"
-    kod = f"1{code}"
+    kod = f"{CODE_PREFIX['full']}{code}"
 
     # Arrange — Валюты ro'yxatiga o't va yangi forma och
     with allure.step("Навигация: Модератор → Валюты"):
@@ -114,7 +129,7 @@ def run_valyuta_edit(page: Page, code) -> None:
     new_name = f"val-upd-{code}"
 
     # Arrange — tahrirlanadigan yozuvni yarat
-    run_valyuta(page, code, name=old_name, kod=f"2{code}")
+    run_valyuta(page, code, name=old_name, kod=f"{CODE_PREFIX['edit']}{code}")
 
     # Act — Изменить formasini ochib nomini o'zgartir va saqla
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
@@ -149,7 +164,7 @@ def run_valyuta_view(page: Page, code) -> None:
     Diqqat: valyutada tugma "Просмотреть" emas, "Просмотр" deb nomlangan."""
     m = BasePage(page)
     name = f"val-view-{code}"
-    kod = f"3{code}"
+    kod = f"{CODE_PREFIX['view']}{code}"
 
     # Arrange — ko'riladigan yozuvni yarat (qaytgan qiymatlar bilan solishtiramiz)
     data = run_valyuta(page, code, name=name, kod=kod)
@@ -177,7 +192,7 @@ def run_valyuta_delete(page: Page, code) -> None:
     name = f"val-del-{code}"
 
     # Arrange — o'chiriladigan yozuvni yarat
-    run_valyuta(page, code, name=name, kod=f"4{code}")
+    run_valyuta(page, code, name=name, kod=f"{CODE_PREFIX['delete']}{code}")
 
     # Act — qatorni tanlab o'chir va tasdiqla
     with allure.step(f"'{name}' qatorini tanlab Удалить bosish"):
@@ -208,7 +223,7 @@ def run_valyuta_status(page: Page, code) -> None:
 
     # --- 1) active → passive ---
     # Arrange — aktiv yozuv yarat
-    run_valyuta(page, code, name=active_name, kod=f"5{code}")
+    run_valyuta(page, code, name=active_name, kod=f"{CODE_PREFIX['status_active']}{code}")
 
     # Act — passive qil
     with allure.step(f"1) '{active_name}' ni passive qilish"):
@@ -227,7 +242,7 @@ def run_valyuta_status(page: Page, code) -> None:
 
     # --- 2) passive → active ---
     # Arrange — passiv yozuv yarat
-    run_valyuta(page, code, name=passive_name, kod=f"6{code}", active=False)
+    run_valyuta(page, code, name=passive_name, kod=f"{CODE_PREFIX['status_passive']}{code}", active=False)
 
     # Act — active qil
     with allure.step(f"2) Passiv yaratilgan '{passive_name}' ni active qilish"):
@@ -248,7 +263,7 @@ def run_valyuta_duplicate(page: Page, code) -> None:
     используется (код: X) Попробуйте другой" (MCP tasdiqlangan 2026-07-05)."""
     m = BasePage(page)
     name = f"val-dup-{code}"
-    kod = f"7{code}"
+    kod = f"{CODE_PREFIX['duplicate']}{code}"
 
     # Arrange — dastlabki yozuvni yarat (Код egallanadi)
     run_valyuta(page, code, name=name, kod=kod)
