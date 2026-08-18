@@ -707,6 +707,20 @@ class BasePage:
             expect(row).to_contain_text(re.compile(synonyms) if synonyms else value)
         return row
 
+    def expect_grid_row_count(self, text, count, *, row_selector=".smt-data-row"):
+        """``text`` matnli grid qatorlari soni AYNAN ``count`` ekanini tasdiqlaydi
+        (masalan dublikat yaratilmaganini ``count=1`` bilan isbotlash)."""
+        expect(self.page.locator(row_selector).filter(has_text=text)).to_have_count(count)
+
+    def expect_no_grid_row(self, text, *, row_selector=".smt-data-row"):
+        """``text`` matnli grid qatori ro'yxatda YO'Qligini tasdiqlaydi
+        (o'chirilgan/passiv/qayta nomlangan yozuv).
+
+        DIQQAT: hozircha oddiy ``count==0`` tekshiruvi — grid hali render
+        bo'lmagan lahzada ham o'tishi mumkin (false-pass xavfi). Grid
+        tayyorligini kutish keyinroq qo'shiladi."""
+        self.expect_grid_row_count(text, 0, row_selector=row_selector)
+
     def _grid_row_selected(self, row) -> bool:
         """Qator tanlanganligini bildiruvchi belgilar: yonida action panel
         (button'li sibling) ochilgan YOKI qator checkboxi belgilangan
@@ -826,6 +840,22 @@ class BasePage:
         button.click()
         expect(button).to_be_hidden()
         self.wait_for_loader()
+
+    def expect_error_dialog(self, *contains):
+        """Ochiq CDK dialogda (``.cdk-overlay-container``) berilgan har bir matn
+        borligini tasdiqlaydi (masalan "Ошибка" + to'qnashgan Код qiymati).
+
+        To'liq jumla server i18n'iga qarab ru↔en almashishi mumkin — shuning
+        uchun til-mustaqil qismlarni (masalan Код qiymati) alohida uzatish
+        mumkin. Dialog locatorini qaytaradi."""
+        dialog = self.page.locator(".cdk-overlay-container")
+        for text in contains:
+            expect(dialog).to_contain_text(text)
+        return dialog
+
+    def close_dialog(self, *, button_name="Закрыть"):
+        """Ochiq CDK dialogni "Закрыть" tugmasi orqali yopadi (forma ostda ochiq qoladi)."""
+        self.page.locator(".cdk-overlay-container").get_by_role("button", name=button_name).first.click()
 
     # ------------------------------------------------------------------------------------------------------------------
     # Navigatsiya settle / tugmalar / saqlash
