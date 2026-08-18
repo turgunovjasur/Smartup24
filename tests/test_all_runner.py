@@ -69,7 +69,7 @@ from tests.test_setup.test_form_of_ownership import run_form_of_ownership as set
 from tests.test_setup.test_supplier import run_supplier as setup_supplier, ensure_refs
 from tests.test_setup.test_client import run_client as setup_client
 from tests.test_setup.test_legal_person import run_legal_person as setup_legal_person
-from tests.test_setup.test_valyuta import run_valyuta as setup_valyuta
+from flows.flow_valyuta import run_valyuta as setup_valyuta
 from tests.test_setup.test_konkurs import run_konkurs as setup_konkurs
 from tests.test_setup.test_bonus import run_bonus as setup_bonus
 from tests.test_setup.test_territory import run_territory as setup_territory

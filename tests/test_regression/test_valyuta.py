@@ -11,7 +11,7 @@ import allure
 from playwright.sync_api import Page, expect
 
 from flows.flow_navbar import flow_menu, flow_navigate
-from tests.test_setup.test_valyuta import run_valyuta
+from flows.flow_valyuta import run_valyuta
 from utils.base_page import BasePage
 
 
