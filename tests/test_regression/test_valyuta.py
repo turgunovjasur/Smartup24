@@ -9,11 +9,13 @@ Har test o'z unikal Код bilan ishlaydi (kod prefikslari: 1..7 + {code}).
 """
 
 import allure
+import pytest
 from playwright.sync_api import Page
 
 from flows.flow_valyuta import (
     run_valyuta_delete, run_valyuta_duplicate, run_valyuta_edit,
-    run_valyuta_full, run_valyuta_status, run_valyuta_view,
+    run_valyuta_full, run_valyuta_status_activate, run_valyuta_status_deactivate,
+    run_valyuta_view,
 )
 from utils.base_page import BasePage
 
@@ -66,8 +68,13 @@ def test_valyuta_delete(m: BasePage, page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Статус валюты")
 @allure.title("Валюта statusini Неактивный/Активный qilish va tekshirish")
-def test_valyuta_status(m: BasePage, page: Page, code) -> None:
-    run_valyuta_status(page, code)
+@pytest.mark.parametrize(
+    "run",
+    [run_valyuta_status_deactivate, run_valyuta_status_activate],
+    ids=["deactivate", "activate"],
+)
+def test_valyuta_status(m: BasePage, page: Page, code, run) -> None:
+    run(page, code)
 
 
 #---------------------------------------------------------------------------------------------------

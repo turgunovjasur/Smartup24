@@ -111,7 +111,8 @@ from tests.test_regression.test_legal_person import (
 )
 from flows.flow_valyuta import (
     run_valyuta_delete, run_valyuta_duplicate, run_valyuta_edit,
-    run_valyuta_full, run_valyuta_status, run_valyuta_view,
+    run_valyuta_full, run_valyuta_status_activate, run_valyuta_status_deactivate,
+    run_valyuta_view,
 )
 from tests.test_regression.test_konkurs import (
     ensure_konkurs_region, run_konkurs_delete, run_konkurs_edit,
@@ -591,12 +592,13 @@ def test_460_valyuta_create(session_page: Page, code) -> None:
 
 
 _VALYUTA_CRUD = [
-    ("full",      "Создание — barcha maydonlar bilan", run_valyuta_full),
-    ("edit",      "Редактирование",                    run_valyuta_edit),
-    ("view",      "Просмотр",                          run_valyuta_view),
-    ("delete",    "Удаление",                          run_valyuta_delete),
-    ("status",    "Статус — Неактивный/Активный",      run_valyuta_status),
-    ("duplicate", "Дубликат — Код bilan xatolik",      run_valyuta_duplicate),
+    ("full",              "Создание — barcha maydonlar bilan", run_valyuta_full),
+    ("edit",              "Редактирование",                    run_valyuta_edit),
+    ("view",              "Просмотр",                          run_valyuta_view),
+    ("delete",            "Удаление",                          run_valyuta_delete),
+    ("status_deactivate", "Статус — деактивация",              run_valyuta_status_deactivate),
+    ("status_activate",   "Статус — активация",                run_valyuta_status_activate),
+    ("duplicate",         "Дубликат — Код bilan xatolik",      run_valyuta_duplicate),
 ]
 
 

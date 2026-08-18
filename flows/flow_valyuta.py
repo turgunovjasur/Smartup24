@@ -208,50 +208,57 @@ def run_valyuta_delete(page: Page, code) -> None:
         m.expect_no_grid_row(name)
 
 
-def run_valyuta_status(page: Page, code) -> None:
-    """Status ikki yo'nalishda tekshiriladi. Валютада status qator action
-    paneldagi MAQSAD status nomidagi toggle tugma bilan almashtiriladi
-    (tasdiqlash: "да"). Tugma va grid badge nomlari INGLIZCHA "passive"/
-    "active" (opros modulidagi pattern; regression 2026-07-08).
+def run_valyuta_status_deactivate(page: Page, code) -> None:
+    """Aktiv yaratilgan valyuta passive qilinadi — default ro'yxatdan yo'qoladi,
+    "Показать все"da "passive" bo'lib ko'rinadi.
 
-    1) Aktiv yaratilgan valyuta passive qilinadi — default ro'yxatdan
-       yo'qoladi, "Показать все"da "passive" ko'rinadi.
-    2) Passiv yaratilgan valyuta active qilinadi — ro'yxatda "active"."""
+    Валютада status qator action paneldagi MAQSAD status nomidagi toggle tugma
+    bilan almashtiriladi (tasdiqlash: "да"). Tugma va grid badge nomlari
+    INGLIZCHA "passive"/"active" (opros modulidagi pattern; regression
+    2026-07-08)."""
     m = BasePage(page)
     active_name = f"val-stat-a-{code}"
-    passive_name = f"val-stat-p-{code}"
 
-    # --- 1) active → passive ---
     # Arrange — aktiv yozuv yarat
     run_valyuta(page, code, name=active_name, kod=f"{CODE_PREFIX['status_active']}{code}")
 
     # Act — passive qil
-    with allure.step(f"1) '{active_name}' ni passive qilish"):
+    with allure.step(f"'{active_name}' ni passive qilish"):
         m.click_grid_row(active_name)
         m.click_button("passive")
         m.confirm("да")
 
     # Assert — default ro'yxatda yo'q, "Показать все"da passive
-    with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish"):
+    with allure.step("Default ro'yxatda ko'rinmasligini tekshirish"):
         m.search(active_name)
         m.expect_no_grid_row(active_name)
 
-    with allure.step("1) Показать все filtrida 'passive' bo'lib ko'rinishi"):
+    with allure.step("Показать все filtrida 'passive' bo'lib ko'rinishi"):
         m.show_all()
         m.grid_row(active_name, "passive")
 
-    # --- 2) passive → active ---
+
+def run_valyuta_status_activate(page: Page, code) -> None:
+    """Passiv yaratilgan valyuta active qilinadi — ro'yxatda "active" bo'lib
+    ko'rinadi.
+
+    Status qator action paneldagi MAQSAD status nomidagi toggle tugma bilan
+    almashtiriladi (tasdiqlash: "да"). Tugma va grid badge nomlari INGLIZCHA
+    "passive"/"active" (opros modulidagi pattern; regression 2026-07-08)."""
+    m = BasePage(page)
+    passive_name = f"val-stat-p-{code}"
+
     # Arrange — passiv yozuv yarat
     run_valyuta(page, code, name=passive_name, kod=f"{CODE_PREFIX['status_passive']}{code}", active=False)
 
     # Act — active qil
-    with allure.step(f"2) Passiv yaratilgan '{passive_name}' ni active qilish"):
+    with allure.step(f"Passiv yaratilgan '{passive_name}' ni active qilish"):
         m.click_grid_row(passive_name)
         m.click_button("active")
         m.confirm("да")
 
     # Assert — ro'yxatda active
-    with allure.step("2) Ro'yxatda 'active' bo'lib ko'rinishini tekshirish"):
+    with allure.step("Ro'yxatda 'active' bo'lib ko'rinishini tekshirish"):
         m.search(passive_name)
         m.grid_row(passive_name, "active")
 
