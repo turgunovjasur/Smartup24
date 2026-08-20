@@ -217,3 +217,7 @@ __marimo__/
 .DS_Store
 .playwright-mcp/
 test-results/
+.vscode/
+# Debug/scratch dumps (Playwright snapshot outputs — tasodifan commit qilinmasin)
+before.txt
+after_step*.txt
