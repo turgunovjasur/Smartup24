@@ -1,2 +1,0 @@
-[cleanup] Muhit: kompaniya 'sm24' | dry-run=False
-EXIT=127

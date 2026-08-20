@@ -221,3 +221,6 @@ test-results/
 # Debug/scratch dumps (Playwright snapshot outputs — tasodifan commit qilinmasin)
 before.txt
 after_step*.txt
+client-list*.md
+*-menu.md
+cleanup_*.txt
