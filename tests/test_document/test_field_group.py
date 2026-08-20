@@ -122,8 +122,11 @@ def run_field_group_status(page: Page, code) -> None:
     run_field_group(page, code, name=name)
 
     with allure.step(f"'{name}' ni Неактивный qilish"):
+        # Status endi "Изменить статус" menyusi EMAS — qator panelida MAQSAD
+        # status nomidagi TOGGLE tugma (opros/valyuta modullaridagi kabi;
+        # MCP jonli tasdiqlangan 2026-08-19: panel Изменить/Подтипы/Неактивный/Удалить).
         m.click_grid_row(name)
-        m.click_button("Изменить статус")
+        m.click_button("Неактивный")
         m.confirm("да")
 
     with allure.step("Default ro'yxatда ko'rinmasligi, 'Показать все'да Неактивный"):
@@ -134,7 +137,7 @@ def run_field_group_status(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ni qayta Активный qilish"):
         m.click_grid_row(name)
-        m.click_button("Изменить статус")
+        m.click_button("Активный")
         m.confirm("да")
 
     with allure.step("Ro'yxatда 'Активный' bo'lib ko'rinishi"):
