@@ -69,7 +69,7 @@ from tests.test_setup.test_form_of_ownership import run_form_of_ownership as set
 from tests.test_setup.test_supplier import run_supplier as setup_supplier, ensure_refs
 from tests.test_setup.test_client import run_client as setup_client
 from tests.test_setup.test_legal_person import run_legal_person as setup_legal_person
-from tests.test_setup.test_valyuta import run_valyuta as setup_valyuta
+from tests.test_setup.test_currency import run_valyuta as setup_valyuta
 from tests.test_setup.test_konkurs import run_konkurs as setup_konkurs
 from tests.test_setup.test_bonus import run_bonus as setup_bonus
 from tests.test_setup.test_territory import run_territory as setup_territory
@@ -85,8 +85,8 @@ from tests.test_group_a.test_client_user import run_client_user as ga_client_use
 from tests.test_group_a.test_cooperation import run_cooperation as ga_cooperation
 from tests.test_group_a.test_product import run_product as ga_product
 from tests.test_group_a.test_product_linking import run_product_linking as ga_product_linking
-from tests.test_group_a.test_zakaz import run_zakaz as ga_zakaz
-from tests.test_group_a.test_zakaz_status_change import run_zakaz_status_change as ga_zakaz_status
+from tests.test_group_a.test_order import run_zakaz as ga_zakaz
+from tests.test_group_a.test_order_status_change import run_zakaz_status_change as ga_zakaz_status
 
 # --- Regression: to'liq CRUD funksiyalari ---
 from tests.test_regression.test_region import (
@@ -109,7 +109,7 @@ from tests.test_regression.test_legal_person import (
     run_legal_person_delete, run_legal_person_duplicate, run_legal_person_edit,
     run_legal_person_full, run_legal_person_status, run_legal_person_view,
 )
-from tests.test_regression.test_valyuta import (
+from tests.test_regression.test_currency import (
     run_valyuta_delete, run_valyuta_duplicate, run_valyuta_edit,
     run_valyuta_full, run_valyuta_status_activate, run_valyuta_status_deactivate,
     run_valyuta_view,

@@ -188,14 +188,16 @@ def run_vizit_check(page: Page) -> None:
         m.click_button("Результаты анализа")
         m.click_button("Go back")
 
-    with allure.step("Лиды (vizit ichidan): lead Просмотр (Дополнительные поля / История)"):
+    with allure.step("Лиды (vizit ichidan): lead Просмотр (Основная информация / История)"):
         _open_visit_row(page, m, agent, visit_id)
         m.click_button("Лиды")
         m.expect_heading("Лиды")
         m.click_grid_row(agent)
         m.click_button("Просмотр")
-        m.expect_heading("Просмотр лида")
-        m.click_button("Дополнительные поля")
+        # UI o'zgardi (2026-08-21): "Просмотр лида" heading CHIQMAYDI (sbmv title
+        # outlet "Лиды"да qoladi) va "Дополнительные поля" tugmasi "Основная
+        # информация" bilan almashtirilган — lead view'ni shu tugma bilan tasdiqlaymiz
+        m.click_button("Основная информация")
         m.click_button("История")
         m.click_button("Go back")
 
@@ -220,11 +222,13 @@ def run_vizit_leads(page: Page) -> None:
         _goto_visit_section(page, m, "Лиды")
         m.expect_heading("Лиды")
 
-    with allure.step("Lead Просмотр: Дополнительные поля / История"):
+    with allure.step("Lead Просмотр: Основная информация / История"):
         m.click_grid_row("agent-")
         m.click_button("Просмотр")
-        m.expect_heading("Просмотр лида")
-        m.click_button("Дополнительные поля")
+        # UI o'zgardi (2026-08-21): "Просмотр лида" heading CHIQMAYDI (sbmv title
+        # outlet "Лиды"да qoladi) va "Дополнительные поля" tugmasi "Основная
+        # информация" bilan almashtirilган
+        m.click_button("Основная информация")
         m.click_button("История")
         m.click_button("Go back")
         m.expect_heading("Лиды")
@@ -426,7 +430,7 @@ def test_vizit_check(page: Page) -> None:
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.story("Лиды")
-@allure.title("Лиды: lead Просмотр (Дополнительные поля / История)")
+@allure.title("Лиды: lead Просмотр (Основная информация / История)")
 def test_vizit_leads(page: Page) -> None:
     authorization(page)
     run_vizit_leads(page)

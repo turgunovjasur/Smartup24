@@ -9,6 +9,7 @@ Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 import random
 
 import allure
+import pytest
 from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
@@ -271,3 +272,174 @@ def test_product_status(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_product_status(page, code)
+
+
+# ======================================================================================
+# Справочник → Товар sub-modullari (Товары sahifasi sub-nav linklari) — CRUD.
+# Barchasi bir xil pattern: qator paneli Изменить / Неактивный / Удалить (toggle
+# status, confirm "да"), status badge "Активный"/"Неактивный". Passiv qatorni
+# ko'rish uchun "Показать все". (MCP tasdiqlangan 2026-08-21)
+# ======================================================================================
+
+def _product_subsection_crud(page: Page, code, *, link: str, heading: str,
+                             create_heading: str, name_prefix: str,
+                             extra_fields: dict | None = None) -> None:
+    """Товар sub-moduli (Типы упаковок / Единицы измерения / Услуги) umumiy CRUD:
+    create → edit → status (deactivate/reactivate) → delete. Forma odatda Код /
+    Название* (+ ixtiyoriy maydonlar). Edit forma sarlavhasi assert QILINMAYDI
+    (modullararo casing farq qiladi) — natija ro'yxat orqali tekshiriladi."""
+    m = BasePage(page)
+    name = f"{name_prefix}-{code}"
+    edited = f"{name}-edit"
+
+    with allure.step(f"Навигация: Модератор → Товары → {link}"):
+        flow_navigate(page, tab="Модератор", name="Товары")
+        m.expect_heading("Товары")
+        m.click_link(link)
+        m.expect_heading(heading)
+
+    with allure.step(f"Создать: '{name}'"):
+        m.open_create()
+        m.expect_heading(create_heading)
+        m.input(label="Код", value=code)
+        m.input(label="Название", value=name)
+        for field_label, value in (extra_fields or {}).items():
+            m.input(label=field_label, value=value)
+        m.save_and_expect_heading(heading)
+
+    with allure.step(f"Ro'yxatda '{name}' Активный ko'rinishini tekshirish"):
+        m.search(name)
+        m.grid_row(name, "Активный")
+
+    with allure.step(f"Изменить: nomni '{edited}' ga o'zgartirish"):
+        m.click_grid_row(name)
+        m.click_button("Изменить")
+        m.input(label="Название", value=edited)
+        m.save_and_expect_heading(heading)
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Статус: '{edited}' ni Неактивный qilib, qayta Активный qilish"):
+        m.click_grid_row(edited)
+        m.click_button("Неактивный")
+        m.confirm("да")
+        m.show_all()
+        m.search(edited)
+        m.grid_row(edited, "Неактивный")
+        m.click_grid_row(edited)
+        m.click_button("Активный")
+        m.confirm("да")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Удалить: '{edited}' ni o'chirib, ro'yxatdan yo'qolganini tekshirish"):
+        m.click_grid_row(edited)
+        m.click_button("Удалить")
+        m.confirm("да")
+        m.search(edited)
+        expect(page.locator(".smt-data-row").filter(has_text=edited)).to_have_count(0)
+
+
+def run_package_types(page: Page, code) -> None:
+    """Типы упаковок (box_type_list) CRUD — Код / Название* / Краткое название."""
+    _product_subsection_crud(
+        page, code, link="Типы упаковок", heading="Типы упаковок",
+        create_heading="Типы упаковок (создание)", name_prefix="box",
+        extra_fields={"Краткое название": f"b{code[-4:]}"},
+    )
+
+
+@allure.epic("Модератор")
+@allure.feature("Товары")
+@allure.story("Типы упаковок")
+@allure.title("Типы упаковок — to'liq CRUD (create/edit/status/delete)")
+def test_package_types(page: Page, code) -> None:
+    with allure.step("Tizimga kirish"):
+        authorization(page)
+    run_package_types(page, code)
+
+
+def run_measure_units(page: Page, code) -> None:
+    """Единицы измерения (measure_list) CRUD — Код / Название* / Краткое название
+    (+ 'Знаков после запятой' default 0 — majburiy, lekin oldindan to'lган)."""
+    _product_subsection_crud(
+        page, code, link="Единицы измерения", heading="Единицы измерения",
+        create_heading="Единица измерения (Создания)", name_prefix="measure",
+        extra_fields={"Краткое название": f"m{code[-4:]}"},
+    )
+
+
+@allure.epic("Модератор")
+@allure.feature("Товары")
+@allure.story("Единицы измерения")
+@allure.title("Единицы измерения — to'liq CRUD (create/edit/status/delete)")
+def test_measure_units(page: Page, code) -> None:
+    with allure.step("Tizimga kirish"):
+        authorization(page)
+    run_measure_units(page, code)
+
+
+def run_services(page: Page, code) -> None:
+    """Услуги (service_list) CRUD. Продукт'ga o'xshash to'liqroq forma: Название* /
+    Краткое название* / Код / Ед. изм.* (select) / Статус radio (Активный/Пассивный/
+    Приостоновлено). Qator paneli: Просмотр / Изменить / Изменить статус / Удалить —
+    status TOGGLE emas, "Изменить статус" MENYU orqali (m.change_status). Passiv
+    qator default yashirin (Показать все kerak). (MCP tasdiqlangan 2026-08-21)"""
+    m = BasePage(page)
+    name = f"service-{code}"
+    edited = f"{name}-edit"
+
+    with allure.step("Навигация: Модератор → Товары → Услуги"):
+        flow_navigate(page, tab="Модератор", name="Товары")
+        m.expect_heading("Товары")
+        m.click_link("Услуги")
+        m.expect_heading("Услуги")
+
+    with allure.step(f"Создать: '{name}' (Название/Краткое/Код/Ед. изм.)"):
+        m.open_create()
+        m.expect_heading("Услуга (Создание)")
+        m.input(label="Название", value=name)
+        m.input(label="Краткое название", value=f"s{code[-4:]}")
+        m.input(label="Код", value=code)
+        m.select("кг", label="Ед. изм.")
+        m.save_and_expect_heading("Услуги")
+
+    with allure.step(f"Ro'yxatda '{name}' Активный ko'rinishini tekshirish"):
+        m.search(name)
+        m.grid_row(name, "Активный")
+
+    with allure.step(f"Изменить: nomni '{edited}' ga o'zgartirish"):
+        m.click_grid_row(name)
+        m.click_button("Изменить")
+        m.input(label="Название", value=edited)
+        m.save_and_expect_heading("Услуги")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Статус: '{edited}' ni Пассивный, keyin qayta Активный qilish"):
+        m.click_grid_row(edited)
+        m.change_status("Пассивный")
+        m.search(edited)
+        m.show_all()
+        m.grid_row(edited, "Пассивный")
+        m.click_grid_row(edited)
+        m.change_status("Активный")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Удалить: '{edited}' ni o'chirib, ro'yxatdan yo'qolganini tekshirish"):
+        m.click_grid_row(edited)
+        m.click_button("Удалить")
+        m.confirm("да")
+        m.search(edited)
+        expect(page.locator(".smt-data-row").filter(has_text=edited)).to_have_count(0)
+
+
+@allure.epic("Модератор")
+@allure.feature("Товары")
+@allure.story("Услуги")
+@allure.title("Услуги — to'liq CRUD (create/edit/status/delete)")
+def test_services(page: Page, code) -> None:
+    with allure.step("Tizimga kirish"):
+        authorization(page)
+    run_services(page, code)

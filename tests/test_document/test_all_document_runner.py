@@ -57,7 +57,7 @@ from tests.test_document.test_route_analysis import (
     run_required_fields, run_structure,
 )
 # --- Визиты ---
-from tests.test_document.test_vizit import (
+from tests.test_document.test_visit import (
     run_visit_criteria_roundtrip, run_visit_functions_roundtrip,
     run_visit_roles_overview, run_vizit_check, run_vizit_leads, run_vizit_prichina,
 )

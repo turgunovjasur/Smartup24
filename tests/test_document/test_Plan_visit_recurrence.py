@@ -462,7 +462,12 @@ def _pick_in_section(page: Page, section_title: str, button_label: str) -> None:
 
 def _add_point_and_save(page: Page, m: BasePage, agent: str) -> None:
     """Birinchi mavjud nuqtani qo'shib saqlaydi (header tugmalari nth 0-1,
-    birinchi qator nth 2) va Планы ro'yxatiga qaytishни kutadi."""
+    birinchi qator nth 2) va Планы ro'yxatiga qaytishни kutadi.
+
+    "Получить"/kun tanlashдан keyin "Доступные" nuqtalar ASINXRON yuklanadi —
+    nth(2) qator "Добавить" tugmasi ko'ringuncha kutib bosamiz (Playwright
+    auto-wait; wait_for_loader kun-tanlash reload'ini o'tkazadi)."""
+    m.wait_for_loader()                                  # kun tanlash reload'i o'tsin
     page.get_by_role("button", name="Добавить").nth(2).click()
     m.wait_for_loader()
     m.save()
@@ -470,7 +475,20 @@ def _add_point_and_save(page: Page, m: BasePage, agent: str) -> None:
 
 
 def _plan_dates(page: Page) -> list[date]:
-    """Планы ro'yxatidagi barcha "Дата визита" (dd.mm.yyyy) → saralangan list."""
+    """Планы ro'yxatidagi barcha "Дата визита" (dd.mm.yyyy) → saralangan list.
+
+    DIQQAT (2026-08-21, flaky 0-vizit fail ILDIZI): plan_list ikki router-outlet —
+    save'дан qaytганда heading ("Сотрудник: ...") DARHOL keladi, lekin grid qatorlari
+    ASINXRON render bo'ladi. Bu funksiya darhol chaqirilsa grid hali bo'sh (0 qator) →
+    [] qaytardi va reja aslida to'g'ri saqlangan bo'lsa ham "0 vizit" bilan yiqilardi
+    (monthly goh ulgurar, weekly ulgurmasdi — 2026-08-20 test_030/test_040 fail).
+    Kamida bitta "Дата визита" sanasi DOM'да paydo bo'lguncha kutamiz."""
+    page.wait_for_function(
+        """() => [...document.querySelectorAll('*')].some(
+            e => e.children.length === 0
+                 && /^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(e.textContent.trim()))""",
+        timeout=30_000,
+    )
     raw = page.evaluate(
         """() => {
             const cells = [...document.querySelectorAll('*')].filter(

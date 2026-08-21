@@ -39,7 +39,7 @@ from tests.test_main.test_role import (
     run_role_minimal, run_role_status, run_role_view,
 )
 # --- Пользователи ---
-from tests.test_main.test_polzovatel import (
+from tests.test_main.test_user import (
     run_user, run_user_delete, run_user_edit, run_user_full,
     run_user_status, run_user_view,
 )

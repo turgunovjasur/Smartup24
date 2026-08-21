@@ -8,6 +8,7 @@ Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 
 import allure
+import pytest
 from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
@@ -182,3 +183,58 @@ def test_territory_status(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_territory_status(page, code)
+
+
+# ======================================================================================
+# Создать район — Tерритории ro'yxatida "Создать" YONIDAGI alohida tugma
+# (territory+add?territory_kind=D). Район ham xuddi территория formasi (Статус switch
+# + Название + xarita), lekin turi "Район". DIQQAT: ro'yxat default "Тип=Территория"
+# inline filtri bilan районlarni YASHIRADI — район'ni ko'rish uchun filtr panelида
+# "Район" turini yoqib "Применить" bosiladi. Qator paneli: Изменить / Неактивный /
+# Удалить (район edit/status oddiy территория bilan bir xil). (MCP tasdiqlangan 2026-08-21)
+# ======================================================================================
+
+def run_territory_district_create(page: Page, code) -> None:
+    """'Создать район' oqimi: район yaratib, "Тип=Район" filtri bilan ro'yxatда
+    ko'rinishini tekshiradi va tozalash uchun o'chiradi."""
+    m = BasePage(page)
+    name = f"raion-{code}"
+
+    with allure.step("Навигация: Модератор → Tерритории"):
+        flow_navigate(page, tab="Модератор", name="Tерритории")
+        m.expect_heading("Tерритории")
+
+    with allure.step(f"'Создать район' orqali район yaratish: '{name}'"):
+        m.click_button("Создать район")
+        m.expect_heading("Tерритория (Создания)")
+        m.input(label="Название", value=name)
+        m.save()
+
+    with allure.step("Ro'yxatga qaytib, 'Тип=Район' filtrini yoqish"):
+        flow_navigate(page, tab="Модератор", name="Tерритории")
+        m.expect_heading("Tерритории")
+        # default filtr faqat "Территория"ni ko'rsatadi — район turini qo'shamiz
+        page.get_by_text("Район", exact=True).first.click()
+        m.click_button("Применить")
+        m._settle()
+
+    with allure.step(f"Ro'yxatда '{name}' район turida ko'rinishini tekshirish"):
+        m.search(name)
+        m.grid_row(name, "Район")
+
+    with allure.step(f"Tozalash: '{name}' район'ini o'chirish"):
+        m.click_grid_row(name)
+        m.click_button("Удалить")
+        m.confirm("да")
+        m.search(name)
+        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+
+
+@allure.epic("Модератор")
+@allure.feature("Tерритории")
+@allure.story("Создать район")
+@allure.title("Создать район — район yaratish, ro'yxatда ko'rinishi va o'chirish")
+def test_territory_district_create(page: Page, code) -> None:
+    with allure.step("Tizimga kirish"):
+        authorization(page)
+    run_territory_district_create(page, code)

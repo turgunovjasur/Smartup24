@@ -9,6 +9,7 @@ ssenariylari. Kod test_setup dan ko'chirilgan ishlaydigan nusxa
 import random
 
 import allure
+import pytest
 from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
@@ -337,3 +338,74 @@ def test_legal_person_duplicate(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_legal_person_duplicate(page, code)
+
+
+# ======================================================================================
+# Характеристики (Юр. лица) — Юридическое лицо sahifasi sub-nav linki
+# (biruni sbr/moderator/person/person_group_list). Bu Юр.лицо formasidagi
+# "Характеристика товаров" tabi EMAS, alohida modul (podтиpли guruh). Forma:
+# Код / Название* / Статус switch. Qator paneli: Изменить / Неактивный / Удалить /
+# Подтипы (toggle status, confirm "да"). (MCP tasdiqlangan 2026-08-21)
+# ======================================================================================
+
+def run_legal_person_characteristics(page: Page, code) -> None:
+    """'Характеристики (Юр. лица)' moduli CRUD: create → edit → status
+    (deactivate/reactivate) → delete. Passiv qator "Показать все" bilan ko'rinadi."""
+    m = BasePage(page)
+    name = f"plchar-{code}"
+    edited = f"{name}-edit"
+
+    with allure.step("Навигация: Модератор → Юридическое лицо → Характеристики (Юр. лица)"):
+        flow_navigate(page, tab="Модератор", name="Юридическое лицо")
+        m.expect_heading("Юридическое лицо")
+        m.click_link("Характеристики (Юр. лица)")
+        m.expect_heading("Характеристики (Юр. лица)")
+
+    with allure.step(f"Создать: '{name}' (Код/Название)"):
+        m.open_create()
+        m.expect_heading("Характеристика Юр. лица (Создания)")
+        m.input(label="Код", value=code)
+        m.input(label="Название", value=name)
+        m.save_and_expect_heading("Характеристики (Юр. лица)")
+
+    with allure.step(f"Ro'yxatda '{name}' Активный ko'rinishini tekshirish"):
+        m.search(name)
+        m.grid_row(name, "Активный")
+
+    with allure.step(f"Изменить: nomni '{edited}' ga o'zgartirish"):
+        m.click_grid_row(name)
+        m.click_button("Изменить")
+        m.input(label="Название", value=edited)
+        m.save_and_expect_heading("Характеристики (Юр. лица)")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Статус: '{edited}' ni Неактивный qilib, qayta Активный qilish"):
+        m.click_grid_row(edited)
+        m.click_button("Неактивный")
+        m.confirm("да")
+        m.show_all()
+        m.search(edited)
+        m.grid_row(edited, "Неактивный")
+        m.click_grid_row(edited)
+        m.click_button("Активный")
+        m.confirm("да")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Удалить: '{edited}' ni o'chirib, ro'yxatdan yo'qolganini tekshirish"):
+        m.click_grid_row(edited)
+        m.click_button("Удалить")
+        m.confirm("да")
+        m.search(edited)
+        expect(page.locator(".smt-data-row").filter(has_text=edited)).to_have_count(0)
+
+
+@allure.epic("Модератор")
+@allure.feature("Юридическое лицо")
+@allure.story("Характеристики (Юр. лица)")
+@allure.title("Характеристики (Юр. лица) — to'liq CRUD (create/edit/status/delete)")
+def test_legal_person_characteristics(page: Page, code) -> None:
+    with allure.step("Tizimga kirish"):
+        authorization(page)
+    run_legal_person_characteristics(page, code)

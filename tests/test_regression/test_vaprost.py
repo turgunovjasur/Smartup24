@@ -21,6 +21,7 @@ Forma va ro'yxat MCP tasdiqlangan 2026-07-08:
 - Dublikat nom: "Ошибка" dialogi, matnida "dup_val_on_index" (sbv_quizs).
 """
 import allure
+import pytest
 from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
@@ -322,3 +323,79 @@ def test_vaprost_duplicate(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_vaprost_duplicate(page, code)
+
+
+# ======================================================================================
+# Тип вопроса — Справочник → Вопрос → "Тип вопроса" (biruni sbmq/quiz_type_list)
+# to'liq CRUD. Bu Вопрос formasidagi RADIO maydoni EMAS, alohida modul.
+# Forma: Код / Название* / Порядок / Статус switch. Qator paneli: Изменить /
+# Неактивный / Удалить. Status toggle tasdiqlash "да". (MCP tasdiqlangan 2026-08-21)
+# ======================================================================================
+
+def run_vaprost_question_type(page: Page, code) -> None:
+    """'Тип вопроса' moduli CRUD: create → edit → status (deactivate/reactivate) →
+    delete. Passiv qator default ro'yxatdan yashirinadi ("Показать все" kerak)."""
+    m = BasePage(page)
+    name = f"qtype-{code}"
+    edited = f"{name}-edit"
+    # "Порядок" bazada kichik precision'li (7 xonali `code` "number precision too
+    # large" beradi, Роль bilan bir xil) — 4 xonalik qism ishlatiladi
+    order = code[-4:]
+
+    with allure.step("Навигация: Модератор → Вопросы → Тип вопроса"):
+        flow_navigate(page, tab="Модератор", name="Вопросы")
+        m.expect_heading("Вопросы")
+        m.click_link("Тип вопроса")
+        m.expect_heading("Тип вопроса")
+
+    with allure.step(f"Создать: '{name}' (Код/Название/Порядок)"):
+        m.open_create()
+        m.expect_heading("Тип вопроса (Создание)")
+        m.input(label="Код", value=code)
+        m.input(label="Название", value=name)
+        m.input(label="Порядок", value=order)
+        m.save_and_expect_heading("Тип вопроса")
+
+    with allure.step(f"Ro'yxatda '{name}' Активный ko'rinishini tekshirish"):
+        m.search(name)
+        m.grid_row(name, "Активный")
+
+    with allure.step(f"Изменить: nomni '{edited}' ga o'zgartirish"):
+        m.click_grid_row(name)
+        m.click_button("Изменить")
+        m.expect_heading("Тип вопроса (Редактирование)")
+        m.input(label="Название", value=edited)
+        m.save_and_expect_heading("Тип вопроса")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Статус: '{edited}' ni Неактивный qilish"):
+        m.click_grid_row(edited)
+        m.click_button("Неактивный")
+        m.confirm("да")
+        m.search(edited)
+        expect(page.locator(".smt-data-row").filter(has_text=edited)).to_have_count(0)
+
+    with allure.step("Показать все filtrida ko'rinib, qayta Активный qilish"):
+        m.show_all()
+        m.click_grid_row(edited)
+        m.click_button("Активный")
+        m.confirm("да")
+
+    with allure.step(f"Удалить: '{edited}' ni o'chirib, ro'yxatdan yo'qolganini tekshirish"):
+        m.search(edited)
+        m.click_grid_row(edited)
+        m.click_button("Удалить")
+        m.confirm("да")
+        m.search(edited)
+        expect(page.locator(".smt-data-row").filter(has_text=edited)).to_have_count(0)
+
+
+@allure.epic("Модератор")
+@allure.feature("Вопросы")
+@allure.story("Тип вопроса")
+@allure.title("Тип вопроса — to'liq CRUD (create/edit/status/delete)")
+def test_vaprost_question_type(page: Page, code) -> None:
+    with allure.step("Tizimga kirish"):
+        authorization(page)
+    run_vaprost_question_type(page, code)

@@ -9,6 +9,7 @@ status, duplicate. Kod test_setup dan ko'chirilgan ishlaydigan nusxa
 import random
 
 import allure
+import pytest
 from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
@@ -342,3 +343,78 @@ def test_client_duplicate(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_client_duplicate(page, code)
+
+
+# ======================================================================================
+# Торговые точки — Клиенты sahifasi sub-nav linki (biruni sbr/moderator/client/
+# outlet_list). Savdo nuqtasi MAJBURIY ravishda bir Клиент'ga biriktiriladi —
+# shuning uchun test avval o'z klientini yaratadi. Forma (Торговая точка (Создания)):
+# Юр. лица название* / Краткое название* / Клиент* (select) / Статус radio.
+# Qator paneli: Просмотр / Изменить / Изменить статус / Удалить — status "Изменить
+# статус" MENYU orqali (services kabi). (MCP tasdiqlangan 2026-08-21)
+# ======================================================================================
+
+def run_client_trade_points(page: Page, code) -> None:
+    """'Торговые точки' moduli CRUD: savdo nuqtasi create → edit → status
+    (Пассивный/Активный) → delete. Savdo nuqtasi MAJBURIY bir Клиент'ga biriktiriladi
+    — client-create moduliga BOG'LANMASLIK uchun dropdown'даги MAVJUD birinchi klient
+    tanlanadi (regression bazasida klientlar bor). Passiv qator default yashirin."""
+    m = BasePage(page)
+    name = f"outlet-{code}"
+    edited = f"{name}-edit"
+
+    with allure.step("Навигация: Модератор → Клиенты → Торговые точки"):
+        flow_navigate(page, tab="Модератор", name="Клиенты")
+        m.expect_heading("Клиенты")
+        m.click_link("Торговые точки")
+        m.expect_heading("Торговые точки")
+
+    with allure.step(f"Создать: '{name}' savdo nuqtasi (mavjud birinchi klientga)"):
+        m.open_create()
+        m.expect_heading("Торговая точка (Создания)")
+        m.input(label="Юр. лица название", value=name)
+        m.input(label="Краткое название", value=f"o{code[-4:]}")
+        # Клиент* — dropdown'ni ochib birinchi mavjud variantni tanlaymiz
+        m._open_select(label="Клиент")
+        page.locator('.cdk-overlay-container smt-select-dropdown li').first.click()
+        m.save_and_expect_heading("Торговые точки")
+
+    with allure.step(f"Ro'yxatda '{name}' Активный ko'rinishini tekshirish"):
+        m.search(name)
+        m.grid_row(name, "Активный")
+
+    with allure.step(f"Изменить: nomni '{edited}' ga o'zgartirish"):
+        m.click_grid_row(name)
+        m.click_button("Изменить")
+        m.input(label="Юр. лица название", value=edited)
+        m.save_and_expect_heading("Торговые точки")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Статус: '{edited}' ni Пассивный, keyin qayta Активный qilish"):
+        m.click_grid_row(edited)
+        m.change_status("Пассивный")
+        m.search(edited)
+        m.show_all()
+        m.grid_row(edited, "Пассивный")
+        m.click_grid_row(edited)
+        m.change_status("Активный")
+        m.search(edited)
+        m.grid_row(edited, "Активный")
+
+    with allure.step(f"Удалить: '{edited}' ni o'chirib, ro'yxatdan yo'qolganini tekshirish"):
+        m.click_grid_row(edited)
+        m.click_button("Удалить")
+        m.confirm("да")
+        m.search(edited)
+        expect(page.locator(".smt-data-row").filter(has_text=edited)).to_have_count(0)
+
+
+@allure.epic("Модератор")
+@allure.feature("Клиенты")
+@allure.story("Торговые точки")
+@allure.title("Торговые точки — to'liq CRUD (create/edit/status/delete)")
+def test_client_trade_points(page: Page, code) -> None:
+    with allure.step("Tizimga kirish"):
+        authorization(page)
+    run_client_trade_points(page, code)

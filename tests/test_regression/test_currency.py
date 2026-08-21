@@ -13,7 +13,7 @@ from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_menu
-from tests.test_setup.test_valyuta import (
+from tests.test_setup.test_currency import (
     CREATE_HEADING,
     open_valyuta_list,
     run_valyuta,
