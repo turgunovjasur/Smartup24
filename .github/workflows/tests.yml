@@ -1,0 +1,115 @@
+name: UI tests (Playwright + pytest)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NEGA shunday sozlangan
+# ---------------------------------------------------------------------------
+# Testlar TIRIK Smartup24 muhitiga (prod/dev) uriladi va bazaga YOZADI. Shuning
+# uchun har push'da to'liq run QILINMAYDI — aks holda baza ifloslanadi va run
+# uzoq ketadi. Ikki yo'l bilan ishga tushadi:
+#   1. workflow_dispatch  — Actions sahifasidagi "Run workflow" tugmasi (qo'lda),
+#      qaysi test yo'lini ishga tushirishni tanlash mumkin.
+#   2. schedule (cron)    — har kuni kechasi 03:00 UTC (≈08:00 Toshkent) to'liq
+#      runner avtomatik ketadi.
+# Muhit (prod/dev) flows/flow_authorization.py da komment bilan tanlanadi —
+# CI aynan commit qilingan holatni ishlatadi.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_path:
+        description: "Qaysi testni ishga tushirish (pytest yo'li)"
+        required: true
+        default: "tests/test_all_runner.py"
+        type: string
+  schedule:
+    - cron: "0 3 * * *"   # har kuni 03:00 UTC
+
+# Bir vaqtda bitta run — parallel runlar bir akkauntda bir-biriga xalaqit beradi
+# (memory: parallel-test-runs-interference).
+concurrency:
+  group: ui-tests
+  cancel-in-progress: false
+
+jobs:
+  ui-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    # gh-pages branchga hisobotni push qilish uchun yozish huquqi
+    permissions:
+      contents: write
+
+    env:
+      HEADLESS: "1"   # conftest.py buni o'qiydi — brauzer ko'rinmasdan ishlaydi
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run tests
+        run: |
+          python -m pytest "${{ github.event.inputs.test_path || 'tests/test_all_runner.py' }}" -v
+
+      - name: Upload Allure results
+        if: always()   # testlar yiqilса ham natijani saqlaymiz
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: test-results/allure-results
+          if-no-files-found: warn
+
+      - name: Upload traces & screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces
+          path: |
+            test-results/**/*.zip
+            test-results/**/*.png
+          if-no-files-found: ignore
+
+      # ── Allure hisobotini GitHub Pages'da e'lon qilish ──────────────────────
+      # gh-pages branchdagi oldingi hisobot TARIXINI olamiz (trend grafigi uchun).
+      # Birinchi run'da branch hali yo'q — continue-on-error bilan o'tkazamiz.
+      - name: Get Allure history
+        if: always()
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      # allure_results + oldingi tarix'dan to'liq HTML hisobot yasaymiz
+      # (action ichida Java + Allure CLI bor — alohida o'rnatish shart emas).
+      - name: Build Allure report
+        if: always()
+        uses: simple-elf/allure-report-action@v1.9
+        with:
+          allure_results: test-results/allure-results
+          gh_pages: gh-pages
+          allure_history: allure-history
+          keep_reports: 20   # oxirgi 20 run tarixi saqlanadi
+
+      # Yasalgan hisobotni gh-pages branchga push qilamiz — Pages shu yerdan uzatadi
+      - name: Publish to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
