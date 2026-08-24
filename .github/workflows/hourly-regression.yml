@@ -1,8 +1,8 @@
-name: Hourly Regression (currency)
+name: "Hourly test run"
 
 # NEGA CONCURRENCY GUARD
 # ----------------------
-# Bu suite ham JONLI ERP'ga va ULASHILGAN akkauntga tegadi (e2e.yml bilan bir xil).
+# Bu suite JONLI ERP'ga va ULASHILGAN akkauntga tegadi (e2e.yml bilan bir xil).
 # Ikki run bir akkauntda parallel yursa ikkalasi ham yiqiladi — shuning uchun
 # e2e.yml bilan BIR concurrency guruhida (overlapping run YO'Q). CI headless
 # ishlaydi (HEADLESS=1) — conftest shu env var'ni o'qiydi.
@@ -20,11 +20,6 @@ jobs:
   runner:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      HEADLESS: "1"            # conftest brauzerni ko'rsatmasdan ishga tushiradi
-      BASE_URL: ${{ secrets.BASE_URL }}
-      TEST_USER: ${{ secrets.TEST_USER }}
-      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +35,11 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Run currency regression
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_USER: ${{ secrets.TEST_USER }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          HEADLESS: "1"
         run: python -m pytest tests/test_setup/test_currency.py -v
 
       - name: Upload test results
