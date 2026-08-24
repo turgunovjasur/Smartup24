@@ -831,6 +831,16 @@ class BasePage:
             self.page.get_by_role("button", name="Закрыть фильтры").first.click()
             expect(button).to_be_hidden()
         self.wait_for_loader()
+        # "Показать все" barcha statuslarni yoqadi, biroq list natijani joriy
+        # QIDIRUV bo'yicha qayta filtrlamay hammasini ko'rsatib yuborishi mumkin
+        # (app filtr xatti-harakati o'zgardi, 2026-08-24) — bunda passiv qator ko'p
+        # yozuv orasida qolib grid_row uni topolmaydi. Qidiruv matni bo'lsa uni QAYTA
+        # yuboramiz: grid search + "barcha statuslar" bilan re-query bo'lib, izlanayotgan
+        # passiv qator ro'yxatga qaytadi (status testlari shu sabab yiqilar edi).
+        searchbox = self.page.get_by_role("searchbox", name="Поиск").first
+        if searchbox.count() and (searchbox.input_value() or "").strip():
+            searchbox.press("Enter")
+            self.wait_for_loader()
 
     def change_status(self, option_text, *, button_name="Изменить статус"):
         """Tanlangan qatorning statusini o'zgartiradi.
