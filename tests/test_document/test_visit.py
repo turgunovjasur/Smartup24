@@ -41,6 +41,11 @@ MCP topilmalari — TASK PREMISASIDAN FARQLAR:
   * Причина create: "Название *" inputi smtid'siz, id="null" (`#null`); list status
     "active"/"passive" (inglizcha, _STATUS_SYNONYMS qoplaydi); qator paneli
     Изменить + status toggle ("Неактивный"/"Активный").
+
+BOG'LIQLIK (cross-file import): bu fayl vizit yordamchilarини (agent yaratish,
+Визиты navigatsiyasi, mobil visit, monthly reja, agent tozalash)
+``test_Plan_visit_recurrence.py`` dan IMPORT qiladi — o'sha fayl o'chirilsa yoki
+funksiyalari qayta nomlansa bu ham yiqiladi. Ikkisi bitta vizit modulini bo'lishadi.
 """
 import re
 
