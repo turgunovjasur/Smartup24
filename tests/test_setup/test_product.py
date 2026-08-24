@@ -32,7 +32,7 @@ def run_product(page: Page, code, name=None, status=None) -> dict:
         m.input(label="Краткое название", value=name)
         # "Код" maydoni smtid orqali: ikkinchi ketma-ket create formada yonidagi
         # label "Код сервера" ga aralashib, `label="Код"` regex mos kelmay
-        # topolmaydi (region bilan bir xil leak, smtid="code" barqaror; MCP 2026-07-30).
+        # topolmaydi.
         m.input(smtid="code", value=kod)
 
     with allure.step(f"Форма: Производитель = Manufacturer-{code}, measure = кг"):

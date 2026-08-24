@@ -3,8 +3,7 @@
 Basic create (run_legal_person/test_legal_person) tests/test_setup/
 test_legal_person.py da, ma'lumotnomalar tayyorlovi (ensure_refs)
 tests/test_setup/test_supplier.py da turadi — bu yerda faqat CRUD
-ssenariylari. Kod test_setup dan ko'chirilgan ishlaydigan nusxa
-(MCP tasdiqlangan 2026-07-05).
+ssenariylari. Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 import random
 

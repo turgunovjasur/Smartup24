@@ -1,7 +1,7 @@
 """Umumiy runner — setup, group_a va regression zanjirlari ALOHIDA testlar bo'lib,
 bitta seansda (bitta login) ketma-ket ishga tushadi.
 
-NEGA QAYTA YOZILDI (2026-07-31)
+NEGA QAYTA YOZILDI
 ------------------------------
 Ilgari bu fayl bitta ``test_all_runner`` funksiyasi edi va barcha ``run_...``
 larni ``allure.step`` ichida chaqirar edi. Pytest bitta funksiyani BITTA test

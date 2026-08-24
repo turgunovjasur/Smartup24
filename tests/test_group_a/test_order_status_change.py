@@ -35,7 +35,7 @@ def run_order_status_change(page: Page, code) -> None:
             # bosilsa "Клиент (Просмотр)" sahifasiga olib ketadi, shuning uchun
             # click_grid_row (chap katak x=120 — aynan shu tugma ustiga tushadi)
             # ISHLATILMAYDI; qator JORIY status katagi (oddiy matn, qatorda
-            # yagona) orqali tanlanadi (MCP tasdiqlangan 2026-07-13).
+            # yagona) orqali tanlanadi.
             m.settle()
             row = m.grid_row(client_name, current)
             cell = row.get_by_text(current, exact=True)

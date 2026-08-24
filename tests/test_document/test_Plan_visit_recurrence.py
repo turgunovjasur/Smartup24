@@ -28,7 +28,7 @@ ZANJIRDA esa bitta agent — guruhlar aralashmasligi uchun har variant O'Z hafta
 kunini oladi (N=1→bugun, N=2→bugun+1, ...): 5/2/1/1/0 (5-hafta sanasi +32 —
 oynadan tashqarida qoladi).
 
-API tomonda (MCP dev/sm24): base_url=/x24/b; session=agent JSESSIONID cookie
+API tomonda: base_url=/x24/b; session=agent JSESSIONID cookie
 (HttpOnly); visit_user_id=Планы URL'idan; visit_person_id=exp_client_list avtomatik
 (person_id STRING → "to be a number" testi soxta fail, KNOWN_QUIRKS'da e'tiborsiz).
 Mobil visit faqat BUGUNGI rejaga ishlaydi (weekly/monthly beradi; har 2/3/4/5
@@ -56,13 +56,13 @@ from utils.base_page import BasePage
 # Agent login (cookie_from_context) va API backend (BASE_URL) muhitga qarab
 # flow_authorization.LOGIN_URL dan olinadi — ilgari IKKALASI ham DEV'ga qattiq
 # kodlangan edi, prod'da agent PROD'da yaratilib login DEV'ga borib timeout berardi
-# (root cause, 2026-08-05). BASE_URL = login URL'idagi "/a2/auth/login" → "/b"
+#. BASE_URL = login URL'idagi "/a2/auth/login" → "/b"
 # (prod: app.smartup24.com/b ; dev: app3.greenwhite.uz/x24/b — /x24 prefiks saqlanadi).
 BASE_URL = LOGIN_URL.replace("/a2/auth/login", "/b")
 # Cookie domain filtri ham ENV'ga bog'liq (prod: smartup24.com, dev: greenwhite.uz) —
 # LOGIN_URL host'idan registrable domain (oxirgi 2 label) olinadi. Ilgari
 # "greenwhite.uz" qattiq kodlangan edi → prod cookie'lari (smartup24.com) filtrlanib
-# chiqib ketib, cookie BO'SH qolar edi (JSESSIONID topilmasdi, 2026-08-05).
+# chiqib ketib, cookie BO'SH qolar edi.
 COOKIE_DOMAIN = ".".join(LOGIN_URL.split("//", 1)[1].split("/", 1)[0].split(".")[-2:])
 MENU = "Планирование визитов"
 # Jonli cookie'li — test-results/ (gitignored) ga yoziladi, repo'ga tushmaydi
@@ -371,7 +371,7 @@ def _deactivate_agent(page: Page, m: BasePage, agent: str) -> None:
     Visit/lead'li agentni O'CHIRIB bo'lmaydi ("child record found"); Роли →
     Пользователи (biruni/md) ro'yxatida ham ko'rinmaydi — shuning uchun person
     ro'yxatida (yaratilgan joy) Изменить → Статус switch OFF → Сохранить: agent
-    Неактивный bo'lib default ro'yxatдан yo'qoladi (MCP tasdiqlangan 2026-07-28)."""
+    Неактивный bo'lib default ro'yxatдан yo'qoladi."""
     _goto_person_users(page, m)
     m.search(agent)
     m.click_grid_row(agent)
@@ -490,7 +490,7 @@ def _expected_week_dates(n: int, start: date, offset: int) -> list[date]:
     """Har N-hafta modeli: tanlangan hafta kuni start HAFTASIDAN (dushanba-anchored)
     (N-1)-haftada, keyin har N-hafta; oynadan (31 kun) chiqqani kesiladi.
 
-    DIQQAT (2026-08-06 tuzatildi): oldingi model `start + (N-1)*7 + offset` — offset
+    DIQQAT: oldingi model `start + (N-1)*7 + offset` — offset
     hafta kunini KEYINGA suradi deb faraz qilardi. Aslida ilova tanlangan hafta kunini
     o'sha rekurrens HAFTASINING kuniga joylaydi; agar tanlangan kun start kunidan hafta
     ichida OLDINROQ bo'lsa (offset 7 dan oshib WRAP qilsa), sana 7 kun OLDINGA tushadi.

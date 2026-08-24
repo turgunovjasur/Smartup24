@@ -55,7 +55,7 @@ def run_vaprost_full(page: Page, code) -> None:
     """Вопрос formasining BARCHA maydonlari bilan yaratish: Название, Тип
     вопроса = Выбор из списка (Варианты ответов bilan), Тип вводимых данных =
     Текст (строка), Обязательный вопрос/Обязательное фото/Принимать фото как
-    ответ switchlari (MCP tasdiqlangan 2026-07-08)."""
+    ответ switchlari."""
     m = BasePage(page)
     name = f"vaprost-full-{code}"
 
@@ -240,7 +240,7 @@ def run_vaprost_status(page: Page, code) -> None:
     """Status toggle tugmasi orqali o'zgartiriladi (tugma nomi MAQSAD statusi
     RUSCHA "Неактивный"/"Активный", tasdiqlash "да"). Grid badge INGLIZCHA:
     passiv savol default ro'yxatdan YO'QOLADI, "Показать все" filtrida
-    "passive" bo'lib ko'rinadi (MCP tasdiqlangan 2026-07-08)."""
+    "passive" bo'lib ko'rinadi."""
     m = BasePage(page)
     name = f"vaprost-stat-{code}"
 
@@ -286,7 +286,7 @@ def run_vaprost_duplicate(page: Page, code) -> None:
     """Bir xil nom bilan qayta yaratishga urinish xatolik berishini tekshiradi.
 
     Вопрос nomi unikal (sbv_quizs company_id+name indeksi): saqlashda "Ошибка"
-    dialogi chiqadi — matnida "dup_val_on_index" (MCP tasdiqlangan 2026-07-08)."""
+    dialogi chiqadi — matnida "dup_val_on_index"."""
     m = BasePage(page)
     name = f"vaprost-dup-{code}"
 

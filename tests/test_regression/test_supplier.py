@@ -3,7 +3,7 @@
 Basic create (run_supplier/test_supplier) va ma'lumotnomalar tayyorlovi
 (ensure_refs) tests/test_setup/test_supplier.py da turadi — bu yerda faqat
 CRUD ssenariylari: full create, edit, view, delete, status, duplicate.
-Kod test_setup dan ko'chirilgan ishlaydigan nusxa (MCP tasdiqlangan 2026-07-05).
+Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 import random
 
@@ -62,7 +62,7 @@ def run_supplier_full(page: Page, code) -> None:
         # OAuth2 formasi (regression'da oldin ishlaydi) keyingi formalarga
         # "Главная/Детали/Код сервера" label'larini YUQTIRADI (i18n leak) — Юр.Лицо
         # tab'lari (Реквизиты→Детали) buziladi. Reload SPA'ni qayta yuklab tozalaydi
-        # (MCP tasdiqlangan 2026-07-30).
+        #.
         page.reload()
         m.settle()
         m.open_create()
@@ -249,7 +249,7 @@ def run_supplier_delete(page: Page, code) -> None:
 
     "Удалить" supplier rolini o'chiradi ("Удалить с юр. лицом" esa yuridik
     shaxsni butunlay o'chiradi — bu testda ishlatilmaydi). Tasdiqlash dialogi:
-    "Вы хотите удалить {nom}?" → да (MCP tasdiqlangan 2026-07-05)."""
+    "Вы хотите удалить {nom}?" → да."""
     m = BasePage(page)
     name = f"supplier-del-{code}"
 
@@ -337,7 +337,7 @@ def run_supplier_duplicate(page: Page, code) -> None:
 
     ИНН bo'yicha unikal indeks bor: saqlashda "Ошибка" dialogi chiqadi
     (matnida "dup_val_on_index" va tin qiymati), forma ochiq qoladi va
-    yozuv YARATILMAYDI (MCP tasdiqlangan 2026-07-05)."""
+    yozuv YARATILMAYDI."""
     m = BasePage(page)
     name = f"supplier-dup-{code}"
 

@@ -1,11 +1,11 @@
 """Организации (Модератор → Организации, biruni filial_list) — CRUD testlari.
 
-Codegen'da yozilgan testlar BasePage uslubiga o'tkazildi (2026-07-20):
+Codegen'da yozilgan testlar BasePage uslubiga o'tkazildi:
 hardcoded login o'rniga authorization(), dinamik ng.formN / #cdk-drop-list-N
 selektorlar o'rniga label orqali BasePage, hardcoded nom o'rniga unikal
 f"org-...-{code}".
 
-Biruni farqlar (MCP 2026-07-15): komponentlar smtid EMAS oddiy id
+Biruni farqlar: komponentlar smtid EMAS oddiy id
 (filial-state, filial-timezone) — maydonlar faqat LABEL orqali topiladi;
 "Часовой пояс" placeholder "select_timezone" (Подбор fallback ishlaydi);
 view bo'limlari LINK emas BUTTON. 2026-07-15 da create/edit formada
@@ -27,7 +27,7 @@ def run_organization(page: Page, code, name=None) -> dict:
     if name is None:
         name = f"org-{code}"
     # Порядковый номер maydoni maskali decimal (RAQAM), maksimal 6 belgi ("N/6").
-    # DIQQAT: boshidagi nolni yutadi ("082764"→"82 764", MCP 2026-08-07) — shuning uchun
+    # DIQQAT: boshidagi nolni yutadi — shuning uchun
     # str(int(...)) bilan leading-zero'siz normallashtiramiz, aks holda input()ning
     # expect_value tekshiruvi mos kelmaydi (sana-bog'liq flaky).
     order_no = str(int(str(code)[-6:]))
@@ -130,7 +130,7 @@ def run_organization_view(page: Page, code) -> None:
 
     with allure.step("Ro'yxatga qaytish"):
         # "Go back" tugmasi view bo'limlari almashganda sarlavhadan YO'QOLADI
-        # (Системные ошибки bo'limida yo'q edi, 2026-07-20) — unga tayanmay
+        # — unga tayanmay
         # navbar orqali qaytamiz
         flow_navigate(page, tab="Модератор", name="Организации")
         m.expect_heading("Организации")
@@ -288,7 +288,7 @@ def test_organization_delete(page: Page, code) -> None:
 def run_organization_duplicate(page: Page, code) -> None:
     """Bir xil Название bilan qayta yaratishga urinish xatolik berishini
     tekshiradi — server "dup_val_on_index" (md_filials) xato dialogini
-    qaytaradi (codegen 2026-07-19)."""
+    qaytaradi."""
     m = BasePage(page)
     name = f"org-dup-{code}"
 

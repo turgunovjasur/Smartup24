@@ -1,7 +1,6 @@
 """Main ("Главное") bo'limi uchun umumiy runner — test_main ичидаги barcha testlar
 ALOHIDA Allure testlar bo'lib, bitta seansda (bitta admin login) ketma-ket ishga
-tushadi. test_all_document_runner.py / test_all_runner.py bilan bir xil dizayn
-(2026-08-10 da mega-testdan alohida test_* larga bo'lindi).
+tushadi. test_all_document_runner.py / test_all_runner.py bilan bir xil dizayn.
 
 DIZAYN
 ------

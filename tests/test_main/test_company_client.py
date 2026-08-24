@@ -1,7 +1,7 @@
 """Клиенты OAuth2 сервера для компании (Модератор → Главное, biruni
 company_client_list) — CRUD testlari.
 
-MCP bilan real DOM'da tasdiqlangan (2026-07-24, dev/sm24):
+MCP bilan real DOM'da tasdiqlangan:
 
 Forma maydonlari:
   - "Тип разрешения" : smt-radio-group (label[smt-radio], value C/A) —

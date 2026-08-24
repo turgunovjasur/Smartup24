@@ -1,7 +1,7 @@
 """Объявления (Модератор → Главное → Объявления, biruni announcement_list) —
 CRUD testlari.
 
-MCP bilan real DOM'da tasdiqlangan (2026-07-24, dev/sm24):
+MCP bilan real DOM'da tasdiqlangan:
 
 Forma maydonlari:
   - "Титул *"        : smt-input (smtid=title) — MAJBURIY (grid ustuni "Заголовок")
@@ -84,7 +84,7 @@ def run_announcement_full(page: Page, code) -> None:
     top-level regionlar (Узбекистан va h.k.) BOLALI tugun bo'lgani uchun ularning
     treeitem nomi yig'ish tugmasi bilan "Свернуть Узбекистан" ko'rinishida keladi
     va exact-match BasePage.select topolmaydi; barqaror LEAF regionni kafolatlab
-    bo'lmaydi (MCP tasdiqlangan 2026-07-24)."""
+    bo'lmaydi."""
     m = BasePage(page)
     name = f"ann-full-{code}"
 

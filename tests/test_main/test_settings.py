@@ -1,7 +1,7 @@
 """Настройка (Модератор → Главное → Настройка, biruni moderator/setting) —
 kompaniya sozlamalari sahifasi smoke testi.
 
-Loyiha-playwright bilan tasdiqlangan (2026-08-10, PROD/test):
+Loyiha-playwright bilan tasdiqlangan:
 - URL .../sb/sbr/moderator/setting, heading "Настройка".
 - Yagona sozlamalar formasi: ~11 textbox + 3 switch + "Сохранить".
 - Bu KOMPANIYA darajasidagi GLOBAL sozlamalar (CRUD EMAS). PROD config'ni

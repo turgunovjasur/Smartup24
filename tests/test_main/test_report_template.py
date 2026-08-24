@@ -1,6 +1,6 @@
 """Шаблоны отчетов (Модератор → Главное, biruni ker/template_list) — CRUD testlari.
 
-MCP bilan real DOM'da tasdiqlangan (2026-08-07, PROD/test):
+MCP bilan real DOM'da tasdiqlangan:
 
 Ro'yxat (template_list, heading "Шаблоны отчетов"): "Создать" + "Доступные шаблоны"
 sub-nav. Ustunlar: Название / Название формы / Типы источника / Файл / Создал / Дата /
@@ -152,7 +152,7 @@ def run_report_template_status(page: Page, code) -> None:
     """Status ikki yo'nalishda — Изменить formasidagi Статус switch orqali:
     Активный → Неактивный → qayta Активный. DIQQAT: bu ro'yxat passive yozuvni
     YASHIRMAYDI (active+passive birga ko'rinadi) — status faqat grid badge orqali
-    tekshiriladi (MCP tasdiqlangan 2026-08-07)."""
+    tekshiriladi."""
     m = BasePage(page)
     name = f"shablon-stat-{code}"
 
@@ -167,7 +167,7 @@ def run_report_template_status(page: Page, code) -> None:
 
     with allure.step("1) Ro'yxatда Неактивный (passive) bo'lib ko'rinishi"):
         # DIQQAT: bu ro'yxat passive yozuvni YASHIRMAYDI (active+passive birga) —
-        # show_all KERAK EMAS; faqat grid badge tekshiriladi (MCP 2026-08-07).
+        # show_all KERAK EMAS; faqat grid badge tekshiriladi.
         flow_navigate(page, tab="Модератор", name=MENU, expect_url="template_list")
         m.expect_heading(MENU)
         m.search(name)

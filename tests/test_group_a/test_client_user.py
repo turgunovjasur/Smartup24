@@ -40,7 +40,7 @@ def run_client_user(page: Page, code) -> None:
 
     with allure.step("Роли: Админ (Клиент)"):
         # Rolsiz foydalanuvchi login qilolmaydi — "Пользователь не прикреплен
-        # ни к одному филиалу или проекту" (MCP tasdiqlangan 2026-07-06)
+        # ни к одному филиалу или проекту"
         m.select("Админ (Клиент)", label="Роли", search="Админ")
 
     with allure.step(f"Торговые точки: '{client_name}' savdo nuqtasini tanlash"):

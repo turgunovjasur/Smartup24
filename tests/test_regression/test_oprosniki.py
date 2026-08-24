@@ -4,7 +4,7 @@ Basic create (run_oprosniki/test_oprosniki) tests/test_setup/test_oprosniki.py
 da turadi — bu yerda faqat CRUD ssenariylari: full create, edit, view, delete,
 status, duplicate, savol biriktirish/ajratish.
 
-Modul xususiyatlari (MCP tasdiqlangan 2026-07-07):
+Modul xususiyatlari:
 - Forma: Название* (smtid=name), Дата начала* (smt-date-picker smtid=start_date,
   MAJBURIY), Конец* (smtid=end_date, MAJBURIY), Родительский набор
   (smt-data-select smtid=parent_id), Описание (smt-textarea smtid=description),
@@ -20,7 +20,7 @@ Modul xususiyatlari (MCP tasdiqlangan 2026-07-07):
 - Dublikat nom XATOLIK beradi: "Ошибка ... dup_val_on_index" dialogi (Закрыть).
 - Savoli biriktirilgan опросникни O'CHIRIB BO'LMAYDI: "Ошибка ... child record
   found" — avval Открепить kerak.
-- Прикрепление вопросов: tablar "Прикрепленные" (default) / "Доступные" (UI 2026-07-31);
+- Прикрепление вопросов: tablar "Прикрепленные" (default) / "Доступные";
   savol qatori [role=checkbox] bilan tanlanadi → "Прикрепить N" → "Да";
   biriktirilgan qator bosilsa "Открепить" tugmasi chiqadi → "Да".
 """
@@ -46,7 +46,7 @@ def ensure_question(page: Page, code) -> str:
     Nom ataylab ALOHIDA (vaprost-attach-{code}): run_vaprost'ning default
     Vaprost{code} nomi zanjirdagi "10. Вопрос" qadami yoki alohida
     test_vaprost bilan bir seansda to'qnashib dup_val_on_index dialogi
-    chiqarardi (runner 2026-07-09 shu sabab yiqildi)."""
+    chiqarardi."""
     name = f"vaprost-attach-{code}"
     if code not in _question_ready:
         run_vaprost_basic(page, code, name=name)
@@ -192,7 +192,7 @@ def test_oprosniki_edit(page: Page, code) -> None:
 
 def run_oprosniki_view(page: Page, code) -> None:
     """Yangi опросник yaratib, Просмотр formasida qiymatlar to'g'ri
-    ko'rsatilishini tekshiradi (readonly qsv_* inputlar, MCP 2026-07-07)."""
+    ko'rsatilishini tekshiradi."""
     m = BasePage(page)
     name = f"oprosniki-view-{code}"
 
@@ -264,7 +264,7 @@ def test_oprosniki_delete(page: Page, code) -> None:
 def run_oprosniki_status(page: Page, code) -> None:
     """Status toggle tugmasi orqali o'zgartiriladi (tugma nomi MAQSAD statusi,
     tasdiqlash "Да"). Passiv опросник default ro'yxatdan YO'QOLADI, "Показать
-    все" filtrida "passive" bo'lib ko'rinadi (MCP tasdiqlangan 2026-07-07)."""
+    все" filtrida "passive" bo'lib ko'rinadi."""
     m = BasePage(page)
     name = f"oprosniki-stat-{code}"
 
@@ -310,7 +310,7 @@ def run_oprosniki_duplicate(page: Page, code) -> None:
     """Bir xil nom bilan qayta yaratishga urinish xatolik berishini tekshiradi.
 
     Опросник nomi unikal: saqlashda "Ошибка" dialogi chiqadi — matnida
-    "dup_val_on_index" (backend xom xato matni, MCP tasdiqlangan 2026-07-07)."""
+    "dup_val_on_index"."""
     m = BasePage(page)
     name = f"oprosniki-dup-{code}"
 
@@ -351,7 +351,7 @@ def test_oprosniki_duplicate(page: Page, code) -> None:
 
 
 def run_oprosniki_attach(page: Page, code) -> None:
-    """Savolni опросникка biriktirish/ajratish to'liq sikli (MCP 2026-07-07):
+    """Savolni опросникка biriktirish/ajratish to'liq sikli:
 
     1) Savol biriktiriladi: Прикрепление вопросов → Доступные tab →
        qator [role=checkbox] → "Прикрепить 1" → "Да" → Прикрепленные tabда
@@ -371,7 +371,7 @@ def run_oprosniki_attach(page: Page, code) -> None:
         m.expect_heading("Опросник (прикрепление вопросов)")
 
     with allure.step(f"Доступные tabда '{question}' ni tanlab biriktirish"):
-        # DIQQAT (2026-08-07): ilova bu tab nomini IKKI UI versiyasi orasida FLIP
+        # DIQQAT: ilova bu tab nomini IKKI UI versiyasi orasida FLIP
         # qiladi — yangi "Доступные" ↔ eski "Неприкреплённые" (аттач tab: "Прикрепленные"
         # ↔ "Прикреплённые"). Bir run'да "Доступные", boshqasida "Неприкреплённые"
         # chiqadi (SANA emas, server UI-holatiga bog'liq flip) — ikkalasini ham qabul
@@ -380,7 +380,7 @@ def run_oprosniki_attach(page: Page, code) -> None:
         row = m.grid_row(question)
         row.locator("[role=checkbox]").first.click()
         # UI tugma nomi ilova versiyalari orasida almashadi: "Прикрепить 1" (qavssiz,
-        # 2026-07-31) ↔ "Прикрепить (1)" (qavs bilan, 2026-08-10 prod) — ikkalasini
+        # 2026-07-31) ↔ "Прикрепить (1)" — ikkalasini
         # ham qabul qiladigan regex (UI yana almashsa ham chidasin).
         m.click_button(re.compile(r"^Прикрепить\s*\(?1\)?$"))
         m.confirm("да")

@@ -37,11 +37,10 @@ def run_cooperation(page: Page, code) -> None:
 
     with allure.step(f"'{client_name}' ga hamkorlik so'rovi yuborish"):
         # DIQQAT: bu tab'da qidiruv ISHLATILMAYDI — backend recommended_clients
-        # so'rovida yo'q client_code ustuni bo'yicha filtr yuboradi va 500 qaytadi
-        # (FAZO_QUERY: Field not found [client_code], MCP tasdiqlangan 2026-07-07).
+        # so'rovida yo'q client_code ustuni bo'yicha filtr yuboradi va 500 qaytadi.
         # Ro'yxat baribir kichik: faqat shu run'ning Region/Отрасль'iga mos klientlar.
         #
-        # POYGA (trace 2026-07-10): "Клиент" bosilgach grid avval "Мои клиенты"
+        # POYGA: "Клиент" bosilgach grid avval "Мои клиенты"
         # ma'lumotini (client_list:supplier_clients) yuklaydi. Shu so'rov tugamasidan
         # "Рекомендованные клиенты" bosilsa grid ESKI ustunlar (has_active_deal,
         # client_code) bilan so'rov yuboradi — backend "FAZO_QUERY: Field not found
@@ -50,7 +49,7 @@ def run_cooperation(page: Page, code) -> None:
         # ustun holati yangilanmaydi (2026-07-10 run trace'ida 4 urinishning
         # hammasi eski ustunlar bilan 500). Shuning uchun har tab bosishdan OLDIN
         # _settle (loader + networkidle) bilan joriy grid so'rovi tugashi kutiladi
-        # — inson tezligida MCP bilan tasdiqlangan, hammasi 200 (2026-07-10).
+        # — inson tezligida MCP bilan tasdiqlangan, hammasi 200.
         row = page.locator(".smt-data-row").filter(has_text=client_name).first
         for _ in range(3):
             m.settle()

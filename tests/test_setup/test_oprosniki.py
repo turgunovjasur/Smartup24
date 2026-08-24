@@ -19,7 +19,7 @@ OPROS_END = (date.today() + timedelta(days=31)).strftime("%d.%m.%Y")
 
 
 def run_oprosniki(page: Page, code, name=None) -> None:
-    """Yangi Опросник yaratadi. Forma yangilangan (MCP tasdiqlangan 2026-07-07):
+    """Yangi Опросник yaratadi. Forma yangilangan:
     "Дата начала" va "Конец" endi MAJBURIY (smt-date-picker, sana matn
     sifatida yoziladi)."""
     m = BasePage(page)

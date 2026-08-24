@@ -2,7 +2,7 @@
 
 Вопросы ro'yxati sarlavhasidagi "Тип вопроса" sub-nav bo'limi (biruni
 ``quiz_type_list``). Sodda справочnik: Статус switch, Код, Название *,
-Порядок (MCP tasdiqlangan 2026-08-21).
+Порядок.
 """
 import allure
 from playwright.sync_api import Page

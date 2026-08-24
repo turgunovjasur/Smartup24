@@ -8,7 +8,7 @@ yashil. Bu yerda AKSINCHA: majburiy maydon bo'sh → yozuv YARATILMASLIGI kerak.
 Bunday testlar eng ko'p haqiqiy bug ushlaydi (masalan "Код" majburiy bo'lib
 qo'shilgach jim bloklab qo'ygan holat — xotira: region-kod-required-field).
 
-IKKI XIL BLOKLASH XATTI-HARAKATI (MCP tasdiqlangan 2026-08-03)
+IKKI XIL BLOKLASH XATTI-HARAKATI
 -------------------------------------------------------------
 Ilova ikki xil yo'l bilan bloklaydi — shuning uchun assertion ham ikki xil:
 
@@ -47,7 +47,7 @@ from utils.base_page import BasePage
 def run_region_required(page: Page, code) -> None:
     """Регион: faqat Название to'ldirilib, majburiy "Код" bo'sh qoldiriladi.
     Сохранить bosilganда forma JIM bloklanadi (dialog yo'q, redirect yo'q) —
-    create sarlavhasida qoladi va ro'yxatга yozuv qo'shilmaydi (MCP 2026-08-03)."""
+    create sarlavhasida qoladi va ro'yxatга yozuv qo'shilmaydi."""
     m = BasePage(page)
     name = f"neg-region-{code}"
 
@@ -87,7 +87,7 @@ def run_supplier_required(page: Page, code) -> None:
     """Поставщик (person+add): barcha majburiy maydon (Название/ИНН/Тип/...) bo'sh
     qoldirilib Сохранить bosiladi. Person moduli JIM bloklamaydi — "Ошибка"
     dialogi chiqaradi ("Пожалуйста, выберите хотя бы один тип!"). Dialog yopilgач
-    forma create sarlavhasida qoladi (MCP tasdiqlangan 2026-08-03)."""
+    forma create sarlavhasida qoladi."""
     m = BasePage(page)
 
     with allure.step("Навигация: Модератор → Поставщики → Создать"):

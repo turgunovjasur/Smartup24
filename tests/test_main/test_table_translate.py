@@ -1,7 +1,7 @@
 """Перевод строки таблицы (Модератор → Главное, biruni md/table_translate_list) —
 jadval yozuvlari tarjimasi testi.
 
-MCP bilan real DOM'da tasdiqlangan (2026-08-07, PROD/test):
+MCP bilan real DOM'da tasdiqlangan:
 
 Bu modul CREATE-CRUD EMAS — oldindan belgilangan tizim jadvallarining ustun/yozuv
 nomlarini tillarga (uz/ru/en) tarjima qilish. "Создать" YO'Q.
@@ -52,7 +52,7 @@ def run_table_translate(page: Page, code) -> None:
         _open_records(page, m)
 
     # uz/ru/en maydonlari oddiy input EMAS, <textarea placeholder="uz|ru|en"> —
-    # BasePage label bilan topmaydi, raw locator (MCP tasdiqlangan 2026-08-07).
+    # BasePage label bilan topmaydi, raw locator.
     uz = page.locator('textarea[placeholder="uz"]').first
     expect(uz).to_be_visible()
     original = uz.input_value()  # baseline — oxirida tiklanadi

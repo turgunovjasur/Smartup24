@@ -2,7 +2,7 @@
 
 Товары ro'yxati sarlavhasidagi "Типы упаковок" sub-nav bo'limi (biruni
 ``box_type_list``). Sodda справочnik: Статус switch, Код, Название *,
-Альтернативное название, Краткое название (MCP tasdiqlangan 2026-08-21).
+Альтернативное название, Краткое название.
 Производители bilan bir xil naqsh — Товары bo'limidan chiqadi.
 """
 import allure
@@ -32,7 +32,7 @@ def run_box_type(page: Page, code) -> None:
     with allure.step(f"Форма: Название = {name}, Краткое название = bt{code}"):
         # "Краткое название" bo'sh qolsa server uni Название'dan avto-to'ldirib
         # ~10 belgigacha kesadi va dublikat ("уже используется") beradi — qisqa
-        # unikal qiymat beramiz (MCP tasdiqlangan 2026-08-21).
+        # unikal qiymat beramiz.
         m.input(smtid="name", value=name)
         m.input(smtid="short_name", value=f"bt{code}")
 

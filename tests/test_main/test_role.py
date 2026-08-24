@@ -1,6 +1,6 @@
 """Роли (Модератор → Роли, biruni role_list) — CRUD testlari.
 
-test_organization.py patterni. Biruni farqlar (MCP tasdiqlangan 2026-07-20):
+test_organization.py patterni. Biruni farqlar:
 - komponentlarda smtid BOR (role-name, role-order-no) — filialdan farqli;
   "Порядок" oddiy type=number input (maskasiz, fill ishlaydi).
 - sarlavhalar: "Роль (создание)" / "Роль (изменение)" / "Роль (Просмотр)"
@@ -33,7 +33,7 @@ def run_role(page: Page, code, name=None) -> dict:
         name = f"Role-{code}"
     # Порядок ustuni bazada kichik precision'li — 7 xonali qiymatda server
     # "PL/SQL: numeric or value error: number precision too large" qaytaradi
-    # (zanjir code'i 7 xonali), 4 xona bilan cheklaymiz (2026-07-20)
+    # (zanjir code'i 7 xonali), 4 xona bilan cheklaymiz
     order_no = str(code)[-4:]
 
     with allure.step("Навигация: Модератор → Роли"):
@@ -47,7 +47,7 @@ def run_role(page: Page, code, name=None) -> dict:
     with allure.step(f"Форма: Название = {name}, Порядок = {order_no}"):
         m.input(label="Название", value=name)
         # Tartib maydoni: prod'da label "Порядок"дан "Порядковый номер"ga o'zgargan
-        # (MCP 2026-08-06) — barqaror smtid ishlatamiz (label'ga bog'liq emas).
+        # — barqaror smtid ishlatamiz (label'ga bog'liq emas).
         m.input(smtid="role-order-no", value=order_no)
 
     with allure.step("Сохранить va ro'yxatda tekshirish"):
@@ -124,7 +124,7 @@ def run_role_view(page: Page, code) -> None:
         m.click_grid_row(name)
         m.click_button("Просмотр")
         # Просмотр biruni forma — stale-heading race'ni oldini olish uchun view URL'ini
-        # kutamiz (aks holda ro'yxatga qaytib qolib, qiymat topilmaydi — 2026-08-10)
+        # kutamiz
         page.wait_for_url(re.compile(r"role_view"), timeout=30_000)
         m.settle()
         m.expect_heading("Роль (Просмотр)")
@@ -133,7 +133,7 @@ def run_role_view(page: Page, code) -> None:
         # PROD'da Просмотр forma maydonlari label-bog'liq smt-input EMAS, oddiy
         # (label'siz) readonly textbox'lar va biruni forma #main-content'да EMAS —
         # qiymatni label bo'yicha ham, #main-content scope bilan ham o'qib bo'lmaydi
-        # (2026-08-10). Shuning uchun BUTUN page textbox'lari orasidan qidiramiz.
+        #. Shuning uchun BUTUN page textbox'lari orasidan qidiramiz.
         values = {(tb.input_value() or "").strip()
                   for tb in page.get_by_role("textbox").all()}
         assert data["name"] in values, f"Название '{data['name']}' view'da yo'q: {values}"
@@ -307,7 +307,7 @@ def test_role_delete(page: Page, code) -> None:
 def run_role_duplicate(page: Page, code) -> None:
     """Bir xil Название bilan qayta yaratishga urinish xatolik berishini
     tekshiradi — server "dup_val_on_index" (md_roles) Ошибка dialogini
-    qaytaradi (MCP tasdiqlangan 2026-07-20)."""
+    qaytaradi."""
     m = BasePage(page)
     name = f"Role-dup-{code}"
 

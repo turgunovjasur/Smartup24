@@ -2,7 +2,7 @@
 
 Forma: Модератор → Документы → Анализ маршрутов
 URL: /x24/a2/sb/rep/sbd/route_analysis
-Elementlar (MCP/exploration dev/sm24 2026-07-29 tasdiqlangan):
+Elementlar:
   - "Тип отчёта" — 7 variant ([role=radio], ko'rinadigan <label> matni bo'yicha
     tanlanadi; default "Анализ маршрутов").
   - "Начало *" / "Конец *" — smt-date-picker (majburiy), matn "dd.mm.yyyy".
@@ -173,7 +173,7 @@ def _load_sheet(path: str) -> tuple[list[str], list[tuple]]:
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     try:
         # Hisobotда yagona sheet bor — nomi ilova versiyasida o'zgarishi mumkin
-        # (2026-08-05 "Анализ маршрутов"), shuning uchun NOMGA tayanmay birinchisini
+        #, shuning uchun NOMGA tayanmay birinchisini
         # olamiz (kelajakdagi qayta nomlashga chidamli).
         ws = wb[wb.sheetnames[0]]
         rows = list(ws.iter_rows(values_only=True))

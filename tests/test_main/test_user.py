@@ -1,6 +1,6 @@
 """Пользователи — CRUD testlari.
 
-DIQQAT: Пользователи moduli IKKI joyda bor (MCP tasdiqlangan 2026-07-23, dev sm24):
+DIQQAT: Пользователи moduli IKKI joyda bor:
 - Модератор → Пользователи  =  person/user_list — bu yerда yaratilgan user sb
   proyekt filialiga AVTOMATIK biriktiriladi (sbr_users_f1) va O'CHIRIB BO'LMAYDI
   ("child record found" Ошибка).
@@ -105,7 +105,7 @@ def run_user_full(page: Page, code) -> None:
         m.input(label="Логин", value=login)
         m.input(label="Пароль", value="1")
         m.input(label="Код", value=f"code-{code}")
-        # Email maydoni: prod'da label "Эл. адрес"дан "Email"ga o'zgargan (MCP 2026-08-06)
+        # Email maydoni: prod'da label "Эл. адрес"дан "Email"ga o'zgargan
         m.input(label="Email", value=f"{login}@example.com")
         m.radio("Женский", label="Пол")
 

@@ -1,4 +1,4 @@
-"""Визиты moduli E2E testlari — noldan qayta yozilgan (MCP bilan prod'da o'rganib).
+"""Визиты moduli E2E testlari — noldan qayta yozilgan.
 
 Muhit: PRODUCTION (app.smartup24.com, kompaniya `test`). Barcha selektorlar 2026-08-05
 da Playwright MCP orqali jonli DOM'da tasdiqlangan.
@@ -23,7 +23,7 @@ Qamrov (run_* biznes logika + test_* login+run juftligi, oxirida test_visit_all 
   6. run_visit_form_default        — "Форма визита" default'da YOQILGAN (asosiy
                             funksiya) ekanini tasdiqlaydi.
 
-MCP topilmalari (2026-08-05, prod) — TASK PREMISASIDAN FARQLAR:
+MCP topilmalari — TASK PREMISASIDAN FARQLAR:
   * "Роли визитов" sub-nav'da (Шаги визита OLIB TASHLANGAN): Лиды / Причины / Роли визитов.
   * Rol qatorini bosganда inline panel: "Критерии" + "Bизит" (B — LOTIN harfi!).
     IKKALA rol (Агент/Модератор) ham ikkала tugmaga ega — task'dagi "Moderator faqat
@@ -147,7 +147,7 @@ def _open_role_criteria(page: Page, m: BasePage, role: str = SAFE_ROLE):
 
 def _save_criteria(page: Page, m: BasePage) -> None:
     """Критерии konfiguratsiyasini saqlaydi. Функции визитдан FARQLI — save AYNAN
-    shu ekranда qoladi (dashboard'ga redirect YO'Q, MCP prod 2026-08-15), shuning
+    shu ekranда qoladi, shuning
     uchun URL o'zgarishini emas, loader tinishini kutamiz."""
     m.click_button("Сохранить")
     m.wait_for_loader()
@@ -246,7 +246,7 @@ def run_visit_reason(page: Page, code: str) -> None:
     with allure.step(f"Создать: {name}"):
         m.open_create()
         m.expect_heading("Причина (Создание)")
-        # "Название *" inputi smtid'siz/label'siz — id="null" (MCP real DOM'дан)
+        # "Название *" inputi smtid'siz/label'siz — id="null"
         page.locator("#null").fill(name)
         m.save()
         m.expect_heading("Причины")
@@ -357,7 +357,7 @@ def run_visit_criteria_roundtrip(page: Page, code) -> None:
     uchun "kriteriy visitда qo'llandi"ni web'да tekshirib bo'lmaydi — SAQLASH↔O'QISH
     mutanosibligi tekshiriladi (Функции визита round-trip bilan bir xil dizayn).
 
-    Ekran (MCP prod 2026-08-15): "Добавить критерий" → Критерий #1 bloki (Активный
+    Ekran: "Добавить критерий" → Критерий #1 bloki (Активный
     switch, Удалить, Название * smt-input); "Добавить требование" → Требование #1
     (Название * + Правила smt-input). Удалить darhol o'chiradi (tasdiqlash YO'Q),
     Сохранить bilan serverга yoziladi. Kriteriy Удалить ichidagi Требованиени ham
@@ -400,7 +400,7 @@ def run_visit_form_default(page: Page) -> None:
     """"Форма визита" — asosiy funksiya, default'da YOQILGAN bo'lishini tasdiqlaydi.
 
     DIQQAT: bu ekranда "Форма визита"ni yechib all-off saqlash TEXNIK jihatdan
-    mumkin (server bloklamaydi — MCP prod 2026-08-05); shuning uchun "o'chirib
+    mumkin; shuning uchun "o'chirib
     bo'lmaydi" degan negative test o'rniga default-yoqilgan HAQIQIY holat
     hujjatlashtiriladi."""
     m = BasePage(page)

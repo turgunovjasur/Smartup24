@@ -3,8 +3,7 @@
 Basic create (run_currency/test_currency) tests/test_setup/test_currency.py da
 turadi — bu yerda faqat CRUD ssenariylari: full create, edit, view, delete,
 status, duplicate. Har test o'z unikal Код bilan ishlaydi (kod prefikslari:
-1..7 + {code}). Kod test_setup dan ko'chirilgan ishlaydigan nusxa
-(MCP tasdiqlangan 2026-07-05).
+1..7 + {code}). Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 
 import allure
@@ -19,7 +18,7 @@ from utils.base_page import BasePage
 def run_currency_full(page: Page, code) -> None:
     """Валюта formasining BARCHA maydonlari bilan yaratish: Код, Название,
     Базовая/Разменная денежная единица, Постфикс radio + qo'shimcha matn,
-    Статус (MCP tasdiqlangan 2026-07-05)."""
+    Статус."""
     m = BasePage(page)
     name = f"val-full-{code}"
     kod = f"1{code}"
@@ -36,7 +35,7 @@ def run_currency_full(page: Page, code) -> None:
         m.input(smtid="code", value=kod)  # label "Код" ikkinchi formada "Код сервера" ga aralashadi
         m.input(label="Название", value=name)
         # Базовая денежная единица bazada GLOBAL unikal ("уже используется"
-        # xatosi) — har run o'z qiymatini ishlatadi (2026-07-07 regression)
+        # xatosi) — har run o'z qiymatini ishlatadi
         m.input(label="Базовая денежная единица", value=f"so`m{kod}")
         m.input(label="Разменная денежная единица", value=f"tiyin{kod}")
         m.radio("Постфикс", label="Префикс")
@@ -118,7 +117,7 @@ def test_currency_edit(page: Page, code) -> None:
 
 def run_currency_view(page: Page, code) -> None:
     """Yangi currency yaratib, Просмотр formasida qiymatlar to'g'ri
-    ko'rsatilishini tekshiradi (readonly cv_* inputlar, MCP 2026-07-05).
+    ko'rsatilishini tekshiradi.
 
     Diqqat: currencyda tugma "Просмотреть" emas, "Просмотр" deb nomlangan."""
     m = BasePage(page)
@@ -191,7 +190,7 @@ def run_currency_status(page: Page, code) -> None:
     """Status ikki yo'nalishda tekshiriladi. Валютада status qator action
     paneldagi MAQSAD status nomidagi toggle tugma bilan almashtiriladi
     (tasdiqlash: "да"). Tugma va grid badge nomlari INGLIZCHA "passive"/
-    "active" (opros modulidagi pattern; regression 2026-07-08).
+    "active".
 
     1) Aktiv yaratilgan currency passive qilinadi — default ro'yxatdan
        yo'qoladi, "Показать все"da "passive" ko'rinadi.
@@ -244,7 +243,7 @@ def run_currency_duplicate(page: Page, code) -> None:
     """Bir xil Код bilan qayta yaratishga urinish xatolik berishini tekshiradi.
 
     Код unikal: saqlashda "Ошибка" dialogi chiqadi — matni "Этот код уже
-    используется (код: X) Попробуйте другой" (MCP tasdiqlangan 2026-07-05)."""
+    используется (код: X) Попробуйте другой"."""
     m = BasePage(page)
     name = f"val-dup-{code}"
     kod = f"7{code}"

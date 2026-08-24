@@ -4,9 +4,9 @@
 Loyiha uslubida qayta yozilgan (avval xom Playwright codegen edi: buzuq login
 `admin2sm24`, dinamik `#cdk-drop-list-N`/`ng.formN.*` selektorlari, unikal bo'lmagan
 nomlar). Endi: authorization/flow_navigate/BasePage/allure, unikal `code` nomlari,
-barqaror selektorlar (MCP dev/sm24 2026-08-03 tasdiqlangan).
+barqaror selektorlar.
 
-Modul xususiyatlari (MCP tasdiqlangan):
+Modul xususiyatlari:
 - Yaratish tugmasi "Создать" EMAS, **"Добавить"** (exact) — heading "Группа полей (Создания)".
 - Forma: Статус switch, Название * (smt-input), Порядковый номер (spinbutton, ixtiyoriy).
 - Ro'yxat — standart grid (Название | Порядковый номер | Создал | Статус=Активный/Неактивный).
@@ -173,7 +173,7 @@ def run_field_group_subtypes(page: Page, code) -> None:
         # yo'q bo'lmaydi. _settle'siz keyingi click_button("Добавить").first aynan
         # STALE guruh-ro'yxat "Добавить"ini bosib, field_group+add (guruh yaratish)
         # formasini ochib yuborardi — heading "Группа полей (Создания)" bo'lib flaky
-        # yiqilardi (runner test_013, 2026-08-05). field_list URL + settle bilan
+        # yiqilardi. field_list URL + settle bilan
         # stale outlet yo'qolguncha kutamiz, keyingina to'g'ri "Добавить" bosiladi.
         page.wait_for_url(re.compile(r"field_list"), timeout=30_000)
         m.settle()
@@ -244,7 +244,7 @@ def test_field_group_delete(page: Page, code) -> None:
 def run_field_group_required(page: Page, code) -> None:
     """Negativ: majburiy "Название" bo'sh qoldirilib Сохранить bosiladi. Modul JIM
     bloklaydi (dialog YO'Q, redirect YO'Q) — forma create sarlavhasida qoladi va
-    yozuv YARATILMAYDI (MCP tasdiqlangan 2026-08-03)."""
+    yozuv YARATILMAYDI."""
     m = BasePage(page)
 
     with allure.step("Навигация: Модератор → Группа полей → Добавить"):
@@ -281,7 +281,7 @@ def test_field_group_required(page: Page, code) -> None:
 def run_field_group_duplicate(page: Page, code) -> None:
     """Bir xil nom bilan qayta yaratishга urinish xatolik berishini tekshiradi.
     Nom unikal (sbr_field_groups company_id+name indeksi): saqlashда "Ошибка"
-    dialogi chiqadi — matnida "dup_val_on_index" (MCP tasdiqlangan 2026-08-03).
+    dialogi chiqadi — matnida "dup_val_on_index".
     Yozuv YARATILMAYDI (ro'yxatда faqat bitta qoladi)."""
     m = BasePage(page)
     name = f"fg-dup-{code}"

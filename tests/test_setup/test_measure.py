@@ -33,7 +33,7 @@ def run_measure(page: Page, code) -> str:
     with allure.step(f"Форма: Название = {name}, Краткое название = mu{code} (Знаков после запятой = default 0)"):
         # "Краткое название" bo'sh qolsa server uni Название'dan avto-to'ldirib
         # ~10 belgigacha kesadi va dublikat beradi — qisqa unikal qiymat beramiz
-        # ("Знаков после запятой" smt-select default "0" bilan qoladi, MCP 2026-08-21).
+        #.
         m.input(smtid="name", value=name)
         m.input(smtid="short_name", value=f"mu{code}")
 

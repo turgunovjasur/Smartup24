@@ -3,7 +3,7 @@
 Basic create (run_region/test_region) tests/test_setup/test_region.py da
 turadi — bu yerda faqat CRUD ssenariylari: edit, view, delete, status,
 duplicate. Region hech qanday tashqi ma'lumotnomaga bog'liq emas.
-Kod test_setup dan ko'chirilgan ishlaydigan nusxa (MCP tasdiqlangan 2026-07-05).
+Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 import random
 
@@ -39,7 +39,7 @@ def run_region_full(page: Page, code) -> None:
     kod = str(random.randint(10**8, 10**9 - 1))  # Код GLOBAL unikal bo'lishi kerak
 
     with allure.step(f"Форма (barcha maydonlar): Код = {kod}, Название = {name}, Статус = Активный"):
-        # "Код *" MAJBURIY (2026-07-30). smtid ISHLATILADI: ikkinchi create formada
+        # "Код *" MAJBURIY. smtid ISHLATILADI: ikkinchi create formada
         # yonidagi label "Код сервера *" ga aralashadi → `label="Код"` topolmaydi.
         m.input(smtid="region-code", value=kod)
         m.input(smtid="region-name", value=name)
@@ -265,7 +265,7 @@ def run_region_duplicate(page: Page, code) -> None:
     """Bir xil nom bilan qayta yaratishga urinish xatolik berishini tekshiradi.
 
     Region nomi unikal: saqlashda "Ошибка" dialogi chiqadi — matni
-    "Название региона уже существует" (MCP tasdiqlangan 2026-07-05)."""
+    "Название региона уже существует"."""
     m = BasePage(page)
     name = f"Region-dup-{code}"
 

@@ -3,9 +3,9 @@
 Basic create (run_shablon/test_shablon) tests/test_setup/test_shablon.py da
 turadi — bu yerda faqat CRUD ssenariylari: full create, edit, view, delete,
 status, hisobot sahifasi. Dublikat testi YO'Q: ilova bir xil nomli shablonlarni
-yaratishga RUXSAT beradi (unikal cheklov yo'q, MCP tasdiqlangan 2026-07-07).
+yaratishga RUXSAT beradi.
 
-Modul xususiyatlari (MCP tasdiqlangan 2026-07-07):
+Modul xususiyatlari:
 - Forma: Название* (smtid=name), Описание (smt-textarea smtid=description),
   Статус switch; "Вопросы" bo'limi — "Добавить" tugmasi qator qo'shadi, qatorda
   LABEL'siz smt-data-select (savol tanlash, placeholder "Поиск") va "Удалить".
@@ -151,7 +151,7 @@ def run_shablon_view(page: Page, code) -> None:
     """Yangi shablon yaratib, saqlangan qiymatlar to'g'ri ekanini tekshiradi.
 
     Шаблон qatorida "Просмотр" tugmasi YO'Q — "Открыть" yozuvni emas, hisobot
-    sahifasini ochadi (MCP tasdiqlangan 2026-07-07). Shuning uchun qiymatlar
+    sahifasini ochadi. Shuning uchun qiymatlar
     Изменить formasida (saqlamasdan) tekshiriladi."""
     m = BasePage(page)
     name = f"Shablon-view-{code}"
@@ -188,7 +188,7 @@ def test_shablon_view(page: Page, code) -> None:
 def run_shablon_report(page: Page, code) -> None:
     """Qator panelidagi "Открыть" hisobot sahifasini ochishini tekshiradi:
     heading "Отчет по опросу", Параметры/История bo'limlari va "Сформировать"
-    tugmasi (MCP tasdiqlangan 2026-07-07). Hisobot generatsiya QILINMAYDI —
+    tugmasi. Hisobot generatsiya QILINMAYDI —
     faqat sahifa ochilishi tekshiriladi."""
     m = BasePage(page)
     name = f"Shablon-rep-{code}"
@@ -257,7 +257,7 @@ def test_shablon_delete(page: Page, code) -> None:
 def run_shablon_status(page: Page, code) -> None:
     """Status toggle tugmasi orqali o'zgartiriladi (tugma nomi MAQSAD statusi,
     tasdiqlash "Да"). Passiv shablon default ro'yxatdan YO'QOLADI, "Показать
-    все" filtrida "passive" bo'lib ko'rinadi (MCP tasdiqlangan 2026-07-07)."""
+    все" filtrida "passive" bo'lib ko'rinadi."""
     m = BasePage(page)
     name = f"Shablon-stat-{code}"
 

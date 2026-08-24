@@ -1,6 +1,6 @@
 """Документы bo'limi uchun umumiy runner — test_document ичидаги barcha testlar
 ALOHIDA Allure testlar bo'lib, bitta seansda (bitta admin login) ketma-ket ishga
-tushadi. Root ``tests/test_all_runner.py`` bilan bir xil dizayn (2026-08-05).
+tushadi. Root ``tests/test_all_runner.py`` bilan bir xil dizayn.
 
 DIZAYN (test_all_runner.py bilan bir xil)
 -----------------------------------------

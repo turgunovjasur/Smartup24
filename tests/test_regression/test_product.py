@@ -3,7 +3,7 @@
 Basic create (run_product/test_product) tests/test_setup/test_product.py da
 turadi — bu yerda faqat CRUD ssenariylari: full create, edit, view, delete,
 status. Dublikat testi YO'Q: ilova bir xil nom va Код bilan produkt
-yaratishga RUXSAT beradi (unikal cheklov yo'q, MCP tasdiqlangan 2026-07-05).
+yaratishga RUXSAT beradi.
 Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 import random
@@ -25,7 +25,7 @@ _manufacturer_ready = set()
 def ensure_product_refs(page: Page, code) -> None:
     """Product testlari uchun ma'lumotnomalarni seansda bir marta yaratadi:
     ensure_refs (Region/MCHJ/Industry/Category-{code}) + Manufacturer-{code}.
-    O'lchov birligi ("кг") tizimda global mavjud (кг/уп/шт — MCP 2026-07-05)."""
+    O'lchov birligi ("кг") tizimda global mavjud."""
     ensure_refs(page, code)
     if code not in _manufacturer_ready:
         run_manufacturer(page, code)
@@ -46,7 +46,7 @@ def run_product_full(page: Page, code) -> None:
     производство, Статус, measure, Тип упаковки, Кол-во в упаковке, Артикул,
     Штрих-код, ИКПУ, ГТИН), Вес tab (нетто/брутто, Литр), Характеристика tab
     (Категории, Отрасль). "Бренд" selecti to'ldirilmaydi — muhitdagi alohida
-    lug'atga bog'liq (MCP tasdiqlangan 2026-07-05)."""
+    lug'atga bog'liq."""
     ensure_product_refs(page, code)
     m = BasePage(page)
     name = f"product-full-{code}"

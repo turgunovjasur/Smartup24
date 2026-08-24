@@ -3,7 +3,7 @@
 Basic create (run_territory/test_territory) tests/test_setup/test_territory.py
 da turadi — bu yerda faqat CRUD ssenariylari: edit, view, delete, status.
 Dublikat testi YO'Q: ilova bir xil nomli territoriyalarni yaratishga RUXSAT
-beradi (unikal cheklov yo'q, MCP tasdiqlangan 2026-07-05).
+beradi.
 Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 

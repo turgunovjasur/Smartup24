@@ -2,7 +2,7 @@
 
 Юридическое лицо ro'yxati sarlavhasidagi "Характеристики (Юр. лица)" sub-nav
 bo'limi (biruni ``person_group_list``). Sodda справочnik: Статус switch, Код,
-Название * (MCP tasdiqlangan 2026-08-21). Форма собственности bilan bir xil
+Название *. Форма собственности bilan bir xil
 naqsh — Юридическое лицо bo'limidan chiqadi.
 """
 import allure

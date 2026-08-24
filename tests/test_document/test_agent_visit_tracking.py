@@ -11,7 +11,7 @@ TEST CASE (4 qadam)
 4) UI  — Модератор → Отслеживание пользователей: sana avtomatik bugungi, agent
          tanlanadi, 2 ta visit ("Визиты (2)") ko'rinishi tekshiriladi.
 
-3-QADAM — MAVJUD API TESTIDAN NIMA OLINDI / NIMA O'ZGARDI (MCP dev/sm24 2026-08-03)
+3-QADAM — MAVJUD API TESTIDAN NIMA OLINDI / NIMA O'ZGARDI
 --------------------------------------------------------------------------------
 - OLINDI: `cookie_from_context(ctx, login, parol)` — agent sifatida login qilib
   JSESSIONID cookie'sini oladi (test_Plan_visit_recurrence.py da ALLAQACHON
@@ -75,7 +75,7 @@ IMPORT_URL = f"{BASE_URL}/sb/external:import"
 def create_weekly_plan_5_points(page: Page, agent: str) -> str:
     """Agentга "Каждую неделю" (BUGUNGI hafta kuni) reja yaratib, ``N_POINTS`` ta
     chanani biriktiradi va saqlaydi. Agentning user_id (Планы URL'idan) ni
-    qaytaradi — 3-qadam API visitlari uchun kerak (MCP tasdiqlangan 2026-08-03).
+    qaytaradi — 3-qadam API visitlari uchun kerak.
 
     Chana qo'shish: har "Доступные" qatorining o'z "Добавить" tugmasi bor; bosilgач
     qator "Выбранные"ga o'tadi va ro'yxat QAYTA INDEKSLANADI — shuning uchun birinchi
@@ -225,7 +225,7 @@ def _count_map_markers(page: Page) -> int:
 def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> None:
     """Отслеживание пользователей: sana avtomatik BUGUNGI, agent tanlanadi va
     o'ng paneldagi "Визиты (N)" bajarilgan visitlar soniga teng ekani tekshiriladi
-    (N=expected_visits). Xarita markerlari best-effort qayd etiladi (MCP 2026-08-03)."""
+    (N=expected_visits). Xarita markerlari best-effort qayd etiladi."""
     m = BasePage(page)
 
     with allure.step("Модератор → Отслеживание пользователей"):

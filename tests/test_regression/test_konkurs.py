@@ -3,7 +3,7 @@
 Basic create (run_konkurs/test_konkurs) tests/test_setup/test_konkurs.py da
 turadi — bu yerda faqat CRUD ssenariylari: full create, edit, view, delete,
 status. Dublikat testi YO'Q: ilova bir xil nomli konkurslarni yaratishga
-RUXSAT beradi (unikal cheklov yo'q, MCP tasdiqlangan 2026-07-05).
+RUXSAT beradi.
 Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 from datetime import date, timedelta
@@ -162,7 +162,7 @@ def test_konkurs_edit(page: Page, code) -> None:
 
 def run_konkurs_view(page: Page, code) -> None:
     """Yangi konkurs yaratib, Просмотр formasida qiymatlar to'g'ri
-    ko'rsatilishini tekshiradi (readonly cv_main_* inputlar, MCP 2026-07-05).
+    ko'rsatilishini tekshiradi.
 
     Diqqat: konkursda tugma "Просмотреть" emas, "Просмотр" deb nomlangan."""
     m = BasePage(page)
@@ -230,8 +230,7 @@ def test_konkurs_delete(page: Page, code) -> None:
 def run_konkurs_status(page: Page, code) -> None:
     """Konkurs statusi bosqichma-bosqich o'zgartiriladi: Черновик (yaratilganda
     default) → Активный → Завершен. "Изменить статус" tugmasi menyu ochadi
-    (joriy statusdan boshqa variantlar), variant tanlangach tasdiqlash "да"
-    (MCP tasdiqlangan 2026-07-05)."""
+    (joriy statusdan boshqa variantlar), variant tanlangach tasdiqlash "да"."""
     m = BasePage(page)
     name = f"konkurs-stat-{code}"
 

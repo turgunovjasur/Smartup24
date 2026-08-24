@@ -7,7 +7,7 @@ to'xtamaydi — keyingisini ochadi va oxirida qaysi formalar ochilgani/xato
 bergani haqida to'liq hisobot beradi (konsolga + Allure attachmentga).
 
 Bu test MUSTAQIL — mavjud testlarga (test_all va h.k.) aralashmaydi.
-Formalar ro'yxati MCP bilan real menyudan aniqlangan (2026-07-01).
+Formalar ro'yxati MCP bilan real menyudan aniqlangan.
 """
 import re
 import sys
@@ -29,7 +29,7 @@ MODERATOR_FORMS = [
     # Справочники
     "Юридическое лицо", "Поставщики", "Клиенты", "Валюты", "Бонусная система", "Регионы",
     "Виды оплаты", "Товары", "Регистрационные запросы", "Конкурсы", "Tерритории",
-    "Вопросы", "Опросники", "Шаблоны отчетов по опросам",  # "Критерии" olib tashlangan (2026-07-30)
+    "Вопросы", "Опросники", "Шаблоны отчетов по опросам",  # "Критерии" olib tashlangan
     # Документы
     "Планирование визитов", "Визиты", "Анализ маршрутов", "Отслеживание пользователей", "Группа полей",
 ]

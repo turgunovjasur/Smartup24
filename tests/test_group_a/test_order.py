@@ -13,7 +13,7 @@ def _set_qty(page: Page, value: str = "2", *, attempts: int = 5) -> None:
     va qiymat TURG'UN bo'lguncha kutadi.
 
     Tovar tanlangач qator modeli serverdan KECHIKIB qayta yuklanib miqdorni 0 ga
-    qaytarishi mumkin (race, MCP/trace 2026-07-08). Oldin fixed 1200ms uyqu bilan
+    qaytarishi mumkin. Oldin fixed 1200ms uyqu bilan
     kutilardi va faqat BIR marta tekshirilardi — 1200ms dan KEYIN kelgan reset
     "o'tib ketib" save bosqichiga qolar edi. Endi qiymat ~1.5s oynada TURG'UN
     turishini polling bilan tasdiqlaymiz: har ~250ms o'qiymiz, birorta o'qishda
@@ -98,16 +98,16 @@ def run_order(page: Page, code, product_name=None) -> None:
         m.select(client_name, label="Торговые точки")
         m.select(supplier_name, label="Поставщики")
         # "Время доставки" savdo nuqtasi tanlangunicha disabled bo'ladi —
-        # shu tartibda to'ldirilishi shart (MCP tasdiqlangan 2026-07-17)
+        # shu tartibda to'ldirilishi shart
         m.input(label="Время доставки", value=delivery_time)
-        # "ДАЛЕЕ" tugmasi olib tashlangan — qadam tabi bosiladi (2026-07-17)
+        # "ДАЛЕЕ" tugmasi olib tashlangan — qadam tabi bosiladi
         m.wizard_step("Товары")
 
     with allure.step(f"2-qadam Товары: {product_name} tanlash, Кол-во = 2 → Завершение"):
         _fill_step2_and_advance(page, m, product_name)
 
     with allure.step("3-qadam Завершение: Тип оплаты = Наличные"):
-        # "Статус *" ham majburiy (dump 2026-07-30) — lekin default "Черновик"
+        # "Статус *" ham majburiy — lekin default "Черновик"
         # bilan to'lgan; faqat "Тип оплаты" tanlanadi.
         m.select("Наличные", label="Тип оплаты")
 
@@ -131,7 +131,7 @@ def run_order(page: Page, code, product_name=None) -> None:
                 m.wizard_step("Завершение")
 
     with allure.step(f"Ro'yxatda yangi order ({supplier_name} / {client_name} / Черновик) tekshirish"):
-        # Yangi order Черновик statusida yaratiladi (MCP tasdiqlangan 2026-07-17)
+        # Yangi order Черновик statusida yaratiladi
         m.grid_row(supplier_name, client_name, "Черновик")
 
 

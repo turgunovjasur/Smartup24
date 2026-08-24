@@ -3,7 +3,7 @@
 Basic create (run_bonus/test_bonus) tests/test_setup/test_bonus.py da turadi —
 bu yerda faqat CRUD ssenariylari: full create, edit, view, delete, status.
 Dublikat testi YO'Q: ilova bir xil nomli bonus tizimlarini yaratishga RUXSAT
-beradi (unikal cheklov yo'q, MCP tasdiqlangan 2026-07-05).
+beradi.
 Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 
@@ -22,7 +22,7 @@ def run_bonus_full(page: Page, code) -> None:
     """Бонусная система formasining BARCHA to'ldiriladigan maydonlari bilan
     yaratish: Название, Описание, Значение, Начало/Конец, Авто одобрение,
     Статус. "Валюта" maydoni readonly (default Узбекский сум), "Тип значения"
-    switch default holatda qoldiriladi (MCP tasdiqlangan 2026-07-05)."""
+    switch default holatda qoldiriladi."""
     m = BasePage(page)
     name = f"bonus-full-{code}"
 
@@ -206,7 +206,7 @@ def run_bonus_status(page: Page, code) -> None:
 
     with allure.step(f"1) '{active_name}' ni Неактивный qilish"):
         m.click_grid_row(active_name)
-        m.click_button("Неактивный")  # maqsad status toggle tugmasi (UI 2026-08-18)
+        m.click_button("Неактивный")  # maqsad status toggle tugmasi
         m.confirm("да")
 
     with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish"):
@@ -221,7 +221,7 @@ def run_bonus_status(page: Page, code) -> None:
 
     with allure.step(f"2) Passiv yaratilgan '{passive_name}' ni Активный qilish"):
         m.click_grid_row(passive_name)
-        m.click_button("Активный")  # maqsad status toggle tugmasi (UI 2026-08-18)
+        m.click_button("Активный")  # maqsad status toggle tugmasi
         m.confirm("да")
 
     with allure.step("2) Ro'yxatda 'Активный' bo'lib ko'rinishini tekshirish"):
