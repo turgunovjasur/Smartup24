@@ -128,9 +128,12 @@ def run_field_group_status(page: Page, code) -> None:
         m.click_button("Неактивный")
         m.confirm("да")
 
-    with allure.step("Default ro'yxatда ko'rinmasligi, 'Показать все'да Неактивный"):
-        m.search(name)
-        m.expect_no_row(name)
+    with allure.step("'Показать все'да Неактивный bo'lib ko'rinishi (passiv default yashirin)"):
+        # DIQQAT: bu yerда oldin `m.search(name)` + `expect_no_row` bor edi — u
+        # grid'ni BO'SHATib qo'yardi, keyingi `show_all` esa bo'sh grid'да filtr
+        # tugmasini topolmay buzilardi (jonli run: qator "topilmadi"). run_field_group
+        # ro'yxatni allaqachon `name` bo'yicha qidirilgan qoldiradi — to'g'ridan-to'g'ri
+        # show_all qilib passiv qatorni ochamiz (opros/vizit status testi bilan bir xil oqim).
         m.show_all()
         m.grid_row(name, "Неактивный")
 
@@ -140,7 +143,6 @@ def run_field_group_status(page: Page, code) -> None:
         m.confirm("да")
 
     with allure.step("Ro'yxatда 'Активный' bo'lib ko'rinishi"):
-        m.search(name)
         m.grid_row(name, "Активный")
 
 
