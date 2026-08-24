@@ -739,6 +739,24 @@ class BasePage:
         """Publik: qator tanlanganini (action panel ochiq / checkbox belgilangan) bildiradi."""
         return self._grid_row_selected(row)
 
+    def expect_no_row(self, text, *, row_selector=".smt-data-row"):
+        """Grid'да matnли qator YO'Qligini tasdiqlaydi (delete/edit/status testlari)."""
+        expect(self.page.locator(row_selector).filter(has_text=text)).to_have_count(0)
+
+    def expect_row_count(self, text, count, *, row_selector=".smt-data-row"):
+        """Grid'да matnли qatorlar soni aniq ``count`` ekanini tasdiqlaydi (dublikat: 1)."""
+        expect(self.page.locator(row_selector).filter(has_text=text)).to_have_count(count)
+
+    def expect_error_dialog(self, *substrings, close=True):
+        """Ошибка dialogi berilgan ``substrings`` matnlarini o'z ichiga olishini
+        tasdiqlaydi va (``close=True``) "Закрыть" bilan yopadi — dublikat/negativ
+        testlar uchun. Dialog ``.cdk-overlay-container`` ichida."""
+        dialog = self.page.locator(".cdk-overlay-container")
+        for text in substrings:
+            expect(dialog).to_contain_text(text)
+        if close:
+            dialog.get_by_role("button", name="Закрыть").first.click()
+
     def click_grid_row(self, text, row_selector=".smt-data-row"):
         self._settle()
         row = self.grid_row(text, row_selector=row_selector)

@@ -8,7 +8,7 @@ Kod test_setup dan ko'chirilgan ishlaydigan nusxa.
 """
 
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -46,7 +46,7 @@ def run_territory_edit(page: Page, code) -> None:
 
     with allure.step(f"Eski nom '{old_name}' ro'yxatda YO'Q"):
         m.search(old_name)
-        expect(page.locator(".smt-data-row").filter(has_text=old_name)).to_have_count(0)
+        m.expect_no_row(old_name)
 
 
 @allure.epic("Модератор")
@@ -117,7 +117,7 @@ def run_territory_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatdan yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")
@@ -156,7 +156,7 @@ def run_territory_status(page: Page, code) -> None:
 
     with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish"):
         m.search(active_name)
-        expect(page.locator(".smt-data-row").filter(has_text=active_name)).to_have_count(0)
+        m.expect_no_row(active_name)
 
     with allure.step("1) Показать все filtrida 'passive' bo'lib ko'rinishi"):
         m.show_all()

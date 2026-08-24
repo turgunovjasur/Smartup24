@@ -132,7 +132,7 @@ def run_report_template_edit(page: Page, code) -> None:
         m.search(new_name)
         m.grid_row(new_name)
         m.search(old_name)
-        expect(page.locator(".smt-data-row").filter(has_text=old_name)).to_have_count(0)
+        m.expect_no_row(old_name)
 
 
 @allure.epic("Модератор")
@@ -214,7 +214,7 @@ def run_report_template_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatdan yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")

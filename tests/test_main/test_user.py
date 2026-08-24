@@ -25,7 +25,7 @@ Muhim jihatlar:
   TOGGLE, alohida menyu emas). O'chirish: "Удалить" → tasdiqlash "Да".
 """
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -215,7 +215,7 @@ def run_user_status(page: Page, code) -> None:
 
     with allure.step("Default ro'yxatda ko'rinmasligini tekshirish (passiv yashirin)"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
     with allure.step("'Показать все' filtrida Неактивный bo'lib ko'rinishi"):
         m.show_all()
@@ -253,7 +253,7 @@ def run_user_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatdan yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")

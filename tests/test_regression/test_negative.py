@@ -98,15 +98,13 @@ def run_supplier_required(page: Page, code) -> None:
 
     with allure.step("Barcha majburiy maydon bo'sh — Сохранить xato dialogini berishi kerak"):
         m.click_button("Сохранить")
-        dialog = page.locator(".cdk-overlay-container")
         # "Ошибка" dialogi = server-side validatsiya save'ni bloklaydi. Aniq jumla
         # ("Пожалуйста, выберите хотя бы один тип!") server i18n'iga qarab ru↔en
         # almashishi mumkin — til-mustaqil isbot: dialog chiqdi + yopilgach forma
         # create sarlavhasida qoladi (POST ketmadi = yozuv yaratilmadi, quyida).
-        expect(dialog).to_contain_text("Ошибка")
+        m.expect_error_dialog("Ошибка")
 
     with allure.step("Dialogni yopish — forma create'да qoladi, yozuv saqlanmagan"):
-        dialog.get_by_role("button", name="Закрыть").first.click()
         m.expect_heading("Юр. Лицо (Создания)")
 
 

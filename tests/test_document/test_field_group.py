@@ -96,7 +96,7 @@ def run_field_group_edit(page: Page, code) -> None:
         m.search(new_name)
         m.grid_row(new_name)
         m.search(old_name)
-        expect(page.locator(".smt-data-row").filter(has_text=old_name)).to_have_count(0)
+        m.expect_no_row(old_name)
 
 
 @allure.epic("Документы")
@@ -128,7 +128,7 @@ def run_field_group_status(page: Page, code) -> None:
 
     with allure.step("Default ro'yxatда ko'rinmasligi, 'Показать все'да Неактивный"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
         m.show_all()
         m.grid_row(name, "Неактивный")
 
@@ -225,7 +225,7 @@ def run_field_group_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatдан yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Документы")
@@ -295,19 +295,16 @@ def run_field_group_duplicate(page: Page, code) -> None:
         m.click_button("Сохранить")
 
     with allure.step("Ошибка dialogi chiqishini tekshirish (nom dublikat)"):
-        dialog = page.locator(".cdk-overlay-container")
-        expect(dialog).to_contain_text("Ошибка")
-        expect(dialog).to_contain_text("dup_val_on_index")
+        m.expect_error_dialog("Ошибка", "dup_val_on_index")
 
     with allure.step("Dialogni yopish — forma ochiq qoladi, yozuv saqlanmagan"):
-        dialog.get_by_role("button", name="Закрыть").first.click()
         m.expect_heading(CREATE_HEADING)
 
     with allure.step(f"Ro'yxatда '{name}' faqat BITTA ekanini tekshirish"):
         flow_navigate(page, tab="Модератор", name=MENU)
         m.expect_heading(MENU)
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(1)
+        m.expect_row_count(name, 1)
 
 
 @allure.epic("Документы")

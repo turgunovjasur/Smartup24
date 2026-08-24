@@ -28,7 +28,7 @@ Modul xususiyatlari (MCP tasdiqlangan 2026-07-07):
 import re
 
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -174,7 +174,7 @@ def run_oprosniki_edit(page: Page, code) -> None:
 
     with allure.step(f"Eski nom '{old_name}' ro'yxatda YO'Q"):
         m.search(old_name)
-        expect(page.locator(".smt-data-row").filter(has_text=old_name)).to_have_count(0)
+        m.expect_no_row(old_name)
 
 
 @allure.epic("Модератор")
@@ -245,7 +245,7 @@ def run_oprosniki_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatdan yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")
@@ -277,7 +277,7 @@ def run_oprosniki_status(page: Page, code) -> None:
 
     with allure.step("Default ro'yxatda ko'rinmasligini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
     with allure.step("Показать все filtrida 'passive' bo'lib ko'rinishi"):
         m.show_all()
@@ -325,19 +325,16 @@ def run_oprosniki_duplicate(page: Page, code) -> None:
         m.click_button("Сохранить")
 
     with allure.step("Ошибка dialogi chiqishini tekshirish (nom dublikat)"):
-        dialog = page.locator(".cdk-overlay-container")
-        expect(dialog).to_contain_text("Ошибка")
-        expect(dialog).to_contain_text("dup_val_on_index")
+        m.expect_error_dialog("Ошибка", "dup_val_on_index")
 
     with allure.step("Dialogni yopish — forma ochiq qoladi, yozuv saqlanmagan"):
-        dialog.get_by_role("button", name="Закрыть").first.click()
         m.expect_heading("Опросник (Создание)")
 
     with allure.step(f"Ro'yxatda '{name}' faqat BITTA ekanini tekshirish"):
         flow_navigate(page, tab="Модератор", name="Опросники")
         m.expect_heading("Опросники")
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(1)
+        m.expect_row_count(name, 1)
 
 
 @allure.epic("Модератор")
@@ -400,10 +397,7 @@ def run_oprosniki_attach(page: Page, code) -> None:
         m.click_grid_row(name)
         m.click_button("Удалить")
         m.confirm("да")
-        dialog = page.locator(".cdk-overlay-container")
-        expect(dialog).to_contain_text("Ошибка")
-        expect(dialog).to_contain_text("child record found")
-        dialog.get_by_role("button", name="Закрыть").first.click()
+        m.expect_error_dialog("Ошибка", "child record found")
         m.grid_row(name)
 
     with allure.step(f"'{question}' ni ajratish (Открепить)"):
@@ -419,7 +413,7 @@ def run_oprosniki_attach(page: Page, code) -> None:
         m.click_grid_row(question)
         m.click_button("Открепить")
         m.confirm("да")
-        expect(page.locator(".smt-data-row").filter(has_text=question)).to_have_count(0)
+        m.expect_no_row(question)
 
     with allure.step(f"Endi '{name}' muvaffaqiyatli o'chiriladi"):
         flow_navigate(page, tab="Модератор", name="Опросники")
@@ -428,7 +422,7 @@ def run_oprosniki_attach(page: Page, code) -> None:
         m.click_grid_row(name)
         m.click_button("Удалить")
         m.confirm("да")
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")

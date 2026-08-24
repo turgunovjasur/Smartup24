@@ -9,7 +9,7 @@ ssenariylari. Kod test_setup dan ko'chirilgan ishlaydigan nusxa
 import random
 
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -158,7 +158,7 @@ def run_legal_person_edit(page: Page, code) -> None:
 
     with allure.step(f"Eski nom '{old_name}' ro'yxatda YO'Q"):
         m.search(old_name)
-        expect(page.locator(".smt-data-row").filter(has_text=old_name)).to_have_count(0)
+        m.expect_no_row(old_name)
 
 
 @allure.epic("Модератор")
@@ -228,7 +228,7 @@ def run_legal_person_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatdan yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")
@@ -263,7 +263,7 @@ def run_legal_person_status(page: Page, code) -> None:
 
     with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish"):
         m.search(active_name)
-        expect(page.locator(".smt-data-row").filter(has_text=active_name)).to_have_count(0)
+        m.expect_no_row(active_name)
 
     with allure.step("1) Показать все filtrida 'Пассивный' bo'lib ko'rinishi"):
         m.show_all()
@@ -313,20 +313,16 @@ def run_legal_person_duplicate(page: Page, code) -> None:
         m.click_button("Сохранить")
 
     with allure.step("Ошибка dialogi chiqishini tekshirish (ИНН dublikat)"):
-        dialog = page.locator(".cdk-overlay-container")
-        expect(dialog).to_contain_text("Ошибка")
-        expect(dialog).to_contain_text("dup_val_on_index")
-        expect(dialog).to_contain_text(data["tin"])
+        m.expect_error_dialog("Ошибка", "dup_val_on_index", data["tin"])
 
     with allure.step("Dialogni yopish — forma ochiq qoladi, yozuv saqlanmagan"):
-        dialog.get_by_role("button", name="Закрыть").first.click()
         m.expect_heading("Юр. Лицо (Создания)")
 
     with allure.step(f"Ro'yxatda '{name}' faqat BITTA ekanini tekshirish"):
         flow_navigate(page, tab="Модератор", name="Юридическое лицо")
         m.expect_heading("Юридическое лицо")
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(1)
+        m.expect_row_count(name, 1)
 
 
 @allure.epic("Модератор")

@@ -8,7 +8,7 @@ status, duplicate. Har test o'z unikal Код bilan ishlaydi (kod prefikslari:
 """
 
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_menu, flow_navigate
@@ -100,7 +100,7 @@ def run_currency_edit(page: Page, code) -> None:
 
     with allure.step(f"Eski nom '{old_name}' ro'yxatda YO'Q"):
         m.search(old_name)
-        expect(page.locator(".smt-data-row").filter(has_text=old_name)).to_have_count(0)
+        m.expect_no_row(old_name)
 
 
 @allure.epic("Модератор")
@@ -171,7 +171,7 @@ def run_currency_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatdan yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")
@@ -209,7 +209,7 @@ def run_currency_status(page: Page, code) -> None:
 
     with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish"):
         m.search(active_name)
-        expect(page.locator(".smt-data-row").filter(has_text=active_name)).to_have_count(0)
+        m.expect_no_row(active_name)
 
     with allure.step("1) Показать все filtrida 'passive' bo'lib ko'rinishi"):
         m.show_all()
@@ -259,23 +259,20 @@ def run_currency_duplicate(page: Page, code) -> None:
         m.click_button("Сохранить")
 
     with allure.step("Ошибка dialogi chiqishini tekshirish (Код dublikat)"):
-        dialog = page.locator(".cdk-overlay-container")
         # "Ошибка" dialogi + xabarda to'qnashgan Код ko'rsatiladi ("...(код: X)...").
         # To'liq jumla ("Этот код уже используется") server i18n'iga qarab ru↔en
         # almashishi mumkin — shuning uchun til-mustaqil qism (Код qiymati) tekshiriladi
         # (dublikat YARATILMAGANI quyida count==1 bilan ham isbotlanadi).
-        expect(dialog).to_contain_text("Ошибка")
-        expect(dialog).to_contain_text(kod)
+        m.expect_error_dialog("Ошибка", kod)
 
     with allure.step("Dialogni yopish — forma ochiq qoladi, yozuv saqlanmagan"):
-        dialog.get_by_role("button", name="Закрыть").first.click()
         m.expect_heading("Валюта (Создания)")
 
     with allure.step(f"Ro'yxatda '{name}' faqat BITTA ekanini tekshirish"):
         flow_navigate(page, tab="Модератор", name="Валюты")
         m.expect_heading("Валюты")
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(1)
+        m.expect_row_count(name, 1)
 
 
 @allure.epic("Модератор")

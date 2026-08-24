@@ -18,7 +18,7 @@ test_organization.py patterni. Biruni farqlar (MCP tasdiqlangan 2026-07-20):
 import re
 
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -199,7 +199,7 @@ def run_role_edit(page: Page, code) -> None:
 
     with allure.step(f"Eski nom '{old_name}' ro'yxatda YO'Q"):
         m.search(old_name)
-        expect(page.locator(".smt-data-row").filter(has_text=old_name)).to_have_count(0)
+        m.expect_no_row(old_name)
 
 
 @allure.epic("Модератор")
@@ -238,7 +238,7 @@ def run_role_status(page: Page, code) -> None:
         flow_navigate(page, tab="Модератор", name="Роли")
         m.expect_heading("Роли")
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
     with allure.step("1) Показать все filtrida Неактивный bo'lib ko'rinishi"):
         m.show_all()
@@ -288,7 +288,7 @@ def run_role_delete(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ro'yxatdan yo'qolganini tekshirish"):
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(0)
+        m.expect_no_row(name)
 
 
 @allure.epic("Модератор")
@@ -320,18 +320,16 @@ def run_role_duplicate(page: Page, code) -> None:
         m.click_button("Сохранить")
 
     with allure.step("Ошибка dialogi chiqishini tekshirish (dup_val_on_index)"):
-        dialog = page.locator(".cdk-overlay-container")
-        expect(dialog).to_contain_text("dup_val_on_index")
+        m.expect_error_dialog("dup_val_on_index")
 
     with allure.step("Dialogni yopish — ochiq dialog navbar'ni to'sib qo'yadi"):
-        dialog.get_by_role("button", name="Закрыть").first.click()
         m.expect_heading("Роль (создание)")
 
     with allure.step(f"Ro'yxatda '{name}' faqat BITTA ekanini tekshirish"):
         flow_navigate(page, tab="Модератор", name="Роли")
         m.expect_heading("Роли")
         m.search(name)
-        expect(page.locator(".smt-data-row").filter(has_text=name)).to_have_count(1)
+        m.expect_row_count(name, 1)
 
 
 @allure.epic("Модератор")
