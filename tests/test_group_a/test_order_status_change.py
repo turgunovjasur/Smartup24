@@ -36,14 +36,14 @@ def run_order_status_change(page: Page, code) -> None:
             # click_grid_row (chap katak x=120 — aynan shu tugma ustiga tushadi)
             # ISHLATILMAYDI; qator JORIY status katagi (oddiy matn, qatorda
             # yagona) orqali tanlanadi (MCP tasdiqlangan 2026-07-13).
-            m._settle()
+            m.settle()
             row = m.grid_row(client_name, current)
             cell = row.get_by_text(current, exact=True)
             cell.click()
             # click_grid_row dagi kabi tanlov toggle himoyasi: action panel
             # ochilmagan bo'lsa bir marta qayta bosamiz.
             for _ in range(10):
-                if m._grid_row_selected(row):
+                if m.grid_row_selected(row):
                     break
                 page.wait_for_timeout(300)
             else:

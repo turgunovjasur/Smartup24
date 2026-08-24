@@ -64,7 +64,7 @@ def run_supplier_full(page: Page, code) -> None:
         # tab'lari (Реквизиты→Детали) buziladi. Reload SPA'ni qayta yuklab tozalaydi
         # (MCP tasdiqlangan 2026-07-30).
         page.reload()
-        m._settle()
+        m.settle()
         m.open_create()
         m.expect_heading("Юр. Лицо (Создания)")
 

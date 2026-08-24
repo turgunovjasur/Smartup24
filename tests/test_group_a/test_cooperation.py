@@ -53,7 +53,7 @@ def run_cooperation(page: Page, code) -> None:
         # — inson tezligida MCP bilan tasdiqlangan, hammasi 200 (2026-07-10).
         row = page.locator(".smt-data-row").filter(has_text=client_name).first
         for _ in range(3):
-            m._settle()
+            m.settle()
             m.click_button("Рекомендованные клиенты")
             try:
                 expect(row).to_be_visible(timeout=5_000)

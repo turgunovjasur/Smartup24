@@ -231,7 +231,7 @@ def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> 
     with allure.step("Модератор → Отслеживание пользователей"):
         flow_navigate(page, tab="Модератор", name="Отслеживание пользователей")
         page.wait_for_url(lambda u: "user_locations" in u, timeout=30_000)
-        m._settle()
+        m.settle()
 
     with allure.step("Sana avtomatik bugungi kunga o'rnatilganini tekshirish"):
         today_str = date.today().strftime("%d.%m.%Y")
@@ -242,7 +242,7 @@ def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> 
         box.click()
         box.fill(agent)
         page.locator(".cdk-overlay-container li").filter(has_text=agent).first.click()
-        m._settle()
+        m.settle()
 
     with allure.step(f"Xaritada '{expected_visits}' ta visit ('Визиты ({expected_visits})')"):
         # ISHONCHLI: "Визиты (N)" REJANI emas, bajarilgan VIZITNI sanaydi

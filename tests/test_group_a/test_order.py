@@ -52,7 +52,7 @@ def _fill_step2_and_advance(page: Page, m: BasePage, product_name: str, value: s
     for _ in range(4):
         _set_qty(page, value)
         m.wizard_step("Завершение")
-        m._settle()
+        m.settle()
         if error_dialog.count():
             error_dialog.get_by_role("button", name="Закрыть").first.click()
             expect(error_dialog).to_be_hidden()

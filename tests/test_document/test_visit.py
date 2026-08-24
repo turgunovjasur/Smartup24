@@ -94,9 +94,9 @@ def _open_role_functions(page: Page, m: BasePage, role: str = SAFE_ROLE):
     m.expect_heading("Роли визитов")
     m.click_grid_row(role)
     # "Bизит" (Lotin B) — regex bilan; panel'да faqat shu tugma "изит" bilan tugaydi.
-    m._close_overlay()
+    m.close_overlay()
     page.get_by_role("button", name=_VISIT_TAB_RE).first.click()
-    m._settle()
+    m.settle()
     m.expect_heading("Функции визита")
     return _functions_root(page)
 
@@ -118,7 +118,7 @@ def _save_functions(page: Page, m: BasePage) -> None:
     tasdiqlaydi — muvaffaqiyatли save biruni dashboard'ga redirect qiladi."""
     m.click_button("Сохранить")
     page.wait_for_url(lambda u: "role_functions" not in u, timeout=30_000)
-    m._settle()
+    m.settle()
 
 
 def _criteria_root(page: Page):
@@ -139,7 +139,7 @@ def _open_role_criteria(page: Page, m: BasePage, role: str = SAFE_ROLE):
     _goto_visit_section(page, m, "Роли визитов")
     m.expect_heading("Роли визитов")
     m.click_grid_row(role)
-    m._close_overlay()
+    m.close_overlay()
     m.click_button("Критерии")
     m.expect_heading("Критерии функций визита")
     return _criteria_root(page)
@@ -151,7 +151,7 @@ def _save_criteria(page: Page, m: BasePage) -> None:
     uchun URL o'zgarishini emas, loader tinishini kutamiz."""
     m.click_button("Сохранить")
     m.wait_for_loader()
-    m._settle()
+    m.settle()
 
 
 def _open_visit_row(page: Page, m: BasePage, agent: str, visit_id: str) -> None:
@@ -161,7 +161,7 @@ def _open_visit_row(page: Page, m: BasePage, agent: str, visit_id: str) -> None:
     katagi (oddiy matn) exact bosiladi (agent code'iga tushmasin)."""
     m.search(agent)
     m.grid_row(agent, "Завершен").get_by_text(visit_id, exact=True).click()
-    m._settle()
+    m.settle()
 
 
 # ======================================================================================

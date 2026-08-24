@@ -320,7 +320,7 @@ def _goto_person_users(page: Page, m: BasePage) -> None:
     # tugmasi kutiladi (sbmv user_list'da bu tugma yo'q — ishonchli belgi).
     page.wait_for_url(lambda u: "person" in u, timeout=60_000)
     expect(page.get_by_role("button", name="Создать")).to_be_visible(timeout=60_000)
-    m._settle()
+    m.settle()
 
 
 def run_create_agent(page: Page) -> str:
@@ -362,7 +362,7 @@ def _goto_visits(page: Page, m: BasePage) -> None:
     qolishi mumkin — expect_heading ISHONCHSIZ, shuning uchun URL (visit_list) kutamiz."""
     flow_navigate(page, tab="Модератор", name="Визиты")
     page.wait_for_url(lambda u: "visit_list" in u, timeout=30_000)
-    m._settle()
+    m.settle()
 
 
 def _deactivate_agent(page: Page, m: BasePage, agent: str) -> None:
@@ -393,7 +393,7 @@ def verify_visit_completed_web(page: Page, m: BasePage, agent: str, visit_id: st
     # Visit qatorida client/agent kataklari BUTTON (bosilsa boshqa joyga ketadi) —
     # ID katagini (matn) bosib qatorni tanlaymiz (exact: agent code'iga tushmasin)
     row.get_by_text(visit_id, exact=True).click()
-    m._settle()
+    m.settle()
     m.click_button("Просмотр")
     m.expect_heading("Визит (Просмотр)")
     m.click_button("Результаты анализа")  # sub-bo'lim ochiladi
@@ -404,7 +404,7 @@ def confirm_visit_lead(page: Page, m: BasePage, agent: str, visit_id: str) -> No
     _goto_visits(page, m)
     m.search(agent)
     m.grid_row(agent, "Завершен").get_by_text(visit_id, exact=True).click()
-    m._settle()
+    m.settle()
     m.click_button("Лиды")
     m.expect_heading("Лиды")
     # Lead qatorida Пользователь=agent (plain matn, BUTTON emas) — click_grid_row xavfsiz
@@ -438,10 +438,10 @@ def _open_agent_plans(page: Page, m: BasePage, agent: str) -> None:
     expect_heading(MENU) ISHONCHSIZ (_goto_visits'dagi muammo), URL kutiladi."""
     flow_navigate(page, tab="Модератор", name=MENU)
     page.wait_for_url(lambda u: "sbmv/user_list" in u, timeout=30_000)
-    m._settle()
+    m.settle()
     page.get_by_text(agent, exact=True).first.click()
     page.get_by_role("button", name="Планы").first.click()
-    m._settle()
+    m.settle()
     m.expect_heading(f"Сотрудник: {agent}")
 
 

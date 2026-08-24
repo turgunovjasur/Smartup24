@@ -723,6 +723,22 @@ class BasePage:
         )
         return bool(checked.count())
 
+    # ------------------------------------------------------------------------------------------------------------------
+    # Publik aliaslar — testlar ichki `_` metodlarga bog'lanmasligi uchun (inkapsulyatsiya)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def settle(self, timeout=10_000):
+        """Publik: sahifa transition (loader + networkidle) tugashini kutadi."""
+        return self._settle(timeout)
+
+    def close_overlay(self, timeout=5_000):
+        """Publik: ochiq CDK overlay (dropdown/menu) ni yopadi."""
+        return self._close_overlay(timeout)
+
+    def grid_row_selected(self, row) -> bool:
+        """Publik: qator tanlanganini (action panel ochiq / checkbox belgilangan) bildiradi."""
+        return self._grid_row_selected(row)
+
     def click_grid_row(self, text, row_selector=".smt-data-row"):
         self._settle()
         row = self.grid_row(text, row_selector=row_selector)

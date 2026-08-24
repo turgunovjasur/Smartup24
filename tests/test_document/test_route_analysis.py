@@ -74,7 +74,7 @@ def _open_route_form(page: Page, m: BasePage) -> None:
     for _ in range(3):
         try:
             page.wait_for_url(lambda u: "route_analysis" in u, timeout=15_000)
-            m._settle()
+            m.settle()
             page.get_by_role("button", name="Сформировать").wait_for(state="visible", timeout=15_000)
             return
         except PWTimeout:
@@ -144,7 +144,7 @@ def _download_from_history(page: Page, m: BasePage, dest_dir: str, *, attempts: 
     DIQQAT: sinxron yo'l dev'da ishlaydi — bu tarmoq faqat katta async hisobotlar
     uchun; struktura История tab'idan olingan, async holat kelganda tekshiriladi."""
     m.click_button("История")
-    m._settle()
+    m.settle()
     for _ in range(attempts):
         dl_btn = page.get_by_role("button", name=re.compile("Скачать|Download", re.I)).first
         if dl_btn.count() and dl_btn.is_enabled():
@@ -156,7 +156,7 @@ def _download_from_history(page: Page, m: BasePage, dest_dir: str, *, attempts: 
             return path
         page.wait_for_timeout(2_000)
         page.reload()
-        m._settle()
+        m.settle()
     raise AssertionError("История: hisobot tayyor bo'lmadi (async timeout)")
 
 

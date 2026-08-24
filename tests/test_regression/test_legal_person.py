@@ -46,7 +46,7 @@ def run_legal_person_full(page: Page, code) -> None:
     with allure.step("Создать: yangi Юр. лицо formasi ochish"):
         # OAuth2 leak'ini tozalash (Юр.Лицо tab/label buzilmasin) — reload
         page.reload()
-        m._settle()
+        m.settle()
         m.open_create()
         m.expect_heading("Юр. Лицо (Создания)")
 

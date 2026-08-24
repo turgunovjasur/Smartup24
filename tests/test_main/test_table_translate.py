@@ -39,7 +39,7 @@ def _open_records(page: Page, m: BasePage) -> None:
     m.click_grid_row(TABLE)
     # Qator panelidagi tugma matni sahifa heading'i bilan bir xil — role=button aniqlaydi
     m.click_button(MENU)
-    m._settle()
+    m.settle()
 
 
 def run_table_translate(page: Page, code) -> None:
@@ -65,7 +65,7 @@ def run_table_translate(page: Page, code) -> None:
 
         with allure.step("Reload → uz tarjimasi saqlanganini tasdiqlash"):
             page.reload()
-            m._settle()
+            m.settle()
             uz_after = page.locator('textarea[placeholder="uz"]').first
             expect(uz_after).to_have_value(value)
     finally:

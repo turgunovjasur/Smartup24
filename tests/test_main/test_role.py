@@ -126,7 +126,7 @@ def run_role_view(page: Page, code) -> None:
         # Просмотр biruni forma — stale-heading race'ni oldini olish uchun view URL'ini
         # kutamiz (aks holda ro'yxatga qaytib qolib, qiymat topilmaydi — 2026-08-10)
         page.wait_for_url(re.compile(r"role_view"), timeout=30_000)
-        m._settle()
+        m.settle()
         m.expect_heading("Роль (Просмотр)")
 
     with allure.step("Qiymatlar: Название/Порядок/Статус view formada ko'rinishi"):
