@@ -113,9 +113,11 @@ def test_field_group_edit(page: Page, code) -> None:
 
 
 def run_field_group_status(page: Page, code) -> None:
-    """Status ikki yo'nalishda: "Изменить статус" to'g'ridan-to'g'ri qarama-qarshi
-    statusга o'tkazadi (tasdiqlash "да"). Aktiv → Неактивный (default ro'yxatдан
-    yo'qoladi, "Показать все"да ko'rinadi) → qayta Активный."""
+    """Status ikki yo'nalishda. Qator paneli MAQSAD status nomidagi TOGGLE tugma
+    ko'rsatadi ("Неактивный" — aktiv qatorда; "Активный" — passiv qatorда) +
+    tasdiqlash "да" — opros/vizit modullari bilan bir xil ("Изменить статус"
+    menyusi EMAS). Aktiv → Неактивный (default ro'yxatдан yo'qoladi, "Показать
+    все"да ko'rinadi) → qayta Активный."""
     m = BasePage(page)
     name = f"fg-stat-{code}"
 
@@ -123,7 +125,7 @@ def run_field_group_status(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ni Неактивный qilish"):
         m.click_grid_row(name)
-        m.click_button("Изменить статус")
+        m.click_button("Неактивный")
         m.confirm("да")
 
     with allure.step("Default ro'yxatда ko'rinmasligi, 'Показать все'да Неактивный"):
@@ -134,7 +136,7 @@ def run_field_group_status(page: Page, code) -> None:
 
     with allure.step(f"'{name}' ni qayta Активный qilish"):
         m.click_grid_row(name)
-        m.click_button("Изменить статус")
+        m.click_button("Активный")
         m.confirm("да")
 
     with allure.step("Ro'yxatда 'Активный' bo'lib ko'rinishi"):

@@ -534,12 +534,24 @@ def _run_week_interval(page: Page, agent: str, n: int, *,
     with allure.step(f"{section}: sanalarni tekshirish"):
         horizon = today + timedelta(days=WINDOW_DAYS)
         expected = _expected_week_dates(n, today, offset)
-        if whole_list:
-            # yangi (toza) agent — ro'yxatdagi BARCHA sanalar aynan kutilganlar
-            group = [d for d in _plan_dates(page) if today <= d]
-        else:
-            group = [d for d in _plan_dates(page)
-                     if d.weekday() == wd and today <= d <= horizon]
+
+        def _current_group() -> list[date]:
+            if whole_list:
+                # yangi (toza) agent — ro'yxatdagi BARCHA sanalar aynan kutilganlar
+                return [d for d in _plan_dates(page) if today <= d]
+            return [d for d in _plan_dates(page)
+                    if d.weekday() == wd and today <= d <= horizon]
+
+        # Plan grid save'дан keyin ASINXRON renderlanadi — bir martalik o'qishда
+        # _plan_dates bo'sh/chala qaytishi mumkin (plan-dates-async-grid-flaky).
+        # Kutilgan holat kelguncha (yoki deadline) qayta o'qiymiz; kelsa darhol
+        # chiqamiz, haqiqiy nomuvofiqlikда esa oldingidek aniq xato beramiz.
+        deadline = time.monotonic() + 15
+        group = _current_group()
+        while group != expected and time.monotonic() < deadline:
+            page.wait_for_timeout(1_000)
+            group = _current_group()
+
         assert group == expected, (
             f"{section} ({label}): kutilgan {len(expected)} ta visit {expected}, "
             f"olindi {len(group)} ta {group}"
