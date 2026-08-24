@@ -237,17 +237,37 @@ def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> 
         today_str = date.today().strftime("%d.%m.%Y")
         expect(page.get_by_role("textbox", name="Выберите дату")).to_have_value(today_str)
 
-    with allure.step(f"Агентlar ro'yxatidan '{agent}' ni tanlash"):
+    # "Визиты (N)" REJANI emas, bajarilgan VIZITNI sanaydi. API visit'lari treking
+    # agregatsiyasida KECHIKIB (eventual-consistency) ko'rinadi — hisoblagich darrov
+    # to'g'ri qiymatga yetmasligi mumkin (flaky, jonli run 2026-08-24). Shu sabab
+    # agentni tanlab hisoblagichni tekshirishni RETRY qilamiz: har urinishда sahifani
+    # qayta yuklab (yangi agregatsiya so'rovi) agentni qayta tanlaymiz.
+    target = page.get_by_role("button", name=f"Визиты ({expected_visits})").first
+
+    def _select_agent() -> None:
+        # "Визиты (N)" tab ikki DOM elementга mos (smt-tab-button + ichki button) — .first
         box = page.get_by_role("textbox", name="Выберите...")
         box.click()
         box.fill(agent)
         page.locator(".cdk-overlay-container li").filter(has_text=agent).first.click()
         m.settle()
 
-    with allure.step(f"Xaritada '{expected_visits}' ta visit ('Визиты ({expected_visits})')"):
-        # ISHONCHLI: "Визиты (N)" REJANI emas, bajarilgan VIZITNI sanaydi
-        # "Визиты (N)" tab ham ikki DOM elementга mos (smt-tab-button + ichki button) — .first
-        expect(page.get_by_role("button", name=f"Визиты ({expected_visits})").first).to_be_visible(timeout=30_000)
+    with allure.step(f"Агент '{agent}' tanlab '{expected_visits}' visitni kutish (retry)"):
+        found = False
+        for attempt in range(4):
+            if attempt:
+                page.reload()
+                page.wait_for_url(lambda u: "user_locations" in u, timeout=30_000)
+                m.settle()
+            _select_agent()
+            try:
+                expect(target).to_be_visible(timeout=20_000)
+                found = True
+                break
+            except AssertionError:
+                pass  # keyingi urinishда qayta yuklaymiz (agregatsiya yetguncha)
+        if not found:
+            expect(target).to_be_visible(timeout=10_000)  # yakuniy aniq xato
         markers = _count_map_markers(page)
         allure.attach(f"leaflet markerlari (best-effort, yashil-faqat emas): {markers}",
                       name="map_markers", attachment_type=allure.attachment_type.TEXT)
