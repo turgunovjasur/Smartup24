@@ -1,0 +1,56 @@
+name: E2E (Playwright)
+
+# NEGA HAR PUSH'DA EMAS
+# ---------------------
+# Bu suite JONLI tashqi ERP'ga (app3.greenwhite.uz) va ULASHILGAN akkauntga
+# (admin@sm24) tegib ishlaydi. Bir akkauntda ikki run parallel yursa ikkalasi
+# ham g'alati yiqiladi (parallel-run interferensiyasi). Shuning uchun:
+#   - trigger: faqat QO'LDA (workflow_dispatch) + tungi jadval;
+#   - concurrency: bir vaqtda faqat BITTA run (yangi trigger eskisini kutadi).
+# CI headless ishlaydi (HEADLESS=1) — conftest shu env var'ni o'qiydi.
+
+on:
+  workflow_dispatch: {}        # qo'lda ishga tushirish
+  schedule:
+    - cron: "0 2 * * *"        # har kuni 02:00 UTC (tungi to'liq run)
+
+concurrency:
+  group: e2e-shared-account    # ulashilgan akkaunt — overlapping run YO'Q
+  cancel-in-progress: false    # boshlangan run tugasin, yangisi kutsin
+
+jobs:
+  runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HEADLESS: "1"            # conftest brauzerni ko'rsatmasdan ishga tushiradi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run full suite (test_all_runner)
+        run: python -m pytest tests/test_all_runner.py -v
+
+      # Test yaratgan ma'lumotni bazadan tozalash (baza o'smasin) — best-effort,
+      # test natijasidan qat'i nazar bajariladi.
+      - name: Cleanup test data
+        if: always()
+        run: python scripts/cleanup_test_data.py --headless || true
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: test-results/allure-results
+          if-no-files-found: ignore

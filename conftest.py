@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import shutil
 import socket
 import random
@@ -11,12 +12,18 @@ from playwright.sync_api import sync_playwright, Browser, Page, expect
 from flows.flow_authorization import logout
 
 TRACE_DIR = "test-results/traces"
-DATA_DIR = "test-results/data"
 ALLURE_RESULTS_DIR = "test-results/allure-results"
 ALLURE_REPORT_DIR = "test-results/allure-report"
 
 # Timeout konstantalari — bitta joyda, butun loyiha bo'ylab ishlatiladi
-DEFAULT_TIMEOUT    = 10_000    # click, fill, expect va boshqa locator amallari (ms)
+# DIQQAT: sessiya qulfi handleri (_auto_continue_session) bajarilish vaqti uni
+# chaqirgan amalning TIMEOUT'iga KIRADI (Playwright add_locator_handler
+# hujjatlashtirilgan xatti-harakati). Qulfning countdown bosqichi ~30s ekranni
+# to'sadi — 10s timeout bilan qulf ustiga tushgan har qanday amal handler
+# yechishga ulgurmasdan yiqilar edi (2026-07-10 run: open_create 37-daqiqada).
+# Shu sabab 60s: qulf yechilishini ham qamraydi; haqiqiy xato esa 10s o'rniga
+# 60s da qayd etiladi, xolos.
+DEFAULT_TIMEOUT    = 60_000    # click, fill, expect va boshqa locator amallari (ms)
 NAVIGATION_TIMEOUT = 60_000    # page.goto, wait_for_load_state (ms)
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -63,13 +70,163 @@ def pytest_configure(config):
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+def _auto_continue_session(page_obj: Page, password: str | None = None) -> None:
+    """``app-session-lock`` overlay'ini avtomatik yopadi.
+
+    Parol ``TEST_PASSWORD`` environment variable'dan olinadi (berilmasa
+    default login paroli ishlatiladi).
+
+    Sessiya ochilganidan ~30 daqiqa o'tgach app to'liq ekranli overlay
+    chiqaradi va BARCHA kliklarni to'sib qo'yadi. Ikki holati bor:
+    1) "Закрытие сессии" countdown dialogi (~20 sek) — TEZ YO'L: chapdagi
+       "Блокировка экрана" tugmasi bosiladi va countdown KUTILMASDAN darhol
+       parol qulfiga o'tiladi (foydalanuvchi kuzatuvi 2026-07-10; "Продолжить"
+       countdown paytida bosilsa ham ish bermaydi — 15:40 trace);
+    2) "Блокировка экрана" parol qulfi (input#password + "Войти") — parol
+       kiritib "Войти" bosiladi.
+    Shu tartibda qulf ~2-3 soniyada yechiladi — handler vaqti amal timeout'iga
+    kirgani uchun bu muhim. Handler ichidagi xato yutiladi — trigger ko'rinib
+    tursa keyingi amalda qayta uriniladi (regression 2026-07-08)."""
+    password = password or os.environ.get("TEST_PASSWORD", "greenwhite")
+    # Trigger ikkala holatni ham qamraydi: countdown backdrop YOKI parol input
+    lock = page_obj.locator(
+        "app-session-lock button[aria-label='Продолжить'], app-session-lock form input"
+    )
+
+    def _unlock(_) -> None:
+        # MUHIM 1: qulfning IKKALA bosqich elementlari DOMda bir vaqtda turadi
+        # (biri yashirin) — shuning uchun KO'RINADIGAN holatga qarab
+        # tarmoqlanadi, parol bosqichi (terminal holat) birinchi (12:11 trace).
+        # MUHIM 2: handler bir MARTA chaqiriladi, keyin Playwright qulf
+        # yo'qolishini kutadi xolos — bitta urinish animatsiya/o'tish payti
+        # hech narsa qilmay qolsa deadlock (14:56 trace: handler no-op bo'lib,
+        # 30s davomida hech kim qulfni bosmagan). Shuning uchun qulf
+        # YOPILGUNCHA sikl qilamiz.
+        # MUHIM 3: ichki amallarga QISQA timeout va har urinish alohida
+        # himoyalanadi — is_visible() dan dispatch_event gacha bo'lgan orada
+        # element yo'qolsa (countdown -> parol o'tishi), default 60s bilan
+        # dispatch_event yo'q tugmani kutib handlerni O'ZINI qotirar edi
+        # (11:57 run: "Продолжить" dispatch_event 60000ms timeout).
+        # force=True: qulf bilan birga boshqa overlay (masalan Ошибка dialogi)
+        # ochiq bo'lsa ham fill "intercepts pointer events" bilan to'silmasin.
+        # dispatch_event — DOM darajasidagi klik: backdrop hit-testini chetlab
+        # tugmaning o'z handleriga boradi.
+        root = page_obj.locator("app-session-lock")
+        # 60→20s: qulf normalда ~2-3s da yechiladi; yechilmasa (uzoq run'da seans
+        # SERVER'да expire bo'lgan — 2026-08-11 test_641 4.4 SOAT osilishi) tez
+        # qaytamiz, add_locator_handler(no_wait_after) amalни o'z timeoutida davom
+        # ettiradi, cheksiz qayta-o'q YO'Q.
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            try:
+                # DIQQAT: app-session-lock elementi O'ZI o'lchamsiz konteyner
+                # (bolalari fixed) — is_visible() unda har doim False. Shuning
+                # uchun yopilganini ichki ko'rinadigan elementlar orqali bilamiz.
+                if not root.count() or not lock.filter(visible=True).count():
+                    return  # qulf yopildi
+                # 1) Parol qulfi: forma ichida bitta input (placeholder "Пароль")
+                pwd = root.locator("form input")
+                if pwd.count() and pwd.first.is_visible():
+                    pwd.first.fill(password, timeout=3_000, force=True)
+                    root.locator("button", has_text="Войти").first.dispatch_event(
+                        "click", timeout=2_000
+                    )
+                    page_obj.wait_for_timeout(700)
+                    continue
+                # 2) TEZ YO'L: countdown dialogidagi chap tugma "Блокировка
+                # экрана" — countdown (~30s) KUTILMASDAN darhol parol qulfiga
+                # o'tkazadi (foydalanuvchi kuzatuvi 2026-07-10).
+                lock_btn = root.locator("button", has_text="Блокировка экрана")
+                if lock_btn.count() and lock_btn.first.is_visible():
+                    lock_btn.first.dispatch_event("click", timeout=2_000)
+                    page_obj.wait_for_timeout(300)
+                    continue
+                # 3) Fallback: "Продолжить" (countdown paytida ko'pincha ish
+                # bermaydi — 15:40 trace, lekin dialog varianti uchun qoladi)
+                cont = root.locator("button", has_text="Продолжить")
+                if cont.count() and cont.first.is_visible():
+                    cont.first.dispatch_event("click", timeout=2_000)
+                    page_obj.wait_for_timeout(700)
+                    continue
+                page_obj.wait_for_timeout(300)  # o'tish/animatsiya payti
+            except Exception as exc:  # o'tish payti elementi yo'qolgan bo'lishi mumkin
+                print(f"[session-lock] urinish xatosi (davom etadi): {exc}")
+                try:
+                    page_obj.wait_for_timeout(300)
+                except Exception:
+                    return  # page yopilgan — handlerdan chiqamiz
+        print("[session-lock] 20s ichida qulf yechilmadi — amal o'z timeout'ida davom etadi")
+
+    # no_wait_after=True: handler ishlagach Playwright qulf YO'QOLISHINI KUTMAYDI —
+    # seans o'lib qulf yopilmasa ham handler cheksiz qayta-o'q UZMAYDI (default
+    # no_wait_after=False shu sabab 2026-08-11 da test_641'ni 4.4 SOAT osdirgan:
+    # qulf yechilmay Playwright handlerni ~260 marta qayta chaqirib sahifani
+    # crash'gacha olib borgan). times=40: qo'shimcha qattiq cheklov (uzoq run'da
+    # legit qulf ~30 daqiqada bir marta chiqadi — 40 martaga yetadi).
+    page_obj.add_locator_handler(lock, _unlock, no_wait_after=True, times=40)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+def _auto_recover_chunk_error(page_obj: Page) -> None:
+    """Vite/Angular lazy-chunk yuklash xatosini avtomatik tiklaydi (reload bilan).
+
+    Uzoq run paytida dev-server (app3) QAYTA DEPLOY qilinsa, brauzerdagi eski
+    ``index.html`` endi mavjud bo'lmagan chunk hash'iga murojaat qiladi va
+    lazy-route (asosiy kontent) moduli yuklanmaydi — app "Ошибка" dialogini
+    ko'rsatadi: ``Failed to fetch dynamically imported module: .../chunk-XXXX.js``.
+    Bu ENVIRONMENTAL flaky (klik tezligi EMAS): navigatsiya bo'lgan, sarlavha
+    router-outlet yuklangan, biroq kontent moduli chunk'i 404 (2026-07-27 runner,
+    product_view: chunk-KUHAWWPQ.js). Bir marta reload YANGI manifestli
+    ``index.html`` ni oladi va joriy deep-URL'ga qayta yo'naltiradi — chunk'lar
+    to'g'ri hash bilan yuklanadi, kutilayotgan maydon paydo bo'ladi.
+
+    Handler amal timeout'i ICHIDA ishga tushadi (add_locator_handler
+    xatti-harakati), shuning uchun DEFAULT_TIMEOUT 60s reload + re-render'ni
+    qamrab oladi. ``times=5`` bilan cheklaymiz — server HAQIQATAN buzuq bo'lsa
+    cheksiz reload sikliga tushmasdan, amal timeout bilan haqiqiy xatoni qayd
+    etsin. Handler xatosi yutiladi — dialog ko'rinib tursa keyingi amalda
+    (yoki qayta polling'da) yana uriniladi."""
+    error_dialog = page_obj.get_by_role("dialog").filter(
+        has_text="Failed to fetch dynamically imported module"
+    )
+
+    def _reload(_) -> None:
+        try:
+            page_obj.reload(wait_until="domcontentloaded")
+        except Exception as exc:  # reload navigatsiyasi uzilsa — keyingi amal qayta uriниadi
+            print(f"[chunk-recover] reload xatosi (davom etadi): {exc}")
+
+    # times=15: uzoq runner (setup+group_a+regression) davomida dev bir necha marta
+    # deploy bo'lishi mumkin — 5 marta yetmay qolar edi (2026-07-30 runner, currency+add
+    # chunk 404). Cheksiz emas, shuning uchun HAQIQATAN buzuq serverда amal timeout bilan
+    # to'xtaydi.
+    page_obj.add_locator_handler(error_dialog, _reload, times=15)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+# CI/headless: HEADLESS=1 env var bilan brauzer ko'rinmasdan ishlaydi
+# (default — ko'rinadigan brauzer, lokal xatti-harakat o'zgarmaydi).
+_HEADLESS = os.getenv("HEADLESS") == "1"
+
+
 @pytest.fixture
 def browser():
-    """Bitta browser instance, to'liq ekranda ochiladi."""
+    """Bitta browser instance, to'liq ekranda ochiladi.
+
+    ``--window-size=1920,1080`` — MUHIM: ``--start-maximized`` Playwright
+    headless=False'da KO'PINCHA ishlamaydi (oyna ~800x600 default holicha
+    qoladi). Past viewport'da uzun formalarning (masalan Продукт) OXIRIDAGI
+    maydon ekran chetiga tushadi va uning dropdown varianti viewport'dan
+    chiqib ketadi — Playwright uni bosolmay 60s timeout beradi (prod run
+    2026-07-23, Отрасль select "outside of the viewport"; 470px'da takrorlandi,
+    1080px'da yo'qoladi — MCP o'lchab tasdiqlangan). Qat'iy o'lcham buni
+    deterministik hal qiladi."""
     with sync_playwright() as p:
         browser_obj = p.chromium.launch(
-            headless=False,
-            args=["--start-maximized"],
+            headless=_HEADLESS,
+            args=["--start-maximized", "--window-size=1920,1080"],
         )
         yield browser_obj
         browser_obj.close()
@@ -78,11 +235,14 @@ def browser():
 
 @pytest.fixture(scope="session")
 def session_browser():
-    """Butun sessiya uchun bitta browser (test_smoke_runner uchun)."""
+    """Butun sessiya uchun bitta browser (test_smoke_runner uchun).
+
+    ``--window-size=1920,1080`` sababi uchun ``browser`` fixture izohiga qarang
+    (past viewport'da dropdown varianti ekrandan chiqib ketadi)."""
     with sync_playwright() as p:
         browser_obj = p.chromium.launch(
-            headless=False,
-            args=["--start-maximized"],
+            headless=_HEADLESS,
+            args=["--start-maximized", "--window-size=1920,1080"],
         )
         yield browser_obj
         browser_obj.close()
@@ -107,6 +267,8 @@ def session_context(session_browser):
 def session_page(session_context) -> Generator[Page, Any, None]:
     """Barcha smoke testlar uchun yagona sahifa — holat saqlanadi."""
     page_obj = session_context.new_page()
+    _auto_continue_session(page_obj)
+    _auto_recover_chunk_error(page_obj)
     yield page_obj
     logout(page_obj)  # seansni yopamiz — parallel seans limiti to'lib qolmasligi uchun
     page_obj.close()
@@ -122,6 +284,8 @@ def page(browser: Browser, request) -> Generator[Page, Any, None]:
 
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page_obj = context.new_page()
+    _auto_continue_session(page_obj)
+    _auto_recover_chunk_error(page_obj)
 
     yield page_obj
 
@@ -136,59 +300,41 @@ def page(browser: Browser, request) -> Generator[Page, Any, None]:
 
 @pytest.fixture(scope="session")
 def code():
-    """Test sessiyasi uchun yagona cod qiymati"""
-    return str(random.randint(1000, 9999))
+    """Test sessiyasi uchun yagona cod qiymati.
+
+    Vaqtga asoslangan (epoch sekundlarining oxirgi 7 raqami): vaqt orqaga
+    qaytmagani uchun oldingi runlar yaratgan yozuvlar bilan HECH QACHON
+    to'qnashmaydi — random 4 xonali kod baza to'lgan sari dublikat
+    (dup_val_on_index) xatolarini chiqarayotgan edi."""
+    return str(int(time.time()))[-7:]
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def save_data():
-    """JSON faylga ma'lumot saqlash."""
-    os.makedirs(DATA_DIR, exist_ok=True)
+def runner_state():
+    """test_all_runner testlari ORASIDA runtime qiymatlarni uzatish uchun umumiy
+    lug'at (session scope).
 
-    def _save(key, value, file_name="data_store"):
-        path = os.path.join(DATA_DIR, f"{file_name}.json")
-        data = {}
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                try:
-                    data = json.load(f)
-                except json.JSONDecodeError:
-                    data = {}
-        data[key] = value
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-
-    return _save
-
-# ----------------------------------------------------------------------------------------------------------------------
-
-@pytest.fixture(scope="session")
-def load_data():
-    """JSON fayldan ma'lumot o'qish."""
-    def _load(key, file_name="data_store"):
-        path = os.path.join(DATA_DIR, f"{file_name}.json")
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                try:
-                    return json.load(f).get(key)
-                except json.JSONDecodeError:
-                    return None
-        return None
-
-    return _load
-
-# ----------------------------------------------------------------------------------------------------------------------
-
+    Aggregator mega-test bo'lganda bu qiymatlar oddiy lokal o'zgaruvchilar edi
+    (masalan group_a'da yaratilgan ``product_name`` → linking → order). Endi har
+    qadam ALOHIDA test bo'lganligi uchun ular orasida ma'lumot shu lug'at orqali
+    uzatiladi: ``runner_state["ga_product_name"]``, ``runner_state["konkurs_region"]``."""
+    return {}
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 
 def pytest_sessionfinish(session, exitstatus):
     """Testlar tugagach Allure hisobot yaratadi va brauzerda ochadi."""
-    # --collect-only yoki boshqa rejimda haqiqiy test ishlamagan bo'lsa o'tkazib yuboramiz
-    if not session.items:
+    # --collect-only da session.items TO'LADI, lekin test ishlamaydi — hisobot
+    # yaratmaymiz (aks holda collection ham allure generate/open qilib yuboradi)
+    if not session.items or session.config.option.collectonly:
+        return
+    # CI/headless yoki fon rejimida hisobotni avtomatik OCHMAYMIZ — `allure open`
+    # web-serveri osilib qolib, background/CI runni tugamagan holda ushlab turadi.
+    # Natijalar baribir yoziladi; qo'lda `allure serve test-results/allure-results`.
+    if os.getenv("HEADLESS") == "1" or os.getenv("NO_ALLURE_SERVE") == "1":
         return
     import subprocess
     import shutil

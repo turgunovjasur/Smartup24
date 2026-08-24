@@ -90,8 +90,9 @@ class BasePage:
     # eng yaqin ajdod" predikati uchun ishlatiladi (layout klassiga bog'lanmaydi).
     _CONTROL_XPATH = (
         "ancestor::*["
-        ".//smt-input or .//smt-textarea or .//smt-date-picker"
+        ".//smt-input or .//smt-textarea or .//smt-date-picker or .//smt-phone-input"
         " or .//smt-data-select or .//smt-multi-data-select or .//smt-tree-select"
+        " or .//smt-select"
         " or .//smt-radio-group or .//smt-switch or .//smt-checkbox or .//*[@smt-checkbox]"
         "][1]"
     )
@@ -102,21 +103,41 @@ class BasePage:
     # Bu tag'lar _CONTROL_XPATH da ham bo'lishi SHART, aks holda label wrapper butun
     # formagacha ko'tarilib, qo'shni fieldning inputiga yozib yuboradi (bonus formasida
     # "Начало" shu sabab "Название" ni ustidan yozgan edi).
-    _INPUT_CSS = "smt-input, smt-textarea, smt-date-picker"
+    # smt-phone-input ("Номер телефона", user formalari): ichida bitta text input,
+    # fill qilingan qiymat qayta maskalanmaydi (MCP tasdiqlangan 2026-07-04).
+    _INPUT_CSS = "smt-input, smt-textarea, smt-date-picker, smt-phone-input"
 
-    # Select komponentlari (uch xil, MCP bilan tasdiqlangan 2026-07-02):
+    # Select komponentlari (MCP bilan tasdiqlangan 2026-07-02):
     #   - smt-data-select       : bitta variant, ichki input[placeholder="Подбор"]
     #   - smt-multi-data-select : ko'p variant (masalan "Отрасль"), ham Подбор input
     #   - smt-tree-select       : daraxt variant (masalan "Регион"), input EMAS —
     #     smt-select-trigger bosiladi, qidiruv inputi overlay'dagi [role=tree] panelda
-    _SELECT_CSS = "smt-data-select, smt-multi-data-select, smt-tree-select"
+    #   - smt-select            : qidiruvsiz select (order formasidagi "Статус") —
+    #     input umuman YO'Q, smt-select-trigger bosiladi, variantlar smt-select-dropdown
+    #     li da, tanlangan qiymat trigger MATNIDA (MCP tasdiqlangan 2026-07-06)
+    _SELECT_CSS = "smt-data-select, smt-multi-data-select, smt-tree-select, smt-select"
 
     # smt-tree-select ochilganda cdk-overlay ichidagi daraxt paneli
     _TREE_PANEL = ".cdk-overlay-container [role=tree]"
 
+    # OAuth2 i18n LEAK (2026-07-30): "Клиенты OAuth2 сервера" formasi ochilgач uning
+    # label'lari SPA'да keyingi formalarга yuqadi — "Код"→"Код сервера",
+    # "Примечания"→"Примечание". Field'ни topishда IKKALA variantni ham qabul qilamiz
+    # (bir joyda, har formada smtid'ga o'tkazmasdan). [[oauth2-i18n-leak-contamination]]
+    # OAuth2 (biruni/kauth) formasi PROD'da i18n kalitni tarjima qilmay xom ko'rsatadi:
+    # "Название"→"table.name" (2026-08-10). Ikkala variantni ham qabul qilamiz — i18n
+    # tuzalsa "Название"ga qaytadi. Boshqa formalarda "table.name" yo'q, ta'sir qilmaydi.
+    _LABEL_SYNONYMS = {
+        "Примечания": ("Примечания", "Примечание"),
+        "Код": ("Код", "Код сервера"),
+        "Название": ("Название", "table.name"),
+    }
+
     def _label_pattern(self, label):
         # "Название", "Название *", " Название * " — barchasi mos; "Краткое название" MOS EMAS (anchored)
-        return re.compile(rf"^\s*{re.escape(label)}\s*\*?\s*$")
+        variants = self._LABEL_SYNONYMS.get(label, (label,))
+        alt = "|".join(re.escape(v) for v in variants)
+        return re.compile(rf"^\s*(?:{alt})\s*\*?\s*$")
 
     def _label_locator(self, label, root):
         """Label matnli elementni topadi. Avval ``<label>`` (input/select/radio),
@@ -160,7 +181,12 @@ class BasePage:
         if label is not None:
             wrapper = self._field_wrapper(label, index=index, root=root)
             return wrapper.locator(tag).first
-        raise ValueError(f"{tag}: label yoki smtid dan bittasini bering")
+        if root is not self.page:
+            # Label'siz kontekst — masalan order formasida tovar qidiruvi jadval
+            # QATORI ichidagi smt-data-select (label ham, smtid ham yo'q): berilgan
+            # root ichidan to'g'ridan-to'g'ri tag bo'yicha topamiz.
+            return root.locator(tag).nth(index)
+        raise ValueError(f"{tag}: label, smtid yoki root dan bittasini bering")
 
     # ------------------------------------------------------------------------------------------------------------------
     # Text input / textarea
@@ -197,12 +223,26 @@ class BasePage:
         field = control.locator("input, textarea").first
         expect(field).to_be_visible()
 
+        # Maskali raqam maydoni ("Порядковый номер" Организацияда): inputmode=
+        # "decimal", qiymatni minglik probel bilan formatlaydi ("4 549") va
+        # fill() ni JIM yutib yuboradi (qiymat o'zgarmaydi) — belgilab-belgilab
+        # yoziladi, tekshiruvda probellar e'tiborga olinmaydi (MCP 2026-07-20).
+        masked_decimal = (field.get_attribute("inputmode") or "") == "decimal"
+
         if value is not _UNSET:
+            # Oldingi amaldan (masalan sana kiritilganda ochilgan kalendar)
+            # qolgan shaffof cdk-backdrop klikni to'sib qo'yadi — avval yopamiz
+            # (konkurs formasida "Начало"dan keyin "Конец" shu sabab qotgan edi,
+            # 2026-07-05).
+            self._close_overlay()
             field.click()
             if clear:
                 field.press("ControlOrMeta+A")
                 field.press("Backspace")
-            field.fill(str(value))
+            if masked_decimal:
+                field.press_sequentially(str(value), delay=50)
+            else:
+                field.fill(str(value))
             if press_tab:
                 field.press("Tab")
 
@@ -210,7 +250,20 @@ class BasePage:
         if expected is _UNSET and value is not _UNSET:
             expected = str(value)
         if expected is not _UNSET:
-            expect(field).to_have_value(expected)
+            # Status qiymatlari server i18n'iga qarab ruscha/inglizcha bo'lib
+            # o'zgarib turadi (cv_state 2026-07-05 ruscha, 2026-07-08 inglizcha,
+            # 2026-07-17 yana ruscha) — grid_row dagi kabi ikkala tilni ham
+            # qabul qilamiz.
+            synonyms = self._STATUS_SYNONYMS.get(expected)
+            if synonyms:
+                expect(field).to_have_value(re.compile(rf"^\s*(?:{synonyms})\s*$"))
+            elif masked_decimal:
+                # Formatlangan qiymat ("4 549") kutilgan ("4549") bilan probel-
+                # larsiz taqqoslanadi — har belgi orasida ixtiyoriy probel
+                pattern = r"\s*".join(re.escape(ch) for ch in str(expected))
+                expect(field).to_have_value(re.compile(rf"^\s*{pattern}\s*$"))
+            else:
+                expect(field).to_have_value(expected)
 
         if return_value:
             return field.input_value()
@@ -229,6 +282,12 @@ class BasePage:
         smt-select-trigger bosib ochiladi)."""
         select = self._control(self._SELECT_CSS, label=label, smtid=smtid, index=index, root=root)
         expect(select).to_be_visible()
+        # Oldingi amaldan (masalan smt-date-picker'ga sana yozilganda ochilgan
+        # kalendar) qolgan shaffof cdk-backdrop klikni to'sib qo'yadi — avval
+        # yopamiz (opросnik formasida "Конец"dan keyin "Родительский набор"
+        # shu sabab qotgan edi, 2026-07-07). input() va click_button() bilan
+        # bir xil himoya.
+        self._close_overlay()
         tag_name = select.evaluate("el => el.tagName.toLowerCase()")
 
         if tag_name == "smt-tree-select":
@@ -236,6 +295,12 @@ class BasePage:
             trigger = self.page.locator(f'{self._TREE_PANEL} input[placeholder="Поиск..."]').last
             expect(trigger).to_be_visible()
             return select, trigger, tag_name
+
+        if tag_name == "smt-select":
+            # Qidiruvsiz select ("Статус" order formasida): input yo'q, faqat trigger
+            # bosiladi — filtr yozib bo'lmaydi, trigger=None qaytariladi.
+            select.locator("smt-select-trigger").first.click()
+            return select, None, tag_name
 
         trigger = select.locator('input[placeholder="Подбор"]').first
         if trigger.count() == 0:
@@ -253,20 +318,25 @@ class BasePage:
             ``role="menuitemcheckbox"`` (masalan "Отрасль");
           - daraxt ``smt-tree-select`` : overlay'da ``role="tree"`` panel ichida
             ``role="treeitem"`` (masalan "Регион").
-        "Добавить"/"Показать все" harakat elementlari matn bo'yicha aniq filtrlanib
-        chetlab o'tiladi.
+        "Добавить"/"Показать все" harakat elementlari chetlab o'tiladi — exact
+        rejimda anchored pattern o'zi yetadi, lekin ``exact=False`` (contains)
+        rejimda "Добавить «query»" elementi ham mos kelib qolib bosilar edi
+        (group_a product'da "Manufacturer-" shu sabab Производитель yaratish
+        formasini ochib yuborgan, 2026-07-05) — shuning uchun ular matn bo'yicha
+        yaqqol chiqarib tashlanadi.
 
         Dropdown/menu Angular'da fill'dan keyin KECHIKIB render bo'ladi — shuning uchun
         variant qaysi konteynerda paydo bo'lishini deadline'gacha qayta-qayta tekshiramiz
         (bir martalik ``count()`` tekshiruvi poyga tufayli noto'g'ri locatorda qotib
         qolar edi)."""
         pattern = re.compile(rf"^\s*{re.escape(option_text)}\s*$") if exact else re.compile(re.escape(option_text))
+        action_items = re.compile(r"Добавить|Показать все")
         dropdown = self.page.locator("smt-select-dropdown").last
-        li_option = dropdown.locator("li").filter(has_text=pattern).first
-        text_option = dropdown.get_by_text(option_text, exact=exact).first
+        li_option = dropdown.locator("li").filter(has_text=pattern, has_not_text=action_items).first
+        text_option = dropdown.get_by_text(option_text, exact=exact).filter(has_not_text=action_items).first
         overlay = self.page.locator(".cdk-overlay-container")
         role_options = [
-            overlay.get_by_role(role, name=option_text, exact=exact).first
+            overlay.get_by_role(role, name=option_text, exact=exact).filter(has_not_text=action_items).first
             for role in ("menuitemcheckbox", "menuitem", "option", "treeitem")
         ]
 
@@ -300,7 +370,20 @@ class BasePage:
             self.page.wait_for_timeout(100)
 
         expect(option).to_be_visible(timeout=timeout)
-        option.click()
+        # cdk-overlay dropdown sahifaning PASTIDA ochilsa (trigger past bo'lsa), variant
+        # "visible" bo'lsa ham VIEWPORT'дан tashqarida qolib, oddiy click 60s scroll
+        # qilib ham yetolmay timeout beradi (product Отрасль, combined run 2026-08-06).
+        # Avval markazga scroll qilamiz; oddiy click baribir viewport tufayli yiqilsa,
+        # DOM click (JS) fallback — Angular li (click) handleri ishlaydi, viewport
+        # talab qilmaydi. [[cdk-overlay-flaky-clicks]]
+        try:
+            option.scroll_into_view_if_needed(timeout=5_000)
+        except Exception:
+            pass
+        try:
+            option.click(timeout=15_000)
+        except PlaywrightTimeoutError:
+            option.evaluate("el => el.click()")
 
     def select(
         self,
@@ -330,12 +413,35 @@ class BasePage:
         select, trigger, tag_name = self._open_select(label=label, smtid=smtid, index=index, root=root)
 
         query = option_text if search is None else search
-        if query:
-            trigger.fill(query)
+        # RETRY: dropdown qidiruvi ba'zan bir lahza BO'SH ("Ничего не найдено")
+        # qaytaradi — variant MAVJUD bo'lsa ham (server qidiruv-indeks lag / dropdown
+        # race; prod'da kuchayadi — 2026-08-03 prod runner test_421 "Отрасль" shu
+        # sabab yiqilgan: Category o'sha zahoti topilgan, Industry topilmagan). Bunday
+        # holда qidiruvni tozalab qayta yozamiz va variantni qayta kutamiz. Faqat
+        # OXIRGI urinishда to'liq ``timeout`` beriladi (oldingilarда qisqa — umumiy
+        # vaqt cho'zilib ketmasin; happy path'да 1-urinish darhol o'tadi).
+        attempts = 3
+        for attempt in range(attempts):
+            last = attempt == attempts - 1
+            if query and trigger is not None:
+                trigger.fill("")           # tozalash — server qidiruvini qayta triggerlaydi
+                trigger.fill(query)
+            try:
+                self._click_option(option_text, exact=exact,
+                                   timeout=timeout if last else 8_000)
+                break
+            except (AssertionError, PlaywrightTimeoutError):
+                if last:
+                    raise
+                self.page.wait_for_timeout(800)   # qisqa kutib qidiruvni qayta yuboramiz
 
-        self._click_option(option_text, exact=exact, timeout=timeout)
-
-        if tag_name == "smt-tree-select":
+        if tag_name == "smt-select":
+            # Qidiruvsiz select: tanlangan qiymat trigger MATNIDA, dropdown o'zi
+            # yopiladi (backdrop qolmaydi — MCP tasdiqlangan 2026-07-06).
+            if expect_selected:
+                expect(select).to_contain_text(re.compile(re.escape(option_text)), timeout=timeout)
+            self._close_overlay()
+        elif tag_name == "smt-tree-select":
             # Daraxt select ("Регион"): tanlangan qiymat trigger MATNIDA ko'rinadi
             # (Подбор input yo'q). Ko'p variantli (aria-multiselectable) rejimda panel
             # tanlangach ochiq qoladi — keyingi amallarni to'sib qo'ymasligi uchun yopamiz.
@@ -421,6 +527,9 @@ class BasePage:
         group = self._control("smt-radio-group", label=label, smtid=smtid, index=index, root=root)
         expect(group).to_be_visible()
         option = group.locator("label[smt-radio]").filter(has_text=option_text).first
+        # checkbox() dagi kabi: oldingi amaldan qolgan shaffof backdrop klikni
+        # to'sib qo'ymasligi uchun avval yopamiz (2026-07-17).
+        self._close_overlay()
         option.click()
         if expect_selected:
             radio = option.locator("input[type=radio], [role=radio]").first
@@ -475,6 +584,12 @@ class BasePage:
         clickable = toggle.locator("[role=switch], [role=checkbox]").first
 
         if checked is not _UNSET and cb.is_checked() != checked:
+            # Oldingi amaldan (masalan sana inputidan ochilgan kalendar) qolgan
+            # shaffof cdk-backdrop klikni "intercepts pointer events" bilan
+            # to'sadi — input/click_button dagi kabi avval yopamiz (bonus
+            # formasida "Конец"dan keyingi Статус switch shu sabab 60s qotgan,
+            # 2026-07-17).
+            self._close_overlay()
             (clickable if clickable.count() > 0 else toggle).click()
 
         want = checked if checked is not _UNSET else expect_checked
@@ -488,23 +603,188 @@ class BasePage:
     # Grid / list
     # ------------------------------------------------------------------------------------------------------------------
 
+    # Grid status ustuni modulga qarab ruscha yoki inglizcha chiqadi (Опросники/
+    # Шаблоны azaldan "active"/"passive"; Регион 2026-07-07 dan inglizchaga
+    # o'tdi) — testlar qaysi tilda yozilgan bo'lsa ham ikkalasini qabul qilamiz.
+    _STATUS_SYNONYMS = {
+        "Активный": r"Активный|active",
+        "Неактивный": r"Неактивный|passive",
+        "Пассивный": r"Пассивный|passive",
+        "active": r"active|Активный",
+        "passive": r"passive|Неактивный|Пассивный",
+    }
+
     def grid_row(self, text, *contains, row_selector=".smt-data-row"):
         """``text`` bo'yicha grid qatorini (``.smt-data-row``) topadi, ko'rinishini va
-        (berilgan bo'lsa) ``contains`` dagi har bir matnni o'z ichiga olishini tekshiradi."""
+        (berilgan bo'lsa) ``contains`` dagi har bir matnni o'z ichiga olishini tekshiradi.
+        Status so'zlari (Активный/Неактивный/Пассивный/active/passive) grid tilidan
+        qat'i nazar tekshiriladi.
+
+        Qator joriy sahifada topilmasa KEYINGI sahifalarda qidiriladi: ba'zi
+        ro'yxatlarda (Бонусная система, MCP tasdiqlangan 2026-07-09) qidiruv
+        nom bo'yicha UMUMAN filtrlamaydi — yozuvlar 50 tadan oshgach kerakli
+        qator 2-sahifaga tushib, testlar "topilmadi" bilan yiqilar edi.
+
+        Baribir topilmasa QIDIRUV QAYTA yuboriladi: save'dan darhol keyingi
+        qidiruv ba'zan yozuvni topmaydi — server qidiruv indeksi/commit
+        kechikadi, ro'yxat esa BIR MARTALIK so'rov bo'lgani uchun o'zi
+        yangilanmaydi (grid_row statik bo'sh ro'yxatda 60s kutib yiqilar edi).
+        MCP tasdiqlangan 2026-07-23 (prod, trace): product-edit-4793447 server
+        javobida product_id bilan SAQLANGAN, biroq darhol qidirilganda
+        "Нет результатов" — keyinroq qidirilsa topildi. Searchbox'da Enter
+        qayta bosilsa server qayta so'raladi (product_list:table POST) —
+        indeks yetguncha qayta-qayta urinamiz."""
         row = self.page.locator(row_selector).filter(has_text=text).first
-        expect(row).to_be_visible()
+
+        def _row_visible(timeout) -> bool:
+            try:
+                expect(row).to_be_visible(timeout=timeout)
+                return True
+            except AssertionError:
+                return False
+
+        def _try_find() -> bool:
+            """Joriy sahifada, topilmasa keyingi sahifalarda qatorni qidiradi."""
+            if _row_visible(5_000):
+                return True
+            # 1) Ba'zi ro'yxatlarda per-sahifa "Next page" tugmasi bor — u bilan yuramiz.
+            next_btn = self.page.get_by_role("button", name="Next page").first
+            while next_btn.count() and next_btn.is_enabled():
+                next_btn.click()
+                self.wait_for_loader()
+                if _row_visible(3_000):
+                    return True
+            # 2) Boshqa ro'yxatlarda (Бонус: qidiruv nom bo'yicha filtrlamaydi + 50/71,
+            #    MCP tasdiqlangan 2026-08-17) per-sahifa "Next page" YO'Q — navigatsiya
+            #    RAQAMLI sahifa tugmalari ("1"/"2") orqali; "Next pages" faqat sahifa
+            #    GURUHINI siljitadi (5 dan ortiq sahifada) va odatda disabled. Yaratilgan
+            #    yozuv (masalan bonus-upd-*) alifbo tartibida 2-sahifaga tushib, eski
+            #    "Next page" mantig'i disabled "Next pages"ga tushib 2-sahifага UMUMAN
+            #    o'tmasdi. Har raqamli sahifani bosib qidiramiz, guruh tugasa keyingisiga.
+            pagination = self.page.get_by_role("group", name="Pagination").first
+            seen = set()
+            for _ in range(30):  # xavfsizlik chegarasi (cheksiz sikldan himoya)
+                if not pagination.count():
+                    break
+                num_buttons = pagination.get_by_role("button", name=re.compile(r"^\d+$"))
+                advanced = False
+                for i in range(num_buttons.count()):
+                    btn = pagination.get_by_role("button", name=re.compile(r"^\d+$")).nth(i)
+                    label = (btn.text_content() or "").strip()
+                    if label in seen:
+                        continue
+                    seen.add(label)
+                    advanced = True
+                    btn.click()
+                    self.wait_for_loader()
+                    if _row_visible(3_000):
+                        return True
+                group_next = pagination.get_by_role("button", name="Next pages").first
+                if group_next.count() and group_next.is_enabled():
+                    group_next.click()
+                    self.wait_for_loader()
+                elif not advanced:
+                    break
+            return False
+
+        if not _try_find():
+            # Save+search poygasi: qidiruvni qayta yuborib, indeks yetguncha
+            # kutamiz. Enter qayta bosish joriy filtrlarni (show_all va h.k.)
+            # buzmasdan serverdan qayta so'raydi.
+            searchbox = self.page.get_by_role("searchbox", name="Поиск").first
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                if searchbox.count() and (searchbox.input_value() or "").strip():
+                    searchbox.press("Enter")
+                    self.wait_for_loader()
+                self.page.wait_for_timeout(1_500)
+                if _try_find():
+                    break
+
+        expect(row).to_be_visible(timeout=3_000)
         for value in contains:
-            expect(row).to_contain_text(value)
+            synonyms = self._STATUS_SYNONYMS.get(value)
+            expect(row).to_contain_text(re.compile(synonyms) if synonyms else value)
         return row
+
+    def _grid_row_selected(self, row) -> bool:
+        """Qator tanlanganligini bildiruvchi belgilar: yonida action panel
+        (button'li sibling) ochilgan YOKI qator checkboxi belgilangan
+        (savol/attach ro'yxatlarida tanlov checkbox orqali)."""
+        panel_buttons = (
+            row.locator("xpath=following-sibling::*[position()<=2]")
+            .locator("button")
+            .filter(visible=True)
+        )
+        if panel_buttons.count():
+            return True
+        checked = row.locator(
+            "[role=checkbox][aria-checked='true'], input[type=checkbox]:checked"
+        )
+        return bool(checked.count())
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Publik aliaslar — testlar ichki `_` metodlarga bog'lanmasligi uchun (inkapsulyatsiya)
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def settle(self, timeout=10_000):
+        """Publik: sahifa transition (loader + networkidle) tugashini kutadi."""
+        return self._settle(timeout)
+
+    def close_overlay(self, timeout=5_000):
+        """Publik: ochiq CDK overlay (dropdown/menu) ni yopadi."""
+        return self._close_overlay(timeout)
+
+    def grid_row_selected(self, row) -> bool:
+        """Publik: qator tanlanganini (action panel ochiq / checkbox belgilangan) bildiradi."""
+        return self._grid_row_selected(row)
+
+    def expect_no_row(self, text, *, row_selector=".smt-data-row"):
+        """Grid'да matnли qator YO'Qligini tasdiqlaydi (delete/edit/status testlari)."""
+        expect(self.page.locator(row_selector).filter(has_text=text)).to_have_count(0)
+
+    def expect_row_count(self, text, count, *, row_selector=".smt-data-row"):
+        """Grid'да matnли qatorlar soni aniq ``count`` ekanini tasdiqlaydi (dublikat: 1)."""
+        expect(self.page.locator(row_selector).filter(has_text=text)).to_have_count(count)
+
+    def expect_error_dialog(self, *substrings, close=True):
+        """Ошибка dialogi berilgan ``substrings`` matnlarini o'z ichiga olishini
+        tasdiqlaydi va (``close=True``) "Закрыть" bilan yopadi — dublikat/negativ
+        testlar uchun. Dialog ``.cdk-overlay-container`` ichida."""
+        dialog = self.page.locator(".cdk-overlay-container")
+        for text in substrings:
+            expect(dialog).to_contain_text(text)
+        if close:
+            dialog.get_by_role("button", name="Закрыть").first.click()
 
     def click_grid_row(self, text, row_selector=".smt-data-row"):
         self._settle()
         row = self.grid_row(text, row_selector=row_selector)
-        row.click()
+        # Ba'zi ro'yxatlarda jadval ostida markazda suzuvchi tugma (drawer
+        # handle) bo'ladi — u yakka/oxirgi qatorning MARKAZINI to'sib, click
+        # "intercepts pointer events" bilan qotib qoladi (bonus ro'yxatida
+        # kuzatilgan 2026-07-05). Shu sabab markaz o'rniga qatorning chapki
+        # qismidan bosamiz (checkbox ustunidan keyingi joy).
+        row.click(position={"x": 120, "y": 12})
+        self._settle()
+        # Tanlov toggle xavfi: oldingi amaldan (masalan Ошибка dialogidan keyin)
+        # qator TANLANGAN saqlanib qolgan bo'lsa, bosish tanlovni BEKOR qiladi —
+        # action panel ochilmaydi (opros attach'da kuzatilgan 2026-07-08).
+        # Tanlov belgisi chiqmasa bir marta qayta bosamiz.
+        for _ in range(10):
+            if self._grid_row_selected(row):
+                return row
+            self.page.wait_for_timeout(300)
+        row.click(position={"x": 120, "y": 12})
+        self._settle()
         return row
 
     def search(self, text):
-        """List formadagi qidiruv (``searchbox "Поиск..."``) ga yozib Enter bosadi."""
+        """List formadagi qidiruv (``searchbox "Поиск..."``) ga yozib Enter bosadi.
+
+        DIQQAT: ba'zi ro'yxatlarda (Бонусная система) qidiruv nom bo'yicha
+        filtrlamaydi (ilova bag'i, MCP tasdiqlangan 2026-07-09) — bunday
+        holatda qatorni ``grid_row`` sahifalab topadi."""
         field = self.page.get_by_role("searchbox", name="Поиск").first
         expect(field).to_be_visible()
         field.click()
@@ -520,24 +800,62 @@ class BasePage:
         "Активный" bilan ochiladi. Qidiruv yonidagi voronka tugmasi
         (``smt-data-table-filter``) "Фильтры" dialogini ochadi; "Показать все"
         barcha statuslarni qo'llab dialogni O'ZI yopadi, qidiruv matni saqlanib
-        qoladi (MCP tasdiqlangan 2026-07-03)."""
+        qoladi (MCP tasdiqlangan 2026-07-03).
+
+        Ba'zi dialoglarda (Опросники/Шаблоны отчетов по опросам) IKKITA
+        "Показать все" tugmasi bor — birinchisi yashirin ("Еще фильтры"
+        bo'limida), shuning uchun faqat KO'RINADIGANI olinadi (MCP tasdiqlangan
+        2026-07-07).
+
+        Filtr paneli ro'yxatga qarab overlay'da (Region/Product/Supplier) yoki
+        asosiy kontent ichida inline (Клиенты) ochiladi — tugma butun sahifadan
+        qidiriladi. Overlay dialog "Показать все"dan keyin O'ZI yopiladi; inline
+        panel esa filtrni darhol qo'llaydi, lekin OCHIQ qoladi — "Закрыть
+        фильтры" bilan yopiladi, filtr saqlanib qoladi (MCP tasdiqlangan
+        2026-07-07)."""
         self._settle()
         trigger = self.page.locator("smt-data-table-filter button").first
         expect(trigger).to_be_visible()
         trigger.click()
-        button = self.page.locator(".cdk-overlay-container").get_by_role("button", name=button_name).first
+        button = (
+            self.page.get_by_role("button", name=button_name)
+            .filter(visible=True)
+            .first
+        )
         expect(button).to_be_visible()
         button.click()
-        expect(button).to_be_hidden()
         self.wait_for_loader()
+        try:
+            expect(button).to_be_hidden(timeout=2_000)
+        except AssertionError:
+            self.page.get_by_role("button", name="Закрыть фильтры").first.click()
+            expect(button).to_be_hidden()
+        self.wait_for_loader()
+
+    def change_status(self, option_text, *, button_name="Изменить статус"):
+        """Tanlangan qatorning statusini o'zgartiradi.
+
+        Avval qator tanlangan bo'lishi kerak (``click_grid_row``). "Изменить
+        статус" bosilganda overlay menyuda JORIY statusdan boshqa variantlar
+        chiqadi (masalan Активный uchun: Пассивный/Приостановлено) — elementlar
+        <button> tag bo'lsa ham ARIA'da role=menuitem; variant bosilgach
+        "Изменить на X?" tasdiqlash dialogi ochiladi — "да" bosiladi
+        (MCP tasdiqlangan 2026-07-05)."""
+        self.click_button(button_name)
+        option = self.page.locator(".cdk-overlay-container").get_by_role("menuitem", name=option_text, exact=True).first
+        expect(option).to_be_visible()
+        option.click()
+        self.confirm("да")
 
     def confirm(self, answer="да"):
         """"Подтверждение" dialogida (masalan Удалить -> "Удалить X?") javob
-        tugmasini bosadi — tugma nomlari kichik harfda: "да" / "нет".
+        tugmasini bosadi — tugma matni bazaga qarab "да" yoki "Да" bo'lishi
+        mumkin, shuning uchun regex bilan katta-kichik harfga befarq qidiriladi.
 
         ``click_button`` ISHLATILMAYDI: u boshida ``_close_overlay`` chaqirib,
         ochiq tasdiqlash dialogini Escape bilan yopib yuborar edi."""
-        button = self.page.locator(".cdk-overlay-container").get_by_role("button", name=answer, exact=True).first
+        pattern = re.compile(rf"^{re.escape(answer)}$", re.IGNORECASE)
+        button = self.page.locator(".cdk-overlay-container").get_by_role("button", name=pattern).first
         expect(button).to_be_visible()
         button.click()
         expect(button).to_be_hidden()
@@ -564,26 +882,37 @@ class BasePage:
             logger.warning("smt-tree-select paneli %s ms ichida yopilmadi", timeout)
 
     def _close_overlay(self, timeout=5_000):
-        """Ochiq CDK overlay (dropdown/menu) backdrop'ini yopadi va yo'qolishini kutadi.
+        """Ochiq CDK overlay (dropdown/menu) ni yopadi va yo'qolishini kutadi.
 
-        ``.cdk-overlay-backdrop-showing`` darrov yo'qolmaydi va keyingi klikni
-        "intercepts pointer events" bilan to'sadi (masalan select tanlangach
-        Характеристика/Сохранить). Avval fade-out o'zi tugashini qisqa kutamiz
-        (bitta variantli select'da normal holat), yopilmasa Escape bosamiz.
-        Backdrop bo'lmasa no-op."""
+        Ikki xil holat bor:
+          1. Backdrop'li overlay (``.cdk-overlay-backdrop-showing``) — darrov
+             yo'qolmaydi va keyingi klikni "intercepts pointer events" bilan to'sadi
+             (masalan select tanlangach Характеристика/Сохранить). Avval fade-out
+             o'zi tugashini qisqa kutamiz (bitta variantli select'da normal holat),
+             yopilmasa Escape bosamiz.
+          2. Backdrop'SIZ pane (masalan client user formasidagi "Роли" multi-select
+             menyusi) — Escape ham, sintetik ``document.body.click()`` ham YOPMAYDI,
+             faqat HAQIQIY tashqi klik yopadi (MCP tasdiqlangan 2026-07-06); shuning
+             uchun forma heading'iga (har sahifada bor, klik zararsiz) bosamiz.
+        Hech narsa ochiq bo'lmasa no-op."""
         backdrop = self.page.locator(".cdk-overlay-backdrop-showing")
-        if backdrop.count() == 0:
+        if backdrop.count() > 0:
+            try:
+                backdrop.first.wait_for(state="hidden", timeout=1_500)
+            except Exception:
+                self.page.keyboard.press("Escape")
+                try:
+                    backdrop.first.wait_for(state="hidden", timeout=timeout)
+                except Exception:  # pragma: no cover - diagnostika uchun
+                    logger.warning("cdk-overlay backdrop %s ms ichida yopilmadi", timeout)
+        pane = self.page.locator(".cdk-overlay-container .cdk-overlay-pane")
+        if pane.count() == 0:
             return
         try:
-            backdrop.first.wait_for(state="hidden", timeout=1_500)
-            return
-        except Exception:
-            pass
-        self.page.keyboard.press("Escape")
-        try:
-            backdrop.first.wait_for(state="hidden", timeout=timeout)
+            self.page.locator(HEADING).last.click(timeout=2_000)
+            pane.first.wait_for(state="hidden", timeout=timeout)
         except Exception:  # pragma: no cover - diagnostika uchun
-            logger.warning("cdk-overlay backdrop %s ms ichida yopilmadi", timeout)
+            logger.warning("cdk-overlay pane %s ms ichida yopilmadi", timeout)
 
     def _settle(self, timeout=10_000):
         """Sahifa transition tugashini kutadi.
@@ -613,20 +942,97 @@ class BasePage:
         # Oldingi amaldan (select/dropdown) qolgan backdrop klikni "intercepts
         # pointer events" bilan to'smasligi uchun avval yopilishini kutamiz.
         self._close_overlay()
+        # Status toggle tugmalari (qator panelidagi "active"/"Неактивный" kabi)
+        # server i18n'iga qarab tilini o'zgartirib turadi — grid_row dagi kabi
+        # ikkala tildagi nomni ham qabul qilamiz (2026-07-17).
+        synonyms = self._STATUS_SYNONYMS.get(name)
+        if synonyms:
+            name = re.compile(rf"^\s*(?:{synonyms})\s*$")
         button = self.page.get_by_role("button", name=name, exact=exact).first
         expect(button).to_be_visible()
         button.click()
         return button
 
-    def open_create(self, *, button_name="Создать"):
-        """List formada "Создать" tugmasini bosadi. Avval kontent settled bo'lishini kutadi —
-        transition paytida eski formaning "Создать" tugmasi bosilib qolmasligi uchun."""
+    def wizard_step(self, name):
+        """Wizard (Заказ yaratish kabi) qadam tabini bosadi — "ДАЛЕЕ" tugmasi
+        UI'dan olib tashlangan (MCP tasdiqlangan 2026-07-17), endi qadamlar
+        ro'yxatining o'zi bosiladi: `[role=listitem]` + aria-label (masalan
+        "Товары"). Qadam raqami matni ("2") bilan qidirish barqaror emas —
+        sahifadagi boshqa raqamlarga ham mos kelishi mumkin."""
+        self._close_overlay()
+        step = self.page.get_by_role("listitem", name=name).first
+        expect(step).to_be_visible()
+        step.click()
         self._settle()
-        return self.click_button(button_name)
+
+    def open_create(self, *, button_name="Создать"):
+        """List formada "Создать" tugmasini bosib create formaga o'tadi.
+
+        Avval kontent settled bo'lishini kutadi — transition paytida eski formaning
+        "Создать" tugmasi bosilib qolmasligi uchun.
+
+        CHUNK-LOAD tiklanishi (2026-07-30 runner, currency+add): dev-server uzoq
+        run paytida QAYTA DEPLOY qilinsa, create-route lazy moduli eski hash bilan
+        404 bo'ladi → "Failed to fetch dynamically imported module" dialogi →
+        conftest `_auto_recover_chunk_error` handler'i sahifani RO'YXATGA reload
+        qiladi. Bunda create forma OCHILMAY qoladi, "Создать" tugmasi yana
+        ko'rinadi. Reload YANGI manifestli chunk'larni yuklagani uchun QAYTA
+        bosilsa forma ochiladi — shuning uchun "Создать" yo'qolguncha (=forma
+        ochildi) bir necha marta bosamiz."""
+        self._settle()
+        button = self.page.get_by_role("button", name=button_name, exact=True).first
+        for _ in range(3):
+            # Forma ALLAQACHON ochilgan bo'lsa (oldingi urinishning kliki sekin
+            # navigatsiya qildi — 2026-08-17 runner: producer+add / person+add ochiq
+            # bo'lsa ham retry "Создать"ni qayta qidirib None/60s timeout bilan
+            # yiqilardi) list "Создать" DOM'da bo'lmaydi — URL create formaga (`+add`)
+            # o'tган bo'lsa MUVAFFAQIYAT deb qaytaramiz, spurious re-click qilmaymiz.
+            if "add" in self.page.url.lower() and not button.is_visible():
+                return button
+            result = self.click_button(button_name)
+            self._settle()
+            try:
+                # Create forma ochilsa list "Создать" tugmasi DOM'dan ketadi. Sekin
+                # ochilishga (loader ostида) chidamli bo'lish uchun kutish oralig'i
+                # 8s → 15s ga oshirildi (erta timeout retry'ни qo'zg'atardi).
+                expect(button).to_be_hidden(timeout=15_000)
+                return result
+            except AssertionError:
+                # Hali ro'yxатда — chunk-reload qaytardi, qayta bosamiz.
+                continue
+        return result
 
     def save(self, *, button_name="Сохранить", exact=True):
-        self.click_button(button_name, exact=exact)
+        """Сохранить bosadi va saqlash haqiqatan amalga oshganini tasdiqlaydi.
+
+        Session-lock overlay (login'dan ~30 daqiqa keyin) yoki boshqa o'tkinchi
+        to'siq aynan "Сохранить" bosilgan payt tushib qolsa, klik overlay ustiga
+        tushib YO'QOLADI: forma ochiqligicha qoladi, yozuv saqlanmaydi va keyingi
+        qidiruv "Нет результатов" beradi (47-daqiqalik prod run, konkurs delete,
+        2026-07-21). Muvaffaqiyatli saqlanganda forma yopiladi va "Сохранить"
+        tugmasi DOM'dan yo'qoladi — shu sabab yo'qolishini kutamiz; hali ko'rinib
+        tursa (= forma yopilmagan = saqlanmagan) BIR marta qayta bosamiz. Tugma
+        yo'qolgan bo'lsa qayta bosMAYMIZ, shuning uchun dubl submit bo'lmaydi."""
+        button = self.click_button(button_name, exact=exact)
         self.wait_for_loader()
+        try:
+            # Saqlash muvaffaqiyatli bo'lsa forma yopiladi, tugma yo'qoladi.
+            expect(button).to_be_hidden(timeout=5_000)
+            return
+        except AssertionError:
+            pass
+        # Tugma hali joyida — birinchi klik yo'qolgan (overlay yutgan).
+        # click_button qayta bosishdan oldin qolgan overlayni o'zi yopadi.
+        if button.count() and button.is_visible():
+            self.click_button(button_name, exact=exact)
+            self.wait_for_loader()
+        # Yakuniy tasdiq: forma yopilishi SHART. Jim o'tsak, saqlanmagan yozuv
+        # keyinroq qidiruvда chalg'ituvchi "Нет результатов" bo'lib chiqadi
+        # (2026-07-30 runner, region: Название fill'dан keyin forma kech kelgan
+        # async re-init bilan RESET bo'lib, bo'sh formada save validatsiya jim
+        # bloklagan — save so'rovi umuman yuborilmagan). Bu yerda aniq xato beramiz;
+        # chaqiruvchi (masalan run_region) buni ushlab qayta yaratishi mumkin.
+        expect(button).to_be_hidden(timeout=10_000)
 
     def save_and_expect_heading(self, expected_heading, *, button_name="Сохранить", exact=True, timeout=60_000):
         """Сохранить bosadi va aktiv forma sarlavhasida kutilgan heading ochilishini tekshiradi."""

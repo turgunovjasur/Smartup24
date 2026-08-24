@@ -7,9 +7,10 @@ to'xtamaydi — keyingisini ochadi va oxirida qaysi formalar ochilgani/xato
 bergani haqida to'liq hisobot beradi (konsolga + Allure attachmentga).
 
 Bu test MUSTAQIL — mavjud testlarga (test_all va h.k.) aralashmaydi.
-Formalar ro'yxati MCP bilan real menyudan aniqlangan (2026-07-01).
+Formalar ro'yxati MCP bilan real menyudan aniqlangan.
 """
 import re
+import sys
 
 import allure
 from playwright.sync_api import Page, expect
@@ -28,7 +29,7 @@ MODERATOR_FORMS = [
     # Справочники
     "Юридическое лицо", "Поставщики", "Клиенты", "Валюты", "Бонусная система", "Регионы",
     "Виды оплаты", "Товары", "Регистрационные запросы", "Конкурсы", "Tерритории",
-    "Вопросы", "Опросники", "Критерии", "Шаблоны отчетов по опросам",
+    "Вопросы", "Опросники", "Шаблоны отчетов по опросам",  # "Критерии" olib tashlangan
     # Документы
     "Планирование визитов", "Визиты", "Анализ маршрутов", "Отслеживание пользователей", "Группа полей",
 ]
@@ -156,7 +157,13 @@ def test_forms_smoke(page: Page) -> None:
         lines.append(row)
     report = "\n".join(lines)
 
-    print("\n" + report)
+    # Windows konsoli (cp1252) ✓/✗/• belgilarini chop eta olmaydi — UnicodeEncodeError
+    # testni yiqitmasligi uchun xavfsiz chop etamiz (UTF-8 konsol/Allure'da belgilar saqlanadi).
+    try:
+        print("\n" + report)
+    except UnicodeEncodeError:
+        enc = (sys.stdout.encoding or "ascii")
+        print("\n" + report.encode(enc, errors="replace").decode(enc))
     try:
         allure.attach(report, name="Formalar ochilish hisoboti", attachment_type=allure.attachment_type.TEXT)
     except Exception:

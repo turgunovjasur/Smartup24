@@ -33,7 +33,10 @@ def run_category(page: Page, code) -> None:
     with allure.step("Сохранить va ro'yxatga qaytish"):
         m.save_and_expect_heading("Категория")
 
-    with allure.step(f"Ro'yxatda '{name}' ko'rinishini tekshirish"):
+    with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
+        # Ro'yxat sahifalangan (50 tadan ortiq yozuv bor) — qidiruvsiz yangi
+        # yozuv 2-sahifada qolib ketishi mumkin
+        m.search(name)
         m.grid_row(name)
 
 
