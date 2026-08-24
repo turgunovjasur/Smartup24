@@ -16,7 +16,6 @@ test_organization.py patterni. Biruni farqlar (MCP tasdiqlangan 2026-07-20):
   faqat o'zi yaratgan Role-{code} yozuvlari bilan ishlaydi.
 """
 import re
-import time
 
 import allure
 from playwright.sync_api import Page, expect
@@ -343,42 +342,3 @@ def test_role_duplicate(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_role_duplicate(page, code)
-
-
-# ---------------------------------------------------------------------------------------------------
-
-
-@allure.epic("Модератор")
-@allure.feature("Роли")
-@allure.story("Полный CRUD цикл")
-@allure.title("Роль: barcha CRUD testlari — bitta seansda zanjir")
-def test_role_all(page: Page, code) -> None:
-    """Barcha Роль testlarini bitta login bilan ketma-ket ishga tushiradi
-    (test_organization_all patterni). Har qadam o'z unikal nomlari bilan
-    ishlaydi (Role-*, Role-min-*, ...)."""
-    # Bir sessiyada individual testlar bilan nom to'qnashmasligi uchun zanjir
-    # o'z code'i bilan ishlaydi
-    code = str(int(time.time()))[-7:]
-    with allure.step("Tizimga kirish"):
-        authorization(page)
-
-    with allure.step("1. Создание"):
-        run_role(page, code)
-
-    with allure.step("2. Создание — minimal maydonlar"):
-        run_role_minimal(page, code)
-
-    with allure.step("3. Просмотр"):
-        run_role_view(page, code)
-
-    with allure.step("4. Редактирование"):
-        run_role_edit(page, code)
-
-    with allure.step("5. Статус — Неактивный/Активный"):
-        run_role_status(page, code)
-
-    with allure.step("6. Удаление"):
-        run_role_delete(page, code)
-
-    with allure.step("7. Дубликат — nom bilan xatolik"):
-        run_role_duplicate(page, code)

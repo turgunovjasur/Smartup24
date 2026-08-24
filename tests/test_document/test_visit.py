@@ -3,15 +3,15 @@
 Muhit: PRODUCTION (app.smartup24.com, kompaniya `test`). Barcha selektorlar 2026-08-05
 da Playwright MCP orqali jonli DOM'da tasdiqlangan.
 
-Qamrov (run_* biznes logika + test_* login+run juftligi, oxirida test_vizit_all zanjir):
+Qamrov (run_* biznes logika + test_* login+run juftligi, oxirida test_visit_all zanjir):
 
-  1. run_vizit_check      — Vizit KELIB TUSHGANDAN keyingi tekshiruv. Avval o'zi
-                            vizit bajaradi (yangi Агент + bugungi reja + newman mobil
-                            vizit → C), keyin: Визиты'da "Завершен" → Просмотр tablari
-                            → vizit ichidan Лиды → lead Просмотр → lead "Подтвержден";
+  1. run_visit_check      — Visit KELIB TUSHGANDAN keyingi tekshiruv. Avval o'zi
+                            visit bajaradi (yangi Агент + bugungi reja + newman mobil
+                            visit → C), keyin: Визиты'da "Завершен" → Просмотр tablari
+                            → visit ichidan Лиды → lead Просмотр → lead "Подтвержден";
                             oxirida agent Неактивный. newman SHART.
-  2. run_vizit_leads      — Лиды sub-bo'limi: 1 lidni Просмотр + tablari (Go back).
-  3. run_vizit_prichina   — Причины to'liq CRUD: create → edit → view/verify (read-back)
+  2. run_visit_leads      — Лиды sub-bo'limi: 1 lidni Просмотр + tablari (Go back).
+  3. run_visit_reason   — Причины to'liq CRUD: create → edit → view/verify (read-back)
                             → status Активный↔Неактивный → delete. Unikal nom `code`.
   4. run_visit_roles_overview      — Роли визитов read-only: 2 rol (Агент/Модератор),
                             har ikkisi "Критерии"+"Bизит" tugmalariga ega; Критерии
@@ -35,7 +35,7 @@ MCP topilmalari (2026-08-05, prod) — TASK PREMISASIDAN FARQLAR:
   * "Форма визита" bu ekranда QULFLANMAGAN — uni yechib all-off saqlash MUMKIN
     (server bloklamaydi). Shu sabab "o'chirib bo'lmaydi" NEGATIVE test YOZILMADI;
     o'rniga run_visit_form_default default-yoqilgan haqiqiy holatni hujjatlashtiradi.
-  * Vizit mobil API (newman) orqali bajariladi — "N funksiya vizitda ko'rindi"ni
+  * Visit mobil API (newman) orqali bajariladi — "N funksiya visitda ko'rindi"ni
     web UI'da tekshirib bo'lmaydi, shuning uchun config round-trip (saqlash↔o'qish)
     tekshiriladi. Round-trip 0-userli Модератор rolida (28 userli Агент'ga tegilmaydi).
   * Причина create: "Название *" inputi smtid'siz, id="null" (`#null`); list status
@@ -155,7 +155,7 @@ def _save_criteria(page: Page, m: BasePage) -> None:
 
 
 def _open_visit_row(page: Page, m: BasePage, agent: str, visit_id: str) -> None:
-    """Визиты ro'yxatida agent vizitini tanlaydi (action panel chiqadi).
+    """Визиты ro'yxatida agent visitini tanlaydi (action panel chiqadi).
 
     Qatorda client/agent kataklari BUTTON (bosilsa boshqa sahifaga ketadi) — ID
     katagi (oddiy matn) exact bosiladi (agent code'iga tushmasin)."""
@@ -168,18 +168,18 @@ def _open_visit_row(page: Page, m: BasePage, agent: str, visit_id: str) -> None:
 # run_* — biznes logika (login qilinganini kutadi)
 # ======================================================================================
 
-def run_vizit_check(page: Page) -> None:
-    """Vizit kelib tushgach ishlaydigan tekshiruvlar — avval o'zi vizit bajaradi
+def run_visit_check(page: Page) -> None:
+    """Visit kelib tushgach ishlaydigan tekshiruvlar — avval o'zi visit bajaradi
     (yangi agent + bugungi reja + newman), keyin Визиты/Лиды'da tekshiradi."""
     m = BasePage(page)
 
-    with allure.step("Tayyorlov: yangi Агент + bugungi reja + mobil vizit (newman → C)"):
+    with allure.step("Tayyorlov: yangi Агент + bugungi reja + mobil visit (newman → C)"):
         agent = run_create_agent(page)
         run_monthly(page, agent)
         summary = run_mobile_visit(page, agent)
         visit_id = summary["visit_id"]
 
-    with allure.step(f"Визиты: vizit #{visit_id} 'Завершен' + Просмотр tablari"):
+    with allure.step(f"Визиты: visit #{visit_id} 'Завершен' + Просмотр tablari"):
         _goto_visits(page, m)
         _open_visit_row(page, m, agent, visit_id)
         m.click_button("Просмотр")
@@ -188,7 +188,7 @@ def run_vizit_check(page: Page) -> None:
         m.click_button("Результаты анализа")
         m.click_button("Go back")
 
-    with allure.step("Лиды (vizit ichidan): lead Просмотр (Дополнительные поля / История)"):
+    with allure.step("Лиды (visit ichidan): lead Просмотр (Дополнительные поля / История)"):
         _open_visit_row(page, m, agent, visit_id)
         m.click_button("Лиды")
         m.expect_heading("Лиды")
@@ -209,10 +209,10 @@ def run_vizit_check(page: Page) -> None:
         _deactivate_agent(page, m, agent)
 
 
-def run_vizit_leads(page: Page) -> None:
+def run_visit_leads(page: Page) -> None:
     """Лиды sub-bo'limi: mavjud lead'ni Просмотр qilib tablarини ochadi.
 
-    Link orqali ochilgan Лиды — YUQORI sahifa (vizit ichidan emas), "Go back" bitta.
+    Link orqali ochilgan Лиды — YUQORI sahifa (visit ichidan emas), "Go back" bitta.
     Avvalgi run'lardan 'agent-' prefiksli lead'lar bor — birinchisini olamiz."""
     m = BasePage(page)
 
@@ -230,13 +230,13 @@ def run_vizit_leads(page: Page) -> None:
         m.expect_heading("Лиды")
 
 
-def run_vizit_prichina(page: Page, code: str) -> None:
+def run_visit_reason(page: Page, code: str) -> None:
     """Визиты → Причины to'liq CRUD (unikal nom `code`).
 
     create → edit → view/verify (Изменить orqali qiymatni read-back qilib tasdiqlash;
     alohida "Просмотр" tugmasi YO'Q) → status Активный↔Неактивный → delete."""
     m = BasePage(page)
-    name = f"prichina-{code}"
+    name = f"reason-{code}"
     edited = f"{name}-edit"
 
     with allure.step("Навигация: Визиты → Причины"):
@@ -325,7 +325,7 @@ def run_visit_functions_roundtrip(page: Page, count: int) -> None:
     Сохранить → qayta ochib aynan o'sha funksiyalar belgilanganini assert → asl
     holatga (faqat "Форма визита") qaytariladi.
 
-    Vizit API orqali bajarilgani uchun "vizitда N funksiya ko'rindi"ni web'да
+    Visit API orqali bajarilgani uchun "visitда N funksiya ko'rindi"ni web'да
     tekshirib bo'lmaydi — bu yerda SAQLASH↔O'QISH mutanosibligi tekshiriladi."""
     m = BasePage(page)
     wanted = set(VISIT_FUNCTIONS[:count])
@@ -353,8 +353,8 @@ def run_visit_criteria_roundtrip(page: Page, code) -> None:
 
     Kriteriy (+ ichida bitta Требование: Название + Правила) qo'shib saqlaydi →
     qayta ochib nomlarni O'QIYDI (readback) → kriteriyni Удалить + saqlab ro'yxat
-    bo'shashini ("Критерии не заданы") tekshiradi. Vizit API orqali bajarilgani
-    uchun "kriteriy vizitда qo'llandi"ni web'да tekshirib bo'lmaydi — SAQLASH↔O'QISH
+    bo'shashini ("Критерии не заданы") tekshiradi. Visit API orqali bajarilgani
+    uchun "kriteriy visitда qo'llandi"ni web'да tekshirib bo'lmaydi — SAQLASH↔O'QISH
     mutanosibligi tekshiriladi (Функции визита round-trip bilan bir xil dizayn).
 
     Ekran (MCP prod 2026-08-15): "Добавить критерий" → Критерий #1 bloki (Активный
@@ -417,28 +417,28 @@ def run_visit_form_default(page: Page) -> None:
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.story("Визит tekshiruvi")
-@allure.title("Vizit bajarilgach: Просмотр tablari + lead Просмотр + Подтвержден")
-def test_vizit_check(page: Page) -> None:
+@allure.title("Visit bajarilgach: Просмотр tablari + lead Просмотр + Подтвержден")
+def test_visit_check(page: Page) -> None:
     authorization(page)
-    run_vizit_check(page)
+    run_visit_check(page)
 
 
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.story("Лиды")
 @allure.title("Лиды: lead Просмотр (Дополнительные поля / История)")
-def test_vizit_leads(page: Page) -> None:
+def test_visit_leads(page: Page) -> None:
     authorization(page)
-    run_vizit_leads(page)
+    run_visit_leads(page)
 
 
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.story("Причины")
 @allure.title("Причины CRUD: create → edit → view → status → delete")
-def test_vizit_prichina(page: Page, code: str) -> None:
+def test_visit_reason(page: Page, code: str) -> None:
     authorization(page)
-    run_vizit_prichina(page, code)
+    run_visit_reason(page, code)
 
 
 @allure.epic("Документы")
@@ -476,20 +476,3 @@ def test_visit_role_criteria(page: Page, code) -> None:
 def test_visit_form_default(page: Page) -> None:
     authorization(page)
     run_visit_form_default(page)
-
-
-@pytest.mark.skipif(NEWMAN_YOQ, reason="newman (Postman CLI) o'rnatilmagan — `npm i -g newman`")
-@allure.epic("Документы")
-@allure.feature("Визиты")
-@allure.story("Визит tekshiruvi")
-@allure.title("Zanjir: vizit check + Лиды + Причины + Роли/Функции — bitta login bilan")
-def test_vizit_all(page: Page, code: str) -> None:
-    """Barcha vizit tekshiruvlari BITTA login bilan (tartib muhim: check BIRINCHI —
-    vizitdan yangi lead paydo bo'lib, run_vizit_leads'ga lead kafolatlanadi)."""
-    authorization(page)
-    run_vizit_check(page)
-    run_vizit_leads(page)
-    run_vizit_prichina(page, code)
-    run_visit_roles_overview(page)
-    run_visit_functions_roundtrip(page, 3)
-    run_visit_criteria_roundtrip(page, code)

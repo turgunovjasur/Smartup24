@@ -23,8 +23,6 @@ Qator paneli (Черновик): Просмотр / Изменить / Опуб�
 Dublikat Титул RUXSAT etilgan (ro'yxatda bir xil nomli yozuvlar bor) — dublikat
 xato testi yo'q.
 """
-import time
-
 import allure
 from playwright.sync_api import Page, expect
 
@@ -274,38 +272,3 @@ def test_announcement_delete(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_announcement_delete(page, code)
-
-
-# ---------------------------------------------------------------------------------------------------
-
-
-@allure.epic("Модератор")
-@allure.feature("Объявления")
-@allure.story("Полный CRUD цикл")
-@allure.title("Объявления: barcha CRUD testlari — bitta seansda zanjir")
-def test_announcement_all(page: Page, code) -> None:
-    """Barcha Объявление testlarini bitta login bilan ketma-ket ishga tushiradi
-    (test_organization_all patterni). Har run o'z unikal nomlari bilan ishlaydi."""
-    # Bir sessiyada individual testlar bilan nom to'qnashmasligi uchun zanjir
-    # o'z code'i bilan ishlaydi
-    code = str(int(time.time()))[-7:]
-    with allure.step("Tizimga kirish"):
-        authorization(page)
-
-    with allure.step("1. Создание (Черновик)"):
-        run_announcement(page, code)
-
-    with allure.step("2. Создание — Отрасли va Регион bilan"):
-        run_announcement_full(page, code)
-
-    with allure.step("3. Просмотр"):
-        run_announcement_view(page, code)
-
-    with allure.step("4. Редактирование"):
-        run_announcement_edit(page, code)
-
-    with allure.step("5. Публикация — статус Опубликовано"):
-        run_announcement_publish(page, code)
-
-    with allure.step("6. Удаление"):
-        run_announcement_delete(page, code)

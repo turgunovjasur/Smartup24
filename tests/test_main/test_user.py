@@ -24,8 +24,6 @@ Muhim jihatlar:
 - Статус: qatorni tanlab "Изменить статус" → tasdiqlash "Да" (Активный↔Неактивный
   TOGGLE, alohida menyu emas). O'chirish: "Удалить" → tasdiqlash "Да".
 """
-import time
-
 import allure
 from playwright.sync_api import Page, expect
 
@@ -266,38 +264,3 @@ def test_user_delete(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_user_delete(page, code)
-
-
-# ---------------------------------------------------------------------------------------------------
-
-
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
-@allure.story("Полный CRUD цикл")
-@allure.title("Пользователь: barcha CRUD testlari — bitta seansda zanjir")
-def test_user_all(page: Page, code) -> None:
-    """Barcha Пользователь testlarini bitta login bilan ketma-ket ishga tushiradi
-    (test_role_all patterni)."""
-    # Bir sessiyada individual testlar bilan nom to'qnashmasligi uchun zanjir
-    # o'z code'i bilan ishlaydi
-    code = str(int(time.time()))[-7:]
-    with allure.step("Tizimga kirish"):
-        authorization(page)
-
-    with allure.step("1. Создание"):
-        run_user(page, code)
-
-    with allure.step("2. Создание — barcha maydonlar"):
-        run_user_full(page, code)
-
-    with allure.step("3. Просмотр"):
-        run_user_view(page, code)
-
-    with allure.step("4. Редактирование"):
-        run_user_edit(page, code)
-
-    with allure.step("5. Статус — Неактивный"):
-        run_user_status(page, code)
-
-    with allure.step("6. Удаление"):
-        run_user_delete(page, code)

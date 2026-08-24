@@ -31,8 +31,6 @@ confirm() dialogini ochadi ("Удалить $1 клиента?") — cdk-overlay
 `page.once("dialog", accept)` bilan qabul qilinadi (conftest'da handler yo'q, default
 rad etiladi). Dublikat Название testi yo'q (xatti-harakat tekshirilmagan).
 """
-import time
-
 import allure
 from playwright.sync_api import Page, expect
 
@@ -216,30 +214,3 @@ def test_company_client_delete(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_company_client_delete(page, code)
-
-
-# ---------------------------------------------------------------------------------------------------
-
-
-@allure.epic("Модератор")
-@allure.feature("Клиенты OAuth2")
-@allure.story("Полный CRUD цикл")
-@allure.title("Клиенты OAuth2: barcha CRUD testlari — bitta seansda zanjir")
-def test_company_client_all(page: Page, code) -> None:
-    """Barcha OAuth2 mijoz testlarini bitta login bilan ketma-ket ishga tushiradi
-    (test_announcement_all patterni). Har run o'z unikal nomlari bilan ishlaydi."""
-    code = str(int(time.time()))[-7:]
-    with allure.step("Tizimga kirish"):
-        authorization(page)
-
-    with allure.step("1. Создание"):
-        run_company_client(page, code)
-
-    with allure.step("2. Создание — оба доступа (Read/Write)"):
-        run_company_client_full(page, code)
-
-    with allure.step("3. Редактирование"):
-        run_company_client_edit(page, code)
-
-    with allure.step("4. Удаление"):
-        run_company_client_delete(page, code)

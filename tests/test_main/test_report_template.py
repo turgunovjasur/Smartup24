@@ -24,7 +24,6 @@ formada qoladi (majburiy "*"), save bloklanadi.
 import os
 import re
 import tempfile
-import time
 
 import allure
 import openpyxl
@@ -255,28 +254,3 @@ def test_report_template_negative(page: Page) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_report_template_negative(page)
-
-
-# ---------------------------------------------------------------------------------------------------
-
-
-@allure.epic("Модератор")
-@allure.feature("Шаблоны отчетов")
-@allure.story("Полный CRUD цикл")
-@allure.title("Шаблоны отчетов: barcha CRUD testlari — bitta seansda zanjir")
-def test_report_template_all(page: Page, code) -> None:
-    """Barcha Шаблон отчета testlarini bitta login bilan ketma-ket (test_role_all patterni)."""
-    code = str(int(time.time()))[-7:]
-    with allure.step("Tizimga kirish"):
-        authorization(page)
-
-    with allure.step("1. Создание"):
-        run_report_template(page, code)
-    with allure.step("2. Редактирование"):
-        run_report_template_edit(page, code)
-    with allure.step("3. Статус — Неактивный/Активный"):
-        run_report_template_status(page, code)
-    with allure.step("4. Удаление"):
-        run_report_template_delete(page, code)
-    with allure.step("5. Негатив — bo'sh forma bloklanadi"):
-        run_report_template_negative(page)

@@ -319,20 +319,3 @@ def test_plan_values_reflected(page: Page, tmp_path) -> None:
     "plan per activation"/"plan per deal" ustunlarida aks etadi."""
     authorization(page)
     run_plan_values(page, str(tmp_path))
-
-
-@allure.epic("Документы")
-@allure.feature("Анализ маршрутов")
-@allure.title("Zanjir: happy-path route-analysis tekshiruvlari bitta login bilan")
-def test_route_analysis_all(page: Page, tmp_path) -> None:
-    """Bitta login bilan asosiy (yashil) tekshiruvlar ketma-ket (test_all uslubi).
-
-    Validatsiya (date/required) va data_logic testlari ATAYLAB kiritilmagan — ular
-    ilova bug'lari sababli xfail bo'ladi, alohida standalone qoladi; zanjir esa
-    happy-path regressiyani yashil tekshiradi."""
-    authorization(page)
-    dest = str(tmp_path)
-    run_download_success(page, dest)
-    run_structure(page, dest)
-    run_plan_values(page, dest)
-    run_report_type(page, dest, "Расписание маршрутов")

@@ -21,8 +21,6 @@ saqlaydi → reload qilib saqlanganini tasdiqlaydi → ASL qiymatga QAYTARADI (b
 saqlab qo'yiladi, finally'da tiklanadi). Grid heading list va record sahifada BIR XIL
 ("Перевод строки таблицы") — record sahifa uz textarea mavjudligi bilan aniqlanadi.
 """
-import time
-
 import allure
 from playwright.sync_api import Page, expect
 

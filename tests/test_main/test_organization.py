@@ -12,8 +12,6 @@ view bo'limlari LINK emas BUTTON. 2026-07-15 da create/edit formada
 "Сохранить" tugmasi YO'Q edi (xfail); 2026-07-19 codegen yozuvida tugma
 QAYTGAN — testlar oddiy (xfail'siz) yozildi.
 """
-import time
-
 import allure
 from playwright.sync_api import Page, expect
 
@@ -327,42 +325,3 @@ def test_organization_duplicate(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
     run_organization_duplicate(page, code)
-
-
-# ---------------------------------------------------------------------------------------------------
-
-
-@allure.epic("Модератор")
-@allure.feature("Организации")
-@allure.story("Полный CRUD цикл")
-@allure.title("Организация: barcha CRUD testlari — bitta seansda zanjir")
-def test_organization_all(page: Page, code) -> None:
-        """Barcha Организация testlarini bitta login bilan ketma-ket ishga
-        tushiradi (test_client_all / test_valyuta_all patterni). Har run o'z
-        unikal nomlari bilan ishlaydi (org-*, org-min-*, ...)."""
-        # Bir sessiyada individual testlar bilan nom to'qnashmasligi uchun zanjir
-        # o'z code'i bilan ishlaydi
-        code = str(int(time.time()))[-7:]
-        with allure.step("Tizimga kirish"):
-            authorization(page)
-
-        with allure.step("1. Создание"):
-            run_organization(page, code)
-
-        with allure.step("2. Создание — minimal maydonlar"):
-            run_organization_minimal(page, code)
-
-        with allure.step("3. Просмотр"):
-            run_organization_view(page, code)
-
-        with allure.step("4. Редактирование"):
-            run_organization_edit(page, code)
-
-        with allure.step("5. Статус — Неактивный/Активный"):
-            run_organization_status(page, code)
-
-        with allure.step("6. Удаление"):
-            run_organization_delete(page, code)
-
-        with allure.step("7. Дубликат — nom bilan xatolik"):
-            run_organization_duplicate(page, code)

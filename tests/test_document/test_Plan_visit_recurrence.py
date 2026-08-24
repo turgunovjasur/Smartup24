@@ -1,13 +1,13 @@
 """Планирование визитов — recurrence variantlari + Web↔Mobile Visit API (bitta fayl).
 
 Avval ikki fayl edi (test_visit_bridge.py + test_visit_recurrence.py) — ikkalasi ham
-vizitni tekshirgani uchun 2026-07-29 da BITTA faylga birlashtirildi. Ichida:
+visitni tekshirgani uchun 2026-07-29 da BITTA faylga birlashtirildi. Ichida:
   - EMBEDDED Postman kolleksiyasi (newman bilan yuritiladi) + API helperlari
   - WEB helperlari: agent yaratish, Визиты/Лиды tekshiruvлари, agent tozalash
   - recurrence CRUD: har variant ALOHIDA run_/test_ juftligi
       run_weekly / run_every_2_weeks / ... / run_every_5_weeks / run_monthly
   - OXIRIDA test_recurrence_all — bitta login + bitta agent bilan HAMMASI:
-      6 recurrence varianti + Postman mobil vizit (begin→autosave→end→C) +
+      6 recurrence varianti + Postman mobil visit (begin→autosave→end→C) +
       web'da "Завершен"+Просмотр + lead "Подтвержден" + agent Неактивный.
 
 Server rejalarni "Дата начала"dan ~1 OY (31 kun) oynada yaratadi (MCP 2026-07-28
@@ -15,7 +15,7 @@ dev/sm24). Hafta bo'limlari start haftasidan N-1, 2N-1, ... haftalarda tanlangan
 kunga tushadi.
 
 ALOHIDA testlar (har biri O'Z TOZA agenti bilan, BUGUNGI hafta kuni tanlanadi) —
-kutilgan vizitlar soni:
+kutilgan visitlar soni:
   Каждую неделю     → 5 ta (bugun, +7, +14, +21, +28 — KALIT talab)
   Каждую вторую     → 2 ta (+7, +21)
   Каждую третью     → 1 ta (+14)
@@ -31,8 +31,8 @@ oynadan tashqarida qoladi).
 API tomonda (MCP dev/sm24): base_url=/x24/b; session=agent JSESSIONID cookie
 (HttpOnly); visit_user_id=Планы URL'idan; visit_person_id=exp_client_list avtomatik
 (person_id STRING → "to be a number" testi soxta fail, KNOWN_QUIRKS'da e'tiborsiz).
-Mobil vizit faqat BUGUNGI rejaga ishlaydi (weekly/monthly beradi; har 2/3/4/5
-hafta birinchi viziti kelajakda — exp_client_list ko'rmaydi).
+Mobil visit faqat BUGUNGI rejaga ishlaydi (weekly/monthly beradi; har 2/3/4/5
+hafta birinchi visiti kelajakda — exp_client_list ko'rmaydi).
 Talab (faqat newman'li testlarga): `npm i -g newman`.
 """
 import copy
@@ -267,7 +267,7 @@ def run_newman(collection_path: str) -> subprocess.CompletedProcess:
 
 def summarize(report_path: str) -> dict:
     """Newman JSON hisobotidan xulosa. bridge_ok: KNOWN_QUIRKS'dan tashqari xato
-    yo'q VA vizit status=C ga yetgan."""
+    yo'q VA visit status=C ga yetgan."""
     with open(report_path, encoding="utf-8") as f:
         rep = json.load(f)
     steps, real_failures, visit_completed, visit_id = [], [], False, None
@@ -368,7 +368,7 @@ def _goto_visits(page: Page, m: BasePage) -> None:
 def _deactivate_agent(page: Page, m: BasePage, agent: str) -> None:
     """Test agentini Неактивный qiladi (tozalash — agentlar ko'payib ketmasin).
 
-    Vizit/lead'li agentni O'CHIRIB bo'lmaydi ("child record found"); Роли →
+    Visit/lead'li agentni O'CHIRIB bo'lmaydi ("child record found"); Роли →
     Пользователи (biruni/md) ro'yxatida ham ko'rinmaydi — shuning uchun person
     ro'yxatida (yaratilgan joy) Изменить → Статус switch OFF → Сохранить: agent
     Неактивный bo'lib default ro'yxatдан yo'qoladi (MCP tasdiqlangan 2026-07-28)."""
@@ -385,12 +385,12 @@ def _deactivate_agent(page: Page, m: BasePage, agent: str) -> None:
 
 
 def verify_visit_completed_web(page: Page, m: BasePage, agent: str, visit_id: str) -> None:
-    """Визиты ro'yxatida vizit "Завершен" ekanini + Просмотр ochilishini tekshiradi.
-    Agent nomi UNIKAL (har run) — aynan shu run vizitini topadi (Завершен = C)."""
+    """Визиты ro'yxatida visit "Завершен" ekanini + Просмотр ochilishini tekshiradi.
+    Agent nomi UNIKAL (har run) — aynan shu run visitini topadi (Завершен = C)."""
     _goto_visits(page, m)
     m.search(agent)
     row = m.grid_row(agent, "Завершен")
-    # Vizit qatorida client/agent kataklari BUTTON (bosilsa boshqa joyga ketadi) —
+    # Visit qatorida client/agent kataklari BUTTON (bosilsa boshqa joyga ketadi) —
     # ID katagini (matn) bosib qatorni tanlaymiz (exact: agent code'iga tushmasin)
     row.get_by_text(visit_id, exact=True).click()
     m._settle()
@@ -400,7 +400,7 @@ def verify_visit_completed_web(page: Page, m: BasePage, agent: str, visit_id: st
 
 
 def confirm_visit_lead(page: Page, m: BasePage, agent: str, visit_id: str) -> None:
-    """Vizit lead'ini "Подтвержден" qiladi (Новый → Подтвержден)."""
+    """Visit lead'ini "Подтвержден" qiladi (Новый → Подтвержден)."""
     _goto_visits(page, m)
     m.search(agent)
     m.grid_row(agent, "Завершен").get_by_text(visit_id, exact=True).click()
@@ -514,7 +514,7 @@ def _run_week_interval(page: Page, agent: str, n: int, *,
     """Umumiy oqim: N-hafta bo'limida hafta kunini tanlab reja yaratadi va tekshiradi.
 
     offset=0, whole_list=True (ALOHIDA test, TOZA yangi agent): BUGUNGI hafta kuni
-      tanlanadi — kutilgan vizitlar soni 5/2/1/1/1 (N=1..5) va ro'yxatdagi BUTUN
+      tanlanadi — kutilgan visitlar soni 5/2/1/1/1 (N=1..5) va ro'yxatdagi BUTUN
       sanalar aynan kutilganlarga teng bo'lishi tekshiriladi (agent toza!).
     offset=N-1, whole_list=False (ZANJIR, bitta agent): har variant o'z hafta
       kunida — faqat shu hafta kuni guruhi tekshiriladi (5/2/1/1/0 — zanjirda
@@ -541,7 +541,7 @@ def _run_week_interval(page: Page, agent: str, n: int, *,
             group = [d for d in _plan_dates(page)
                      if d.weekday() == wd and today <= d <= horizon]
         assert group == expected, (
-            f"{section} ({label}): kutilgan {len(expected)} ta vizit {expected}, "
+            f"{section} ({label}): kutilgan {len(expected)} ta visit {expected}, "
             f"olindi {len(group)} ta {group}"
         )
         allure.attach(f"{section} ({label}): {group}", name="visit_dates",
@@ -553,37 +553,37 @@ def _run_week_interval(page: Page, agent: str, n: int, *,
 # ======================================================================================
 
 def run_weekly(page: Page, agent: str, *, chained: bool = False) -> None:
-    """Каждую неделю: bugungi hafta kunida aynan 5 ta ketma-ket vizit."""
+    """Каждую неделю: bugungi hafta kunida aynan 5 ta ketma-ket visit."""
     _run_week_interval(page, agent, 1, offset=0, whole_list=not chained)
 
 
 def run_every_2_weeks(page: Page, agent: str, *, chained: bool = False) -> None:
-    """Har 2 hafta: toza agentда bugungi hafta kunida 2 ta vizit (+7, +21)."""
+    """Har 2 hafta: toza agentда bugungi hafta kunida 2 ta visit (+7, +21)."""
     _run_week_interval(page, agent, 2, offset=1 if chained else 0,
                        whole_list=not chained)
 
 
 def run_every_3_weeks(page: Page, agent: str, *, chained: bool = False) -> None:
-    """Har 3 hafta: toza agentда 1 ta vizit (+14)."""
+    """Har 3 hafta: toza agentда 1 ta visit (+14)."""
     _run_week_interval(page, agent, 3, offset=2 if chained else 0,
                        whole_list=not chained)
 
 
 def run_every_4_weeks(page: Page, agent: str, *, chained: bool = False) -> None:
-    """Har 4 hafta: toza agentда 1 ta vizit (+21)."""
+    """Har 4 hafta: toza agentда 1 ta visit (+21)."""
     _run_week_interval(page, agent, 4, offset=3 if chained else 0,
                        whole_list=not chained)
 
 
 def run_every_5_weeks(page: Page, agent: str, *, chained: bool = False) -> None:
-    """Har 5 hafta: toza agentда (bugungi kun) 1 ta vizit (+28). Zanjirda esa
-    hafta kuni +4 surilgani uchun sana +32 — oynadan tashqarida, 0 vizit."""
+    """Har 5 hafta: toza agentда (bugungi kun) 1 ta visit (+28). Zanjirda esa
+    hafta kuni +4 surilgani uchun sana +32 — oynadan tashqarida, 0 visit."""
     _run_week_interval(page, agent, 5, offset=4 if chained else 0,
                        whole_list=not chained)
 
 
 def run_monthly(page: Page, agent: str) -> None:
-    """Раз в месяц: bugungi kun raqami — bugungi vizit yaratiladi (keyingi oy
+    """Раз в месяц: bugungi kun raqami — bugungi visit yaratiladi (keyingi oy
     sanasi oyna chegarasida, serverga bog'liq — subset tekshiruvi)."""
     m = BasePage(page)
     today = date.today()
@@ -598,7 +598,7 @@ def run_monthly(page: Page, agent: str) -> None:
         horizon = today + timedelta(days=WINDOW_DAYS)
         group = [d for d in _plan_dates(page)
                  if d.day == today.day and today <= d <= horizon]
-        assert today in group, f"{MONTH_SECTION}: bugungi vizit yaratilmadi ({group})"
+        assert today in group, f"{MONTH_SECTION}: bugungi visit yaratilmadi ({group})"
         # keyingi oy shu kuni (31 kunlik oyna chegarasida) — bo'lsa ham xato emas
         ny, nm = (today.year + (today.month == 12), today.month % 12 + 1)
         try:
@@ -616,7 +616,7 @@ def run_mobile_visit(page: Page, agent: str) -> dict:
     exp_client_list → begin → autosave → end → status C, xulosani qaytaradi.
 
     Faqat BUGUNGI rejasi bor agent uchun ishlaydi (weekly/monthly bugunni beradi;
-    har 2/3/4/5 hafta birinchi viziti kelajakda — exp_client_list ko'rmaydi).
+    har 2/3/4/5 hafta birinchi visiti kelajakda — exp_client_list ko'rmaydi).
     Планы ro'yxatida (plan_list URL) chaqirilishi kerak — user_id URL'dan olinadi."""
     user_id = re.search(r"user_id=(\d+)", page.url).group(1)
     agent_login = f"{agent}@{COMPANY_CODE}"
@@ -635,7 +635,7 @@ def run_mobile_visit(page: Page, agent: str) -> dict:
         allure.attach(str(summary), name="newman_summary",
                       attachment_type=allure.attachment_type.TEXT)
         assert summary["visit_completed_status_C"], (
-            f"Vizit 'C' (yakunlangan) holatiga yetmadi: {summary}"
+            f"Visit 'C' (yakunlangan) holatiga yetmadi: {summary}"
         )
         assert not summary["real_failures"], (
             f"Newman'da haqiqiy xatolar bor: {summary['real_failures']}"
@@ -659,7 +659,7 @@ def _standalone(page: Page, runner) -> None:
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
 @allure.story("Такрорланиш (recurrence)")
-@allure.title("Каждую неделю — 5 ta ketma-ket vizit")
+@allure.title("Каждую неделю — 5 ta ketma-ket visit")
 def test_weekly(page: Page) -> None:
     _standalone(page, run_weekly)
 
@@ -667,7 +667,7 @@ def test_weekly(page: Page) -> None:
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
 @allure.story("Такрорланиш (recurrence)")
-@allure.title("Каждую вторую неделю — toza agentда 2 ta vizit (orasi 14 kun)")
+@allure.title("Каждую вторую неделю — toza agentда 2 ta visit (orasi 14 kun)")
 def test_every_2_weeks(page: Page) -> None:
     _standalone(page, run_every_2_weeks)
 
@@ -675,7 +675,7 @@ def test_every_2_weeks(page: Page) -> None:
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
 @allure.story("Такрорланиш (recurrence)")
-@allure.title("Каждую третью неделю — toza agentда 1 ta vizit (+14 kun)")
+@allure.title("Каждую третью неделю — toza agentда 1 ta visit (+14 kun)")
 def test_every_3_weeks(page: Page) -> None:
     _standalone(page, run_every_3_weeks)
 
@@ -683,7 +683,7 @@ def test_every_3_weeks(page: Page) -> None:
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
 @allure.story("Такрорланиш (recurrence)")
-@allure.title("Каждую четвертую неделю — toza agentда 1 ta vizit (+21 kun)")
+@allure.title("Каждую четвертую неделю — toza agentда 1 ta visit (+21 kun)")
 def test_every_4_weeks(page: Page) -> None:
     _standalone(page, run_every_4_weeks)
 
@@ -691,7 +691,7 @@ def test_every_4_weeks(page: Page) -> None:
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
 @allure.story("Такрорланиш (recurrence)")
-@allure.title("Каждую пятую неделю — toza agentда 1 ta vizit (+28 kun)")
+@allure.title("Каждую пятую неделю — toza agentда 1 ta visit (+28 kun)")
 def test_every_5_weeks(page: Page) -> None:
     _standalone(page, run_every_5_weeks)
 
@@ -699,43 +699,6 @@ def test_every_5_weeks(page: Page) -> None:
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
 @allure.story("Такрорланиш (recurrence)")
-@allure.title("Раз в месяц — bugungi kunga vizit")
+@allure.title("Раз в месяц — bugungi kunga visit")
 def test_monthly(page: Page) -> None:
     _standalone(page, run_monthly)
-
-
-@pytest.mark.skipif(NEWMAN_YOQ, reason="newman (Postman CLI) o'rnatilmagan — `npm i -g newman`")
-@allure.epic("Документы")
-@allure.feature("Планирование визитов")
-@allure.story("Такрорланиш (recurrence)")
-@allure.title("Zanjir: barcha recurrence variantlari + Postman mobil vizit bitta agent bilan")
-def test_recurrence_all(page: Page) -> None:
-    """Bitta login + bitta agent, IKKALA tekshiruv bitta run'da:
-    1) recurrence: 5 hafta varianti (har biri o'z hafta kunida) + monthly OXIRIDA
-       (uning +1 oy sanasi boshqa guruhga xalaqit qilmasin);
-    2) bridge: weekly/monthly bugungi rejani berdi — Postman (newman) bilan vizit
-       C gacha bajariladi, web'da "Завершен" + Просмотр + lead "Подтвержден"."""
-    authorization(page)
-    agent = run_create_agent(page)
-
-    # --- 1-QISM: recurrence sanalari (chained: har variant o'z hafta kunida) ---
-    run_weekly(page, agent, chained=True)
-    run_every_2_weeks(page, agent, chained=True)
-    run_every_3_weeks(page, agent, chained=True)
-    run_every_4_weeks(page, agent, chained=True)
-    run_every_5_weeks(page, agent, chained=True)
-    run_monthly(page, agent)
-
-    # --- 2-QISM: Postman mobil vizit (bugungi reja weekly/monthly'dan bor) ---
-    summary = run_mobile_visit(page, agent)
-    m = BasePage(page)
-    visit_id = summary["visit_id"]
-
-    with allure.step(f"Web: Визиты'da vizit (#{visit_id}) 'Завершен' + Просмотр"):
-        verify_visit_completed_web(page, m, agent, visit_id)
-
-    with allure.step("Web: Лиды — vizit lead'ini tasdiqlash (Подтвержден)"):
-        confirm_visit_lead(page, m, agent, visit_id)
-
-    with allure.step(f"Tozalash: '{agent}' agentini Неактивный qilish"):
-        _deactivate_agent(page, m, agent)
