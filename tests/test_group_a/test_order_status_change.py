@@ -5,23 +5,23 @@ from flows.flow_authorization import COMPANY_CODE, authorization
 from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
 
-# Zakaz hayot sikli — "Изменить статус" menyusida har safar joriy statusdan
-# keyingi bosqich tanlanadi; zakaz run_zakaz da ЧЕРНОВИК statusida yaratiladi
+# Order hayot sikli — "Изменить статус" menyusida har safar joriy statusdan
+# keyingi bosqich tanlanadi; order run_order da ЧЕРНОВИК statusida yaratiladi
 # (create formasida status endi tanlanmaydi), Завершен yakuniy. "Принято"
 # UI'dan olib tashlangan, "Отменён" qo'shilgan (menyuda bor, zanjirda
 # ishlatilmaydi) — MCP tasdiqlangan 2026-07-17.
 STATUS_CHAIN = ("Черновик", "Новый", "Выполняется", "В сборке", "В пути", "Доставлено", "Завершен")
 
 
-def run_zakaz_status_change(page: Page, code) -> None:
-    """Group A: postavshik foydalanuvchisi nomidan run_zakaz yaratgan Заказ
+def run_order_status_change(page: Page, code) -> None:
+    """Group A: postavshik foydalanuvchisi nomidan run_order yaratgan Заказ
     statusini to'liq hayot sikli bo'ylab o'zgartiradi:
     Черновик → Новый → Выполняется → В сборке → В пути → Доставлено → Завершен.
 
     supplier_user-{code} bilan login qilingan bo'lishi kerak (run_supplier_user
-    yaratadi va "Админ (Поставщик)" rolini beradi); zakaz qatori ro'yxatda
+    yaratadi va "Админ (Поставщик)" rolini beradi); order qatori ro'yxatda
     client-{code} (savdo nuqtasi) nomi bilan topiladi va Черновик statusda
-    turishi kutiladi (run_zakaz statusga tegmaydi)."""
+    turishi kutiladi (run_order statusga tegmaydi)."""
     m = BasePage(page)
     client_name = f"client-{code}"
 
@@ -56,8 +56,8 @@ def run_zakaz_status_change(page: Page, code) -> None:
 @allure.feature("Group A")
 @allure.story("Изменение статуса заказа")
 @allure.title("Group A: Заказ statusini Новый dan Завершен gacha o'tkazish")
-def test_zakaz_status_change(page: Page, code) -> None:
+def test_order_status_change(page: Page, code) -> None:
     with allure.step("Tizimga kirish (postavshik foydalanuvchisi)"):
         # To'liq login = "<Логин>@<kompaniya kodi>" (admin@sm24 bilan bir xil format)
         authorization(page, email=f"supplier_user-{code}@{COMPANY_CODE}", password="1")
-    run_zakaz_status_change(page, code)
+    run_order_status_change(page, code)

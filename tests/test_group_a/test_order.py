@@ -67,7 +67,7 @@ def _fill_step2_and_advance(page: Page, m: BasePage, product_name: str, value: s
     raise AssertionError("Товары → Завершение: Кол-во qabul qilinmadi (qty-reset race)")
 
 
-def run_zakaz(page: Page, code, product_name=None) -> None:
+def run_order(page: Page, code, product_name=None) -> None:
     """Group A: klient foydalanuvchisi nomidan yangi Заказ yaratadi — 3 qadamli
     wizard: Основное (savdo nuqtasi/postavshik/yetkazish vaqti) → Товары (tovar
     va miqdor) → Завершение (to'lov turi va status).
@@ -130,8 +130,8 @@ def run_zakaz(page: Page, code, product_name=None) -> None:
                 _set_qty(page)
                 m.wizard_step("Завершение")
 
-    with allure.step(f"Ro'yxatda yangi zakaz ({supplier_name} / {client_name} / Черновик) tekshirish"):
-        # Yangi zakaz Черновик statusida yaratiladi (MCP tasdiqlangan 2026-07-17)
+    with allure.step(f"Ro'yxatda yangi order ({supplier_name} / {client_name} / Черновик) tekshirish"):
+        # Yangi order Черновик statusida yaratiladi (MCP tasdiqlangan 2026-07-17)
         m.grid_row(supplier_name, client_name, "Черновик")
 
 
@@ -139,8 +139,8 @@ def run_zakaz(page: Page, code, product_name=None) -> None:
 @allure.feature("Group A")
 @allure.story("Создание заказа")
 @allure.title("Group A: klient foydalanuvchisi nomidan yangi Заказ yaratish")
-def test_zakaz(page: Page, code) -> None:
+def test_order(page: Page, code) -> None:
     with allure.step("Tizimga kirish (klient foydalanuvchisi)"):
         # To'liq login = "<Логин>@<kompaniya kodi>" (admin@sm24 bilan bir xil format)
         authorization(page, email=f"client_user-{code}@{COMPANY_CODE}", password="1")
-    run_zakaz(page, code)
+    run_order(page, code)

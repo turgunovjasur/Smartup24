@@ -6,7 +6,7 @@ from flows.flow_navbar import flow_menu, flow_navigate
 from utils.base_page import BasePage
 
 
-def run_valyuta(page: Page, code, name=None, kod=None, active=True) -> dict:
+def run_currency(page: Page, code, name=None, kod=None, active=True) -> dict:
     """Yangi Валюта yaratadi. ``name``/``kod`` berilmasa so`m{code}/{code};
     ``active=False`` bo'lsa Статус switch o'chirib yaratiladi. Yaratilgan
     qiymatlarni qaytaradi (Код unikal bo'lishi shart)."""
@@ -61,10 +61,10 @@ def run_valyuta(page: Page, code, name=None, kod=None, active=True) -> dict:
 @allure.feature("Валюты")
 @allure.story("Создание валюты")
 @allure.title("Yangi Валюта yaratish")
-def test_valyuta(page: Page, code) -> None:
+def test_currency(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
-    run_valyuta(page, code)
+    run_currency(page, code)
 
 
 # CRUD testlari ko'chirilgan: tests/test_regression/ — bu yerda faqat basic create qoladi.

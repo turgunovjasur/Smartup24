@@ -1,6 +1,6 @@
 """Валюта — to'liq CRUD regression testlari.
 
-Basic create (run_valyuta/test_valyuta) tests/test_setup/test_valyuta.py da
+Basic create (run_currency/test_currency) tests/test_setup/test_currency.py da
 turadi — bu yerda faqat CRUD ssenariylari: full create, edit, view, delete,
 status, duplicate. Har test o'z unikal Код bilan ishlaydi (kod prefikslari:
 1..7 + {code}). Kod test_setup dan ko'chirilgan ishlaydigan nusxa
@@ -12,11 +12,11 @@ from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_menu, flow_navigate
-from tests.test_setup.test_valyuta import run_valyuta
+from tests.test_setup.test_currency import run_currency
 from utils.base_page import BasePage
 
 
-def run_valyuta_full(page: Page, code) -> None:
+def run_currency_full(page: Page, code) -> None:
     """Валюта formasining BARCHA maydonlari bilan yaratish: Код, Название,
     Базовая/Разменная денежная единица, Постфикс radio + qo'shimcha matn,
     Статус (MCP tasdiqlangan 2026-07-05)."""
@@ -61,23 +61,23 @@ def run_valyuta_full(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Создание валюты — все поля")
 @allure.title("Валютани BARCHA maydonlar bilan yaratish")
-def test_valyuta_full(page: Page, code) -> None:
+def test_currency_full(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
-    run_valyuta_full(page, code)
+    run_currency_full(page, code)
 
 
 #---------------------------------------------------------------------------------------------------
 
 
-def run_valyuta_edit(page: Page, code) -> None:
-    """Yangi valyuta yaratib, Изменить orqali nomini o'zgartiradi va o'zgarish
+def run_currency_edit(page: Page, code) -> None:
+    """Yangi currency yaratib, Изменить orqali nomini o'zgartiradi va o'zgarish
     ro'yxatda aks etganini tekshiradi."""
     m = BasePage(page)
     old_name = f"val-edit-{code}"
     new_name = f"val-upd-{code}"
 
-    run_valyuta(page, code, name=old_name, kod=f"2{code}")
+    run_currency(page, code, name=old_name, kod=f"2{code}")
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
@@ -107,25 +107,25 @@ def run_valyuta_edit(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Редактирование валюты")
 @allure.title("Валютани tahrirlash va o'zgarishni tekshirish")
-def test_valyuta_edit(page: Page, code) -> None:
+def test_currency_edit(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
-    run_valyuta_edit(page, code)
+    run_currency_edit(page, code)
 
 
 #---------------------------------------------------------------------------------------------------
 
 
-def run_valyuta_view(page: Page, code) -> None:
-    """Yangi valyuta yaratib, Просмотр formasida qiymatlar to'g'ri
+def run_currency_view(page: Page, code) -> None:
+    """Yangi currency yaratib, Просмотр formasida qiymatlar to'g'ri
     ko'rsatilishini tekshiradi (readonly cv_* inputlar, MCP 2026-07-05).
 
-    Diqqat: valyutada tugma "Просмотреть" emas, "Просмотр" deb nomlangan."""
+    Diqqat: currencyda tugma "Просмотреть" emas, "Просмотр" deb nomlangan."""
     m = BasePage(page)
     name = f"val-view-{code}"
     kod = f"3{code}"
 
-    data = run_valyuta(page, code, name=name, kod=kod)
+    data = run_currency(page, code, name=name, kod=kod)
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
@@ -145,22 +145,22 @@ def run_valyuta_view(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Просмотр валюты")
 @allure.title("Валюта ma'lumotlari Просмотр formasida to'g'ri ko'rinishi")
-def test_valyuta_view(page: Page, code) -> None:
+def test_currency_view(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
-    run_valyuta_view(page, code)
+    run_currency_view(page, code)
 
 
 #---------------------------------------------------------------------------------------------------
 
 
-def run_valyuta_delete(page: Page, code) -> None:
-    """Yangi valyuta yaratib, uni Удалить orqali o'chiradi va ro'yxatdan
+def run_currency_delete(page: Page, code) -> None:
+    """Yangi currency yaratib, uni Удалить orqali o'chiradi va ro'yxatdan
     yo'qolganini tekshiradi."""
     m = BasePage(page)
     name = f"val-del-{code}"
 
-    run_valyuta(page, code, name=name, kod=f"4{code}")
+    run_currency(page, code, name=name, kod=f"4{code}")
 
     with allure.step(f"'{name}' qatorini tanlab Удалить bosish"):
         m.click_grid_row(name)
@@ -178,29 +178,29 @@ def run_valyuta_delete(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Удаление валюты")
 @allure.title("Валютани o'chirish va ro'yxatdan yo'qolganini tekshirish")
-def test_valyuta_delete(page: Page, code) -> None:
+def test_currency_delete(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
-    run_valyuta_delete(page, code)
+    run_currency_delete(page, code)
 
 
 #---------------------------------------------------------------------------------------------------
 
 
-def run_valyuta_status(page: Page, code) -> None:
+def run_currency_status(page: Page, code) -> None:
     """Status ikki yo'nalishda tekshiriladi. Валютада status qator action
     paneldagi MAQSAD status nomidagi toggle tugma bilan almashtiriladi
     (tasdiqlash: "да"). Tugma va grid badge nomlari INGLIZCHA "passive"/
     "active" (opros modulidagi pattern; regression 2026-07-08).
 
-    1) Aktiv yaratilgan valyuta passive qilinadi — default ro'yxatdan
+    1) Aktiv yaratilgan currency passive qilinadi — default ro'yxatdan
        yo'qoladi, "Показать все"da "passive" ko'rinadi.
-    2) Passiv yaratilgan valyuta active qilinadi — ro'yxatda "active"."""
+    2) Passiv yaratilgan currency active qilinadi — ro'yxatda "active"."""
     m = BasePage(page)
     active_name = f"val-stat-a-{code}"
     passive_name = f"val-stat-p-{code}"
 
-    run_valyuta(page, code, name=active_name, kod=f"5{code}")
+    run_currency(page, code, name=active_name, kod=f"5{code}")
 
     with allure.step(f"1) '{active_name}' ni passive qilish"):
         m.click_grid_row(active_name)
@@ -215,7 +215,7 @@ def run_valyuta_status(page: Page, code) -> None:
         m.show_all()
         m.grid_row(active_name, "passive")
 
-    run_valyuta(page, code, name=passive_name, kod=f"6{code}", active=False)
+    run_currency(page, code, name=passive_name, kod=f"6{code}", active=False)
 
     with allure.step(f"2) Passiv yaratilgan '{passive_name}' ni active qilish"):
         m.click_grid_row(passive_name)
@@ -231,16 +231,16 @@ def run_valyuta_status(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Статус валюты")
 @allure.title("Валюта statusini Неактивный/Активный qilish va tekshirish")
-def test_valyuta_status(page: Page, code) -> None:
+def test_currency_status(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
-    run_valyuta_status(page, code)
+    run_currency_status(page, code)
 
 
 #---------------------------------------------------------------------------------------------------
 
 
-def run_valyuta_duplicate(page: Page, code) -> None:
+def run_currency_duplicate(page: Page, code) -> None:
     """Bir xil Код bilan qayta yaratishga urinish xatolik berishini tekshiradi.
 
     Код unikal: saqlashda "Ошибка" dialogi chiqadi — matni "Этот код уже
@@ -249,7 +249,7 @@ def run_valyuta_duplicate(page: Page, code) -> None:
     name = f"val-dup-{code}"
     kod = f"7{code}"
 
-    run_valyuta(page, code, name=name, kod=kod)
+    run_currency(page, code, name=name, kod=kod)
 
     with allure.step(f"Xuddi shu Код {kod} bilan qayta yaratishga urinish"):
         m.open_create()
@@ -282,7 +282,7 @@ def run_valyuta_duplicate(page: Page, code) -> None:
 @allure.feature("Валюты")
 @allure.story("Дубликат валюты")
 @allure.title("Bir xil Код bilan Валюта qayta yaratishda xatolik chiqishi")
-def test_valyuta_duplicate(page: Page, code) -> None:
+def test_currency_duplicate(page: Page, code) -> None:
     with allure.step("Tizimga kirish"):
         authorization(page)
-    run_valyuta_duplicate(page, code)
+    run_currency_duplicate(page, code)

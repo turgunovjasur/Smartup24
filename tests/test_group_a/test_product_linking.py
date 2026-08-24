@@ -13,7 +13,7 @@ def run_product_linking(page: Page, code, product_name=None) -> str:
     va 'Цена по умолчанию' bo'yicha narx o'rnatadi (run_supplier dan keyin).
 
     ``product_name`` berilsa (masalan run_product yaratgan tovar) aynan o'sha
-    biriktiriladi — run_zakaz keyin klient katalogida shu tovarni qidiradi.
+    biriktiriladi — run_order keyin klient katalogida shu tovarni qidiradi.
     Berilmasa ro'yxatdagi birinchi product-* olinadi. Haqiqiy biriktirilgan
     tovar nomini qaytaradi."""
     m = BasePage(page)

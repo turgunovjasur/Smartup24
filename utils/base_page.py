@@ -112,7 +112,7 @@ class BasePage:
     #   - smt-multi-data-select : ko'p variant (masalan "Отрасль"), ham Подбор input
     #   - smt-tree-select       : daraxt variant (masalan "Регион"), input EMAS —
     #     smt-select-trigger bosiladi, qidiruv inputi overlay'dagi [role=tree] panelda
-    #   - smt-select            : qidiruvsiz select (zakaz formasidagi "Статус") —
+    #   - smt-select            : qidiruvsiz select (order formasidagi "Статус") —
     #     input umuman YO'Q, smt-select-trigger bosiladi, variantlar smt-select-dropdown
     #     li da, tanlangan qiymat trigger MATNIDA (MCP tasdiqlangan 2026-07-06)
     _SELECT_CSS = "smt-data-select, smt-multi-data-select, smt-tree-select, smt-select"
@@ -182,7 +182,7 @@ class BasePage:
             wrapper = self._field_wrapper(label, index=index, root=root)
             return wrapper.locator(tag).first
         if root is not self.page:
-            # Label'siz kontekst — masalan zakaz formasida tovar qidiruvi jadval
+            # Label'siz kontekst — masalan order formasida tovar qidiruvi jadval
             # QATORI ichidagi smt-data-select (label ham, smtid ham yo'q): berilgan
             # root ichidan to'g'ridan-to'g'ri tag bo'yicha topamiz.
             return root.locator(tag).nth(index)
@@ -297,7 +297,7 @@ class BasePage:
             return select, trigger, tag_name
 
         if tag_name == "smt-select":
-            # Qidiruvsiz select ("Статус" zakaz formasida): input yo'q, faqat trigger
+            # Qidiruvsiz select ("Статус" order formasida): input yo'q, faqat trigger
             # bosiladi — filtr yozib bo'lmaydi, trigger=None qaytariladi.
             select.locator("smt-select-trigger").first.click()
             return select, None, tag_name

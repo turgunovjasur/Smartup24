@@ -29,7 +29,7 @@ DIZAYN
   nomlarini yaratadi — shuning uchun har bo'lim session ``code`` dan yasalgan
   ALOHIDA deterministik variant ishlatadi: setup=``code``, group_a=``{code}2``,
   regression=``{code}3``.
-- **Testlararo ma'lumot.** Group A'da yaratilgan tovar nomi (linking → zakaz)
+- **Testlararo ma'lumot.** Group A'da yaratilgan tovar nomi (linking → order)
   va konkurs regioni testlar orasida ``runner_state`` fixture (session lug'at,
   conftest) orqali uzatiladi — eski lokal o'zgaruvchilar o'rniga.
 
@@ -69,13 +69,19 @@ from tests.test_setup.test_form_of_ownership import run_form_of_ownership as set
 from tests.test_setup.test_supplier import run_supplier as setup_supplier, ensure_refs
 from tests.test_setup.test_client import run_client as setup_client
 from tests.test_setup.test_legal_person import run_legal_person as setup_legal_person
-from tests.test_setup.test_valyuta import run_valyuta as setup_valyuta
+from tests.test_setup.test_currency import run_currency as setup_currency
 from tests.test_setup.test_konkurs import run_konkurs as setup_konkurs
 from tests.test_setup.test_bonus import run_bonus as setup_bonus
 from tests.test_setup.test_territory import run_territory as setup_territory
 from tests.test_setup.test_vaprost import run_vaprost as setup_vaprost
 from tests.test_setup.test_oprosniki import run_oprosniki as setup_oprosniki
 from tests.test_setup.test_shablon import run_shablon as setup_shablon
+from tests.test_setup.test_person_group import run_person_group as setup_person_group
+from tests.test_setup.test_box_type import run_box_type as setup_box_type
+from tests.test_setup.test_measure import run_measure as setup_measure
+from tests.test_setup.test_service import run_service as setup_service
+from tests.test_setup.test_quiz_type import run_quiz_type as setup_quiz_type
+from tests.test_setup.test_outlet import run_outlet as setup_outlet
 
 # --- Group A: rol/oqim testlari ---
 from tests.test_group_a.test_supplier import run_supplier as ga_supplier
@@ -85,8 +91,8 @@ from tests.test_group_a.test_client_user import run_client_user as ga_client_use
 from tests.test_group_a.test_cooperation import run_cooperation as ga_cooperation
 from tests.test_group_a.test_product import run_product as ga_product
 from tests.test_group_a.test_product_linking import run_product_linking as ga_product_linking
-from tests.test_group_a.test_zakaz import run_zakaz as ga_zakaz
-from tests.test_group_a.test_zakaz_status_change import run_zakaz_status_change as ga_zakaz_status
+from tests.test_group_a.test_order import run_order as ga_order
+from tests.test_group_a.test_order_status_change import run_order_status_change as ga_order_status
 
 # --- Regression: to'liq CRUD funksiyalari ---
 from tests.test_regression.test_region import (
@@ -109,9 +115,9 @@ from tests.test_regression.test_legal_person import (
     run_legal_person_delete, run_legal_person_duplicate, run_legal_person_edit,
     run_legal_person_full, run_legal_person_status, run_legal_person_view,
 )
-from tests.test_regression.test_valyuta import (
-    run_valyuta_delete, run_valyuta_duplicate, run_valyuta_edit,
-    run_valyuta_full, run_valyuta_status, run_valyuta_view,
+from tests.test_regression.test_currency import (
+    run_currency_delete, run_currency_duplicate, run_currency_edit,
+    run_currency_full, run_currency_status, run_currency_view,
 )
 from tests.test_regression.test_konkurs import (
     ensure_konkurs_region, run_konkurs_delete, run_konkurs_edit,
@@ -231,9 +237,9 @@ def test_018_setup_legal_person(session_page: Page, code) -> None:
 
 @allure.epic("Модератор")
 @allure.feature("Setup — basic create")
-@allure.title("Setup: Валюта — yangi valyuta")
-def test_019_setup_valyuta(session_page: Page, code) -> None:
-    setup_valyuta(session_page, _setup_code(code))
+@allure.title("Setup: Валюта — yangi currency")
+def test_019_setup_currency(session_page: Page, code) -> None:
+    setup_currency(session_page, _setup_code(code))
 
 
 @allure.epic("Модератор")
@@ -278,10 +284,54 @@ def test_025_setup_shablon(session_page: Page, code) -> None:
     setup_shablon(session_page, _setup_code(code))
 
 
+# ── Sub-nav справочniklar (list sarlavhasidagi bo'limlar) ─────────────────────
+@allure.epic("Модератор")
+@allure.feature("Setup — basic create")
+@allure.title("Setup: Характеристики (Юр. лица) — Юр.лицо sub-nav")
+def test_026_setup_person_group(session_page: Page, code) -> None:
+    setup_person_group(session_page, _setup_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Setup — basic create")
+@allure.title("Setup: Типы упаковок — Товары sub-nav")
+def test_027_setup_box_type(session_page: Page, code) -> None:
+    setup_box_type(session_page, _setup_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Setup — basic create")
+@allure.title("Setup: Единицы измерения — Товары sub-nav")
+def test_028_setup_measure(session_page: Page, code) -> None:
+    setup_measure(session_page, _setup_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Setup — basic create")
+@allure.title("Setup: Услуги — Товары sub-nav (Ед. изм. = кг, global)")
+def test_029_setup_service(session_page: Page, code) -> None:
+    setup_service(session_page, _setup_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Setup — basic create")
+@allure.title("Setup: Тип вопроса — Вопросы sub-nav")
+def test_030_setup_quiz_type(session_page: Page, code) -> None:
+    setup_quiz_type(session_page, _setup_code(code))
+
+
+@allure.epic("Модератор")
+@allure.feature("Setup — basic create")
+@allure.title("Setup: Торговые точки — Клиенты sub-nav (test_017 client'ini ishlatadi)")
+def test_031_setup_outlet(session_page: Page, code) -> None:
+    # Majburiy "Клиент" uchun test_017 da yaratilgan client-{code} qayta ishlatiladi
+    setup_outlet(session_page, _setup_code(code), client_name=f"client-{_setup_code(code)}")
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# II. GROUP A — supplier/client, userlar, hamkorlik, tovar biriktirish, zakaz
+# II. GROUP A — supplier/client, userlar, hamkorlik, tovar biriktirish, order
 #     Setup bo'limi admin bilan tugadi — Group A refs/supplier/... admin'da davom
-#     etadi (o'z {code}2 kodi bilan). Faqat zakaz/status bosqichlarida rol almashadi.
+#     etadi (o'z {code}2 kodi bilan). Faqat order/status bosqichlarida rol almashadi.
 # ══════════════════════════════════════════════════════════════════════════════
 @allure.epic("Group A")
 @allure.feature("Ma'lumotnomalar")
@@ -382,32 +432,32 @@ def test_216_ga_product_linking(session_page: Page, code, runner_state) -> None:
         session_page, _ga_code(code),
         product_name=runner_state.get("ga_product_name"),
     )
-    # linking haqiqatda biriktirgan nomni qaytaradi — zakaz aynan shuni qidiradi
+    # linking haqiqatda biriktirgan nomni qaytaradi — order aynan shuni qidiradi
     runner_state["ga_product_name"] = product_name
 
 
 @allure.epic("Клиент")
 @allure.feature("Group A")
 @allure.title("Group A: Заказ — klient foydalanuvchisi nomidan yaratish")
-def test_217_ga_zakaz(session_page: Page, code, runner_state) -> None:
-    """Zakaz faqat klient rolida ko'rinadi — admin seansdan chiqib, group_a'da
+def test_217_ga_order(session_page: Page, code, runner_state) -> None:
+    """Order faqat klient rolida ko'rinadi — admin seansdan chiqib, group_a'da
     yaratilgan klient foydalanuvchisi bilan kiramiz."""
     ga = _ga_code(code)
     logout(session_page)
     authorization(session_page, email=f"client_user-{ga}@{COMPANY_CODE}", password="1")
-    ga_zakaz(session_page, ga, product_name=runner_state.get("ga_product_name"))
+    ga_order(session_page, ga, product_name=runner_state.get("ga_product_name"))
 
 
 @allure.epic("Поставщик")
 @allure.feature("Group A")
 @allure.title("Group A: Статус заказа — postavshik nomidan Новый → Завершен")
-def test_218_ga_zakaz_status(session_page: Page, code) -> None:
+def test_218_ga_order_status(session_page: Page, code) -> None:
     """Status faqat postavshik rolida o'zgartiriladi — klient seansdan chiqib,
     group_a'da yaratilgan postavshik foydalanuvchisi bilan kiramiz."""
     ga = _ga_code(code)
     logout(session_page)
     authorization(session_page, email=f"supplier_user-{ga}@{COMPANY_CODE}", password="1")
-    ga_zakaz_status(session_page, ga)
+    ga_order_status(session_page, ga)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -586,17 +636,17 @@ def test_451_legal_person_crud(session_page: Page, code, title, run) -> None:
 @allure.epic("Модератор")
 @allure.feature("Валюта")
 @allure.title("Валюта: Создание")
-def test_460_valyuta_create(session_page: Page, code) -> None:
-    setup_valyuta(session_page, _reg_code(code))
+def test_460_currency_create(session_page: Page, code) -> None:
+    setup_currency(session_page, _reg_code(code))
 
 
 _VALYUTA_CRUD = [
-    ("full",      "Создание — barcha maydonlar bilan", run_valyuta_full),
-    ("edit",      "Редактирование",                    run_valyuta_edit),
-    ("view",      "Просмотр",                          run_valyuta_view),
-    ("delete",    "Удаление",                          run_valyuta_delete),
-    ("status",    "Статус — Неактивный/Активный",      run_valyuta_status),
-    ("duplicate", "Дубликат — Код bilan xatolik",      run_valyuta_duplicate),
+    ("full",      "Создание — barcha maydonlar bilan", run_currency_full),
+    ("edit",      "Редактирование",                    run_currency_edit),
+    ("view",      "Просмотр",                          run_currency_view),
+    ("delete",    "Удаление",                          run_currency_delete),
+    ("status",    "Статус — Неактивный/Активный",      run_currency_status),
+    ("duplicate", "Дубликат — Код bilan xatolik",      run_currency_duplicate),
 ]
 
 
@@ -607,7 +657,7 @@ _VALYUTA_CRUD = [
     [(c[1], c[2]) for c in _VALYUTA_CRUD],
     ids=[c[0] for c in _VALYUTA_CRUD],
 )
-def test_461_valyuta_crud(session_page: Page, code, title, run) -> None:
+def test_461_currency_crud(session_page: Page, code, title, run) -> None:
     allure.dynamic.title(f"Валюта: {title}")
     run(session_page, _reg_code(code))
 

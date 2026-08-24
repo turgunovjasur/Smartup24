@@ -18,16 +18,16 @@ DIZAYN (test_all_runner.py bilan bir xil)
 
 MAXSUS HOLATLAR
 ---------------
-- **Vizit tartibi:** ``run_vizit_check`` avval yuradi — u vizit bajarib yangi lead
-  hosil qiladi, shunda ``run_vizit_led_shag`` uchun lead kafolatlanadi (manba
-  ``test_vizit_all`` bilan bir xil).
+- **Visit tartibi:** ``run_visit_check`` avval yuradi — u visit bajarib yangi lead
+  hosil qiladi, shunda ``run_visit_led_shag`` uchun lead kafolatlanadi (manba
+  ``test_visit_all`` bilan bir xil).
 - **Recurrence / agent-tracking:** har biri O'Z agentini yaratadi va oxirida uni
-  Неактивный qiladi (vizitли agent o'chirilmaydi — child record). Bu ikki test
+  Неактивный qiladi (visitли agent o'chirilmaydi — child record). Bu ikki test
   manba fayllardagi ``test_recurrence_all`` / ``test_agent_visit_tracking`` zanjir
   tanasini AYNAN takrorlaydi (faqat ichki ``authorization`` olib tashlangan —
   seans allaqachon ochiq).
-- **newman (Postman CLI):** ``run_vizit_check`` va ``test_040_recurrence_full``
-  mobil vizitni newman bilan bajaradi — o'rnatilmagan bo'lsa skip (NEWMAN_YOQ).
+- **newman (Postman CLI):** ``run_visit_check`` va ``test_040_recurrence_full``
+  mobil visitni newman bilan bajaradi — o'rnatilmagan bo'lsa skip (NEWMAN_YOQ).
 - **route-analysis required_fields:** ilovada majburiy-sana validatsiyasi yo'q
   (bug) — ``run_required_fields`` ichida ``pytest.xfail`` chaqiriladi, shuning
   uchun bu test XFAIL bo'ladi (yiqilish EMAS; hujjatlashtirilgan holat).
@@ -57,17 +57,17 @@ from tests.test_document.test_route_analysis import (
     run_required_fields, run_structure,
 )
 # --- Визиты ---
-from tests.test_document.test_vizit import (
+from tests.test_document.test_visit import (
     run_visit_criteria_roundtrip, run_visit_functions_roundtrip,
-    run_visit_roles_overview, run_vizit_check, run_vizit_leads, run_vizit_prichina,
+    run_visit_roles_overview, run_visit_check, run_visit_leads, run_visit_reason,
 )
-# --- Планирование визитов (recurrence + mobil vizit bridge) ---
+# --- Планирование визитов (recurrence + mobil visit bridge) ---
 from tests.test_document.test_Plan_visit_recurrence import (
     NEWMAN_YOQ, _deactivate_agent, confirm_visit_lead, run_create_agent,
     run_every_2_weeks, run_every_3_weeks, run_every_4_weeks, run_every_5_weeks,
     run_mobile_visit, run_monthly, run_weekly, verify_visit_completed_web,
 )
-# --- Отслеживание пользователей (E2E: agent → reja → API vizit → трекинг) ---
+# --- Отслеживание пользователей (E2E: agent → reja → API visit → трекинг) ---
 from tests.test_document.test_agent_visit_tracking import (
     N_VISITS, create_weekly_plan_5_points, run_api_visits, verify_tracking,
 )
@@ -78,7 +78,7 @@ from tests.test_document.test_agent_visit_tracking import (
 # ══════════════════════════════════════════════════════════════════════════════
 def _recurrence_full(page: Page) -> None:
     """Recurrence to'liq zanjiri: bitta agent → barcha variantlar (chained) →
-    monthly → mobil vizit (C) → web'da Завершен + lead Подтвержден → agent Неактивный."""
+    monthly → mobil visit (C) → web'da Завершен + lead Подтвержден → agent Неактивный."""
     agent = run_create_agent(page)
     run_weekly(page, agent, chained=True)
     run_every_2_weeks(page, agent, chained=True)
@@ -90,9 +90,9 @@ def _recurrence_full(page: Page) -> None:
     summary = run_mobile_visit(page, agent)
     m = BasePage(page)
     visit_id = summary["visit_id"]
-    with allure.step(f"Web: Визиты'da vizit (#{visit_id}) 'Завершен' + Просмотр"):
+    with allure.step(f"Web: Визиты'da visit (#{visit_id}) 'Завершен' + Просмотр"):
         verify_visit_completed_web(page, m, agent, visit_id)
-    with allure.step("Web: Лиды — vizit lead'ini tasdiqlash (Подтвержден)"):
+    with allure.step("Web: Лиды — visit lead'ini tasdiqlash (Подтвержден)"):
         confirm_visit_lead(page, m, agent, visit_id)
     with allure.step(f"Tozalash: '{agent}' agentini Неактивный qilish"):
         _deactivate_agent(page, m, agent)
@@ -100,15 +100,15 @@ def _recurrence_full(page: Page) -> None:
 
 def _agent_tracking(page: Page) -> None:
     """Отслеживание E2E: rol=Агент yangi user → haftalik reja (5 chana) → API orqali
-    N_VISITS vizit → Отслеживание xaritasida bajarilgan vizitlar → agent Неактивный."""
+    N_VISITS visit → Отслеживание xaritasida bajarilgan visitlar → agent Неактивный."""
     with allure.step("1-qadam: rol=Агент yangi Пользователь yaratish"):
         agent = run_create_agent(page)
     with allure.step("2-qadam: haftalik reja + 5 chana"):
         user_id = create_weekly_plan_5_points(page, agent)
-    with allure.step(f"3-qadam: API orqali {N_VISITS} ta vizit"):
+    with allure.step(f"3-qadam: API orqali {N_VISITS} ta visit"):
         visit_ids = run_api_visits(page, agent, user_id, count=N_VISITS)
-        assert len(visit_ids) == N_VISITS, f"{N_VISITS} vizit kutilgan, olindi {visit_ids}"
-    with allure.step(f"4-qadam: Отслеживание — {len(visit_ids)} vizit ko'rinishi"):
+        assert len(visit_ids) == N_VISITS, f"{N_VISITS} visit kutilgan, olindi {visit_ids}"
+    with allure.step(f"4-qadam: Отслеживание — {len(visit_ids)} visit ko'rinishi"):
         verify_tracking(page, agent, expected_visits=len(visit_ids))
     with allure.step(f"Tozalash: '{agent}' agentini Неактивный qilish"):
         _deactivate_agent(page, BasePage(page), agent)
@@ -221,29 +221,29 @@ def test_024_route_required_fields(session_page: Page) -> None:
 
 # ══════════════════════════════════════════════════════════════════════════════
 # III. ВИЗИТЫ — check (newman) → Причины CRUD → Лиды/Шаги
-#     Tartib MUHIM: check avval — vizit bajarib lead hosil qiladi, led_shag shunga
-#     tayanadi (manba test_vizit_all bilan bir xil).
+#     Tartib MUHIM: check avval — visit bajarib lead hosil qiladi, led_shag shunga
+#     tayanadi (manba test_visit_all bilan bir xil).
 # ══════════════════════════════════════════════════════════════════════════════
 @pytest.mark.skipif(NEWMAN_YOQ, reason="newman (Postman CLI) o'rnatilmagan — `npm i -g newman`")
 @allure.epic("Документы")
 @allure.feature("Визиты")
-@allure.title("Визиты: vizit bajarilgach Просмотр tablari + lead Подтвержден")
-def test_030_vizit_check(session_page: Page) -> None:
-    run_vizit_check(session_page)
+@allure.title("Визиты: visit bajarilgach Просмотр tablari + lead Подтвержден")
+def test_030_visit_check(session_page: Page) -> None:
+    run_visit_check(session_page)
 
 
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.title("Визиты: Причины CRUD — create → edit → view → status → delete")
-def test_031_vizit_prichina(session_page: Page, code: str) -> None:
-    run_vizit_prichina(session_page, code)
+def test_031_visit_reason(session_page: Page, code: str) -> None:
+    run_visit_reason(session_page, code)
 
 
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.title("Визиты: Лиды ro'yxati (lead Просмотр tablari)")
-def test_032_vizit_leads(session_page: Page) -> None:
-    run_vizit_leads(session_page)
+def test_032_visit_leads(session_page: Page) -> None:
+    run_visit_leads(session_page)
 
 
 @allure.epic("Документы")
@@ -268,27 +268,27 @@ def test_035_visit_role_criteria(session_page: Page, code: str) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# IV. ПЛАНИРОВАНИЕ ВИЗИТОВ — recurrence + Postman mobil vizit (o'z agenti bilan)
+# IV. ПЛАНИРОВАНИЕ ВИЗИТОВ — recurrence + Postman mobil visit (o'z agenti bilan)
 # ══════════════════════════════════════════════════════════════════════════════
 @pytest.mark.skipif(NEWMAN_YOQ, reason="newman (Postman CLI) o'rnatilmagan — `npm i -g newman`")
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
-@allure.title("Recurrence: barcha variantlar + Postman mobil vizit (bitta agent)")
+@allure.title("Recurrence: barcha variantlar + Postman mobil visit (bitta agent)")
 def test_040_recurrence_full(session_page: Page) -> None:
     """Manba test_recurrence_all zanjir tanasi (ichki authorization'siz):
-    bitta agent → recurrence variantlari (chained) → monthly → mobil vizit (C) →
+    bitta agent → recurrence variantlari (chained) → monthly → mobil visit (C) →
     web'da Завершен tekshiruvi + lead Подтвержден → agentni Неактивный."""
     _recurrence_full(session_page)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# V. ОТСЛЕЖИВАНИЕ ПОЛЬЗОВАТЕЛЕЙ — E2E: agent → reja → API vizit → трекинг
+# V. ОТСЛЕЖИВАНИЕ ПОЛЬЗОВАТЕЛЕЙ — E2E: agent → reja → API visit → трекинг
 # ══════════════════════════════════════════════════════════════════════════════
 @allure.epic("Документы")
 @allure.feature("Отслеживание пользователей")
-@allure.title("E2E: agent → 5 chanali reja → API {N} vizit → трекинг".format(N=N_VISITS))
+@allure.title("E2E: agent → 5 chanali reja → API {N} visit → трекинг".format(N=N_VISITS))
 def test_050_agent_visit_tracking(session_page: Page) -> None:
     """Manba test_agent_visit_tracking zanjir tanasi (ichki authorization'siz):
-    rol=Агент yangi user → haftalik reja (5 chana) → API orqali N_VISITS vizit →
-    Отслеживание xaritasida bajarilgan vizitlar soni → agentni Неактивный."""
+    rol=Агент yangi user → haftalik reja (5 chana) → API orqali N_VISITS visit →
+    Отслеживание xaritasida bajarilgan visitlar soni → agentni Неактивный."""
     _agent_tracking(session_page)

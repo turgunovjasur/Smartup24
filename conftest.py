@@ -317,7 +317,7 @@ def runner_state():
     lug'at (session scope).
 
     Aggregator mega-test bo'lganda bu qiymatlar oddiy lokal o'zgaruvchilar edi
-    (masalan group_a'da yaratilgan ``product_name`` → linking → zakaz). Endi har
+    (masalan group_a'da yaratilgan ``product_name`` → linking → order). Endi har
     qadam ALOHIDA test bo'lganligi uchun ular orasida ma'lumot shu lug'at orqali
     uzatiladi: ``runner_state["ga_product_name"]``, ``runner_state["konkurs_region"]``."""
     return {}

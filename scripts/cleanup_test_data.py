@@ -89,7 +89,7 @@ TARGETS = [
     dict(tab="Модератор", menu="Группа полей", prefixes=["field-group-", "fg-"], show_all=True),
     # Валюта: Название bo'yicha qidiruv flow_menu bilan yoqiladi
     dict(tab="Модератор", menu="Валюты", prefixes=["val-", "so`m", "tiyin"], show_all=True, flow_menu=True),
-    # Agentlar/userlar — ko'pi vizit/filialга bog'langan → o'chmaydi, Неактивный (best-effort)
+    # Agentlar/userlar — ko'pi visit/filialга bog'langan → o'chmaydi, Неактивный (best-effort)
     dict(tab="Модератор", menu="Пользователи", prefixes=["agent-", "supplier_user-", "client_user-"], show_all=True),
 ]
 
@@ -114,7 +114,7 @@ def _try_deactivate(m, page) -> bool:
     1) "Изменить статус": menyu chiqsa passiv variant, aks holda to'g'ridan-to'g'ri "да"
        (supplier/client/legal_person/product/bonus/konkurs/field_group).
     2) passiv toggle tugma ("Пассивный"/"Неактивный"/"passive") + "да"
-       (valyuta/territoriya/opros/shablon/vaprost).
+       (currency/territoriya/opros/shablon/vaprost).
     3) switch-asosli: "Изменить" → Статус switch OFF → Сохранить (region/agent).
     """
     overlay = page.locator(".cdk-overlay-container")

@@ -1,15 +1,15 @@
-"""E2E: Агент yaratish → haftalik reja (5 chana) → API orqali 2 vizit → Треking.
+"""E2E: Агент yaratish → haftalik reja (5 chana) → API orqali 2 visit → Треking.
 
 TEST CASE (4 qadam)
 -------------------
 1) UI  — Модератор → Пользователи: rol=Агент yangi user (uniq nom+parol).
 2) UI  — Модератор → Планирование визитов: agentга "Каждую неделю" (BUGUNGI
          hafta kuni) reja, 5 ta chana biriktirib saqlash.
-3) API — mavjud "plan vizit API test" (test_Plan_visit_recurrence.py) endpoint
+3) API — mavjud "plan visit API test" (test_Plan_visit_recurrence.py) endpoint
          va payloadlari asosida, AUTENTIFIKATSIYA yangi agentга almashtirilgan
-         holda, kamida 2 ta chana uchun vizit bajariladi (begin→autosave→end).
+         holda, kamida 2 ta chana uchun visit bajariladi (begin→autosave→end).
 4) UI  — Модератор → Отслеживание пользователей: sana avtomatik bugungi, agent
-         tanlanadi, 2 ta vizit ("Визиты (2)") ko'rinishi tekshiriladi.
+         tanlanadi, 2 ta visit ("Визиты (2)") ko'rinishi tekshiriladi.
 
 3-QADAM — MAVJUD API TESTIDAN NIMA OLINDI / NIMA O'ZGARDI (MCP dev/sm24 2026-08-03)
 --------------------------------------------------------------------------------
@@ -21,17 +21,17 @@ TEST CASE (4 qadam)
   imp_visit_begin → imp_temporary_visit_save → imp_visit_end).
 - O'ZGARDI: (a) AUTH — endi yangi yaratilgan agentning login-paroli beriladi;
   (b) newman (Postman CLI) O'RNIGA `requests` ishlatiladi (spec talabi, newman
-  o'rnatishga bog'liqlik yo'q); (c) bitta vizit o'rniga birinchi 2 ta chana
-  bo'yicha SIKL — spec "kamida 2 vizit" talab qiladi.
+  o'rnatishga bog'liqlik yo'q); (c) bitta visit o'rniga birinchi 2 ta chana
+  bo'yicha SIKL — spec "kamida 2 visit" talab qiladi.
 
 TRACKING METKALARI
 ------------------
 Xarita — Leaflet+Yandex; "Завершённый визит" (yashil) markerlari Leaflet pane'da
 `img.leaflet-marker-icon` bo'lib render bo'ladi, ammo yashil-faqat filtrlash
-ikonka src'iga bog'liq (2 vizitli agent bilan aniqlanishi kerak — `_count_map_markers`
+ikonka src'iga bog'liq (2 visitli agent bilan aniqlanishi kerak — `_count_map_markers`
 da TODO). ISHONCHLI hard-assert — o'ng paneldagi "Визиты (N)" hisoblagichi:
-u REJANI emas, bajarilgan VIZITNI sanaydi (rejasi bor, viziti yo'q agent "Визиты (0)"
-ko'rsatadi — MCP tasdiqlangan) — 2 API viziti uchun aynan "Визиты (2)".
+u REJANI emas, bajarilgan VIZITNI sanaydi (rejasi bor, visiti yo'q agent "Визиты (0)"
+ko'rsatadi — MCP tasdiqlangan) — 2 API visiti uchun aynan "Визиты (2)".
 """
 import re
 from datetime import date
@@ -44,7 +44,7 @@ from flows.flow_authorization import COMPANY_CODE, authorization
 from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
 
-# Mavjud plan-vizit test fayli — agent/reja/cookie helperlari va API konstantalari
+# Mavjud plan-visit test fayli — agent/reja/cookie helperlari va API konstantalari
 # shu yerdan QAYTA ISHLATILADI (yangi selektor/login logikasi yozilmaydi).
 from tests.test_document.test_Plan_visit_recurrence import (
     BASE_URL,
@@ -59,7 +59,7 @@ from tests.test_document.test_Plan_visit_recurrence import (
 
 WEEKLY_SECTION = "Каждую неделю"
 N_POINTS = 5           # rejaga biriktiriladigan chana soni (precondition: >=5 chana)
-N_VISITS = 2           # API orqali bajariladigan vizit soni (spec: kamida 2)
+N_VISITS = 2           # API orqali bajariladigan visit soni (spec: kamida 2)
 PASSWORD = "1"  # yaratilgan agent paroli "1" (run_create_agent bilan bir xil, group_a uslubi)
 
 # API — begin/end uchun statik koordinatalar (embedded kolleksiyadagi qiymatlar)
@@ -75,7 +75,7 @@ IMPORT_URL = f"{BASE_URL}/sb/external:import"
 def create_weekly_plan_5_points(page: Page, agent: str) -> str:
     """Agentга "Каждую неделю" (BUGUNGI hafta kuni) reja yaratib, ``N_POINTS`` ta
     chanani biriktiradi va saqlaydi. Agentning user_id (Планы URL'idan) ni
-    qaytaradi — 3-qadam API vizitlari uchun kerak (MCP tasdiqlangan 2026-08-03).
+    qaytaradi — 3-qadam API visitlari uchun kerak (MCP tasdiqlangan 2026-08-03).
 
     Chana qo'shish: har "Доступные" qatorining o'z "Добавить" tugmasi bor; bosilgач
     qator "Выбранные"ga o'tadi va ro'yxat QAYTA INDEKSLANADI — shuning uchun birinchi
@@ -110,7 +110,7 @@ def create_weekly_plan_5_points(page: Page, agent: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3-QADAM — API orqali vizit (requests; auth = yangi agent)
+# 3-QADAM — API orqali visit (requests; auth = yangi agent)
 # ══════════════════════════════════════════════════════════════════════════════
 def _api_post(url: str, payload, headers: dict):
     """POST + JSON; HTTP 200 va "tape" status 'S' ni tekshiradi.
@@ -138,12 +138,12 @@ def _leads(legal_form_id):
 
 def run_api_visits(page: Page, agent: str, user_id: str, count: int = N_VISITS) -> list:
     """Yangi agent sifatida cookie olib (auth ALMASHTIRILGAN), bugungi rejadagi
-    birinchi ``count`` ta chana uchun vizitni API orqali bajaradi:
+    birinchi ``count`` ta chana uchun visitni API orqali bajaradi:
     exp_client_list → (har chana: imp_visit_begin → imp_temporary_visit_save →
     imp_visit_end). Bajarilgan visit_id'lar ro'yxatini qaytaradi.
 
     Endpoint/payloadlar test_Plan_visit_recurrence.py EMBEDDED kolleksiyasidan;
-    faqat auth yangi agentга, newman→requests, 1→count vizit o'zgargan."""
+    faqat auth yangi agentга, newman→requests, 1→count visit o'zgargan."""
     agent_login = f"{agent}@{COMPANY_CODE}"
 
     with allure.step(f"API auth: '{agent_login}' sifatida login → JSESSIONID cookie"):
@@ -174,26 +174,26 @@ def run_api_visits(page: Page, agent: str, user_id: str, count: int = N_VISITS) 
         legal_form_id = (c.get("legal_form") or {}).get("form_id")
         leads = _leads(legal_form_id)
 
-        with allure.step(f"API vizit {i}/{count}: begin (person_id={person_id})"):
+        with allure.step(f"API visit {i}/{count}: begin (person_id={person_id})"):
             begin = _api_post(IMPORT_URL, {"code": "c:imp_visit_begin", "data": {
                 "person_id": person_id, "user_id": int(user_id), "begin_latlng": BEGIN_LATLNG,
             }}, headers)
             visit_id = begin["data"]["visit_id"]
 
-        with allure.step(f"API vizit {i}/{count}: temporary_visit_save (visit_id={visit_id})"):
+        with allure.step(f"API visit {i}/{count}: temporary_visit_save (visit_id={visit_id})"):
             _api_post(IMPORT_URL, {"code": "c:imp_temporary_visit_save", "data": {
                 "person_id": person_id, "user_id": int(user_id), "visit_id": visit_id,
                 "data": {"leads": leads, "fields": [], "photos": [],
                          "visit_audios": [], "quiz_results": []},
             }}, headers)
 
-        with allure.step(f"API vizit {i}/{count}: end (yakunlash)"):
+        with allure.step(f"API visit {i}/{count}: end (yakunlash)"):
             _api_post(IMPORT_URL, {"code": "c:imp_visit_end", "data": {
                 "person_id": person_id, "visit_id": visit_id, "end_latlng": END_LATLNG,
                 "data": {"reason_id": None, "leads": leads, "fields": [], "photos": [],
                          # step_ids exp_client_list'dagi GLOBAL visit_steps ro'yxati —
                          # prod'da ba'zi step_id'lar (masalan 41) sbmv_steps FK'ida yo'q
-                         # (ORA-20999 parent key not found, company 101). Vizit yakunlash
+                         # (ORA-20999 parent key not found, company 101). Visit yakunlash
                          # uchun step MAJBURIY emas — bo'sh yuboramiz (visit C ga yetadi).
                          "visit_photos": [], "visit_audios": [], "step_ids": [],
                          "quiz_results": []},
@@ -224,7 +224,7 @@ def _count_map_markers(page: Page) -> int:
 
 def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> None:
     """Отслеживание пользователей: sana avtomatik BUGUNGI, agent tanlanadi va
-    o'ng paneldagi "Визиты (N)" bajarilgan vizitlar soniga teng ekani tekshiriladi
+    o'ng paneldagi "Визиты (N)" bajarilgan visitlar soniga teng ekani tekshiriladi
     (N=expected_visits). Xarita markerlari best-effort qayd etiladi (MCP 2026-08-03)."""
     m = BasePage(page)
 
@@ -244,7 +244,7 @@ def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> 
         page.locator(".cdk-overlay-container li").filter(has_text=agent).first.click()
         m._settle()
 
-    with allure.step(f"Xaritada '{expected_visits}' ta vizit ('Визиты ({expected_visits})')"):
+    with allure.step(f"Xaritada '{expected_visits}' ta visit ('Визиты ({expected_visits})')"):
         # ISHONCHLI: "Визиты (N)" REJANI emas, bajarilgan VIZITNI sanaydi
         # "Визиты (N)" tab ham ikki DOM elementга mos (smt-tab-button + ichki button) — .first
         expect(page.get_by_role("button", name=f"Визиты ({expected_visits})").first).to_be_visible(timeout=30_000)
@@ -259,7 +259,7 @@ def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> 
 @allure.epic("Документы")
 @allure.feature("Отслеживание пользователей")
 @allure.story("E2E: агент → план → API визит → трекинг")
-@allure.title("Агент yaratish → 5 chanali reja → API orqali 2 vizit → трекинг (2 vizit)")
+@allure.title("Агент yaratish → 5 chanali reja → API orqali 2 visit → трекинг (2 visit)")
 def test_agent_visit_tracking(page: Page) -> None:
     with allure.step("Tizimga kirish (admin)"):
         authorization(page)
@@ -270,16 +270,16 @@ def test_agent_visit_tracking(page: Page) -> None:
     with allure.step(f"2-qadam: '{WEEKLY_SECTION}' reja + {N_POINTS} chana"):
         user_id = create_weekly_plan_5_points(page, agent)
 
-    with allure.step(f"3-qadam: API orqali {N_VISITS} ta vizit (requests, auth=agent)"):
+    with allure.step(f"3-qadam: API orqali {N_VISITS} ta visit (requests, auth=agent)"):
         visit_ids = run_api_visits(page, agent, user_id, count=N_VISITS)
-        assert len(visit_ids) == N_VISITS, f"{N_VISITS} vizit kutilgan, olindi {visit_ids}"
+        assert len(visit_ids) == N_VISITS, f"{N_VISITS} visit kutilgan, olindi {visit_ids}"
 
-    with allure.step(f"4-qadam: Отслеживание — bajarilgan vizitlar soni ({len(visit_ids)}) ko'rinishi"):
-        # DINAMIK: nechta vizit HAQIQATDA bajarilgan bo'lsa (len(visit_ids)), xaritada
+    with allure.step(f"4-qadam: Отслеживание — bajarilgan visitlar soni ({len(visit_ids)}) ko'rinishi"):
+        # DINAMIK: nechta visit HAQIQATDA bajarilgan bo'lsa (len(visit_ids)), xaritada
         # shuncha ko'rinishi tekshiriladi — 5 bajarilsa 5, 3 bajarilsa 3, 2 bajarilsa 2.
         verify_tracking(page, agent, expected_visits=len(visit_ids))
 
     with allure.step(f"Tozalash: '{agent}' agentini Неактивный qilish"):
-        # Vizitли agentni O'CHIRIB bo'lmaydi (child record) — Неактивный qilinadi
+        # Visitли agentni O'CHIRIB bo'lmaydi (child record) — Неактивный qilinadi
         # (loyiha uslubi, test_Plan_visit_recurrence bilan bir xil).
         _deactivate_agent(page, BasePage(page), agent)
