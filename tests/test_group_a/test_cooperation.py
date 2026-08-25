@@ -77,7 +77,25 @@ def run_cooperation(page: Page, code) -> None:
 
     with allure.step(f"Запросы поставщиков: '{supplier_name}' so'rovini tasdiqlash"):
         m.click_button("Запросы на сотрудничество")
-        m.click_button("Запросы поставщиков")
+        # Klient tomonidagi "Запросы поставщиков" ro'yxati BIR MARTALIK yuklanadi
+        # va bu tab'da qidiruv ISHLATILMAYDI — supplier yuborgan so'rov serverda
+        # ozgina KECHIKIB paydo bo'lsa, grid_row eski (bo'sh) DOM'ni qayta
+        # tekshiraveradi va uni ko'rmaydi ("Нет результатов" bilan yiqiladi —
+        # test_214, 2026-08-25 CI). Shu sabab ro'yxatni "Мои запросы" ↔ "Запросы
+        # поставщиков" tablari orasida qayta ochib (server ro'yxatni QAYTA
+        # so'raydi) supplier qatori chiqquncha bir necha marta urinamiz.
+        supplier_row = page.locator(".smt-data-row").filter(has_text=supplier_name).first
+        for attempt in range(6):
+            m.click_button("Запросы поставщиков")
+            m.settle()
+            try:
+                expect(supplier_row).to_be_visible(timeout=5_000)
+                break
+            except AssertionError:
+                if attempt == 5:
+                    raise
+                m.click_button("Мои запросы")  # tab almashtirib ro'yxatni qayta yuklaymiz
+                m.settle()
         m.click_grid_row(supplier_name)
         m.click_button("Подтвердить")
         m.confirm("да")
