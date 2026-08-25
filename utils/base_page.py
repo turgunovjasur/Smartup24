@@ -812,35 +812,47 @@ class BasePage:
         qidiriladi. Overlay dialog "Показать все"dan keyin O'ZI yopiladi; inline
         panel esa filtrni darhol qo'llaydi, lekin OCHIQ qoladi — "Закрыть
         фильтры" bilan yopiladi, filtr saqlanib qoladi (MCP tasdiqlangan
-        2026-07-07)."""
+        2026-07-07).
+
+        RACE (MCP+trace tasdiqlangan 2026-08-25, dev/currency): funnel ochilгач
+        Angular filtr komponenti status checkboxlarini bog'lashi uchun bir zum kerak.
+        Trace'da "Показать все" funnel'dan atigi ~82 ms keyin bosilib, klik NO-OP
+        bo'lgan: filtr "barcha statuslar"ga o'tmagan, passiv qator ochilmay grid 0/0
+        ("Нет результатов") qolган va grid_row timeout bilan yiqilган. `to_be_visible`
+        o'tsa ham klik handler tayyor bo'lmaydi. Shuning uchun: (1) bosishdan oldin
+        qisqa kutamiz; (2) qidiruv matni bor va grid hali "Нет результатов" bo'lsa
+        (= filtr qo'llanmadi), butun amalni qayta bajaramiz (3 martagacha)."""
         self._settle()
-        trigger = self.page.locator("smt-data-table-filter button").first
-        expect(trigger).to_be_visible()
-        trigger.click()
-        button = (
-            self.page.get_by_role("button", name=button_name)
-            .filter(visible=True)
-            .first
-        )
-        expect(button).to_be_visible()
-        button.click()
-        self.wait_for_loader()
-        try:
-            expect(button).to_be_hidden(timeout=2_000)
-        except AssertionError:
-            self.page.get_by_role("button", name="Закрыть фильтры").first.click()
-            expect(button).to_be_hidden()
-        self.wait_for_loader()
-        # "Показать все" barcha statuslarni yoqadi, biroq list natijani joriy
-        # QIDIRUV bo'yicha qayta filtrlamay hammasini ko'rsatib yuborishi mumkin
-        # (app filtr xatti-harakati o'zgardi, 2026-08-24) — bunda passiv qator ko'p
-        # yozuv orasida qolib grid_row uni topolmaydi. Qidiruv matni bo'lsa uni QAYTA
-        # yuboramiz: grid search + "barcha statuslar" bilan re-query bo'lib, izlanayotgan
-        # passiv qator ro'yxatga qaytadi (status testlari shu sabab yiqilar edi).
-        searchbox = self.page.get_by_role("searchbox", name="Поиск").first
-        if searchbox.count() and (searchbox.input_value() or "").strip():
-            searchbox.press("Enter")
+        for _ in range(3):
+            trigger = self.page.locator("smt-data-table-filter button").first
+            expect(trigger).to_be_visible()
+            trigger.click()
+            button = (
+                self.page.get_by_role("button", name=button_name)
+                .filter(visible=True)
+                .first
+            )
+            expect(button).to_be_visible()
+            # Dialog to'liq interaktiv bo'lgунcha (Angular binding) qisqa kutish —
+            # aks holda klik no-op bo'ladi (yuqoridagi RACE izohiga qarang).
+            self.page.wait_for_timeout(500)
+            button.click()
             self.wait_for_loader()
+            try:
+                expect(button).to_be_hidden(timeout=2_000)
+            except AssertionError:
+                self.page.get_by_role("button", name="Закрыть фильтры").first.click()
+                expect(button).to_be_hidden()
+            self.wait_for_loader()
+            # Filtr qo'llanганини tasdiqlaymiz. Qidiruv matni yo'q bo'lsa tekshirib
+            # bo'lmaydi — darrov qaytamiz. Bor bo'lsa: grid "Нет результатов" ko'rsatsa
+            # filtr qo'llanmagan (race) — qayta urinamiz.
+            searchbox = self.page.get_by_role("searchbox", name="Поиск").first
+            has_search = bool(searchbox.count() and (searchbox.input_value() or "").strip())
+            if not has_search:
+                return
+            if self.page.get_by_text("Нет результатов", exact=True).count() == 0:
+                return
 
     def change_status(self, option_text, *, button_name="Изменить статус"):
         """Tanlangan qatorning statusini o'zgartiradi.

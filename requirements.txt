@@ -3,3 +3,4 @@ playwright
 allure-pytest
 openpyxl
 requests
+python-dotenv

@@ -6,10 +6,17 @@ import socket
 import random
 import allure
 import pytest
+import requests
+from dotenv import load_dotenv
 from typing import Any, Generator
 from playwright.sync_api import sync_playwright, Browser, Page, expect
 
 from flows.flow_authorization import logout
+
+# .env fayldan Telegram bildirishnoma sozlamalarini o'qiymiz (fayl bo'lmasa jim o'tadi)
+load_dotenv()
+TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+TG_CHAT_ID   = os.getenv("TG_CHAT_ID")
 
 TRACE_DIR = "test-results/traces"
 ALLURE_RESULTS_DIR = "test-results/allure-results"
@@ -325,8 +332,65 @@ def runner_state():
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+def _send_telegram(text: str) -> None:
+    """Telegram Bot API orqali ``text`` xabarini yuboradi.
+
+    Token yoki chat_id ``.env`` da bo'lmasa jim o'tadi (masalan lokal ishlab
+    chiqishda). Tarmoq/API xatosi butun sessiyani yiqitmasligi uchun yutiladi."""
+    if not TG_BOT_TOKEN or not TG_CHAT_ID:
+        return
+    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
+    try:
+        resp = requests.post(
+            url,
+            data={"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            print(f"[Telegram] yuborilmadi (HTTP {resp.status_code}): {resp.text[:200]}")
+    except Exception as e:
+        print(f"[Telegram] yuborishda xato: {e}")
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
 def pytest_sessionfinish(session, exitstatus):
-    """Testlar tugagach Allure hisobot yaratadi va brauzerda ochadi."""
+    """Testlar tugagach Telegram bildirishnoma yuboradi va Allure hisobot yaratadi."""
+    # xdist worker jarayoni: bildirishnomani FAQAT master jo'natadi (aks holda har
+    # worker o'z qismini yuborib, ko'p dublikat xabar chiqadi)
+    if getattr(session.config, "workerinput", None) is not None:
+        return
+
+    # --collect-only da session.items to'ladi, lekin test ishlamaydi — xabar yubormaymiz
+    if session.items and not session.config.option.collectonly:
+        # terminalreporter.stats — passed/failed/error ro'yxatlari shu yerda to'planadi
+        reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+        stats = getattr(reporter, "stats", {}) if reporter else {}
+        passed  = len(stats.get("passed", []))
+        failed  = len(stats.get("failed", []))
+        errors  = len(stats.get("error", []))
+        skipped = len(stats.get("skipped", []))
+        total   = passed + failed + errors
+
+        status_emoji = "✅" if (failed == 0 and errors == 0) else "❌"
+        lines = [
+            f"{status_emoji} <b>Smartup24 test yakuni</b>",
+            f"\U0001F5A5 Host: {socket.gethostname()}",
+            f"\U0001F4CA Jami: {total}",
+            f"✅ Passed: {passed}",
+            f"❌ Failed: {failed}",
+            f"\U0001F6A8 Error: {errors}",
+        ]
+        if skipped:
+            lines.append(f"⏭ Skipped: {skipped}")
+        lines.append(f"exit code: {exitstatus}")
+        _send_telegram("\n".join(lines))
+
+    _finish_allure_report(session)
+
+
+def _finish_allure_report(session):
+    """Allure hisobot yaratadi va brauzerda ochadi."""
     # --collect-only da session.items TO'LADI, lekin test ishlamaydi — hisobot
     # yaratmaymiz (aks holda collection ham allure generate/open qilib yuboradi)
     if not session.items or session.config.option.collectonly:

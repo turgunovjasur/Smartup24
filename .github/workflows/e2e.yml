@@ -1,18 +1,18 @@
 name: E2E (Playwright)
 
-# NEGA HAR PUSH'DA EMAS
-# ---------------------
-# Bu suite JONLI tashqi ERP'ga (app3.greenwhite.uz) va ULASHILGAN akkauntga
-# (admin@sm24) tegib ishlaydi. Bir akkauntda ikki run parallel yursa ikkalasi
-# ham g'alati yiqiladi (parallel-run interferensiyasi). Shuning uchun:
-#   - trigger: faqat QO'LDA (workflow_dispatch) + tungi jadval;
-#   - concurrency: bir vaqtda faqat BITTA run (yangi trigger eskisini kutadi).
-# CI headless ishlaydi (HEADLESS=1) — conftest shu env var'ni o'qiydi.
+# NIMA ISHLAYDI
+# ------------
+# Faqat to'liq suite `tests/test_all_runner.py` (boshqa test YO'Q). Har 2 soatda
+# (UTC) + qo'lda ishga tushiriladi. Suite JONLI tashqi ERP'ga va ULASHILGAN
+# akkauntga tegadi — bir akkauntda ikki run parallel yursa ikkalasi ham yiqiladi,
+# shuning uchun concurrency guard bir vaqtda faqat BITTA run'ga ruxsat beradi.
+# CI headless ishlaydi (HEADLESS=1). Natija Telegramga yuboriladi
+# (conftest.pytest_sessionfinish → TG_BOT_TOKEN/TG_CHAT_ID env'lardan).
 
 on:
   workflow_dispatch: {}        # qo'lda ishga tushirish
   schedule:
-    - cron: "0 2 * * *"        # har kuni 02:00 UTC (tungi to'liq run)
+    - cron: "0 */2 * * *"      # har 2 soatda (UTC)
 
 concurrency:
   group: e2e-shared-account    # ulashilgan akkaunt — overlapping run YO'Q
@@ -23,7 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      HEADLESS: "1"            # conftest brauzerni ko'rsatmasdan ishga tushiradi
+      HEADLESS: "1"                              # conftest brauzerni ko'rsatmaydi
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}  # Telegram bildirishnoma uchun
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
     steps:
       - uses: actions/checkout@v4
 
