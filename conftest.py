@@ -354,6 +354,24 @@ def _send_telegram(text: str) -> None:
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+def pytest_sessionstart(session):
+    """Testlar boshlanishidan oldin Telegram'ga "boshlandi" bildirishnomasini yuboradi.
+
+    Token/chat_id ``.env`` yoki env'da bo'lmasa jim o'tadi (``_send_telegram``).
+    xdist worker jarayoni EMAS, faqat master yuboradi; ``--collect-only`` da
+    haqiqiy run bo'lmagani uchun yubormaymiz (sessionfinish bilan simmetrik)."""
+    if getattr(session.config, "workerinput", None) is not None:
+        return
+    if session.config.option.collectonly:
+        return
+    _send_telegram(
+        f"\U0001F680 <b>Smartup24 test boshlandi</b>\n"
+        f"\U0001F5A5 Host: {socket.gethostname()}"
+    )
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
 def pytest_sessionfinish(session, exitstatus):
     """Testlar tugagach Telegram bildirishnoma yuboradi va Allure hisobot yaratadi."""
     # xdist worker jarayoni: bildirishnomani FAQAT master jo'natadi (aks holda har
