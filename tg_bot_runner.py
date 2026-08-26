@@ -41,7 +41,11 @@ import subprocess
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+# .env ni SKRIPT joylashgan papkadan o'qiymiz — Task Scheduler bot'ni boshqa
+# ish-papkadan ishga tushirsa ham (masalan C:\Windows\System32), token/chat_id
+# baribir topiladi.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_HERE, ".env"))
 
 BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CHAT_ID = os.getenv("TG_CHAT_ID")
