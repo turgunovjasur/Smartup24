@@ -7,7 +7,7 @@ Bu ALOHIDA doimiy ishlab turadigan jarayon (conftest emas). Ishga tushiring:
 Keyin bot bilan Telegram'da yozishmadan boshqaring. Har bo'lim uchun alohida
 slash buyrug'i bor (<bo'lim>_<env>):
     /start_dev  /start_prod       — All test (barcha bo'lim, bitta login)
-    /setup_dev  /setup_prod       — Setup + Group A
+    /setup_groupa_dev  /setup_groupa_prod — Setup + Group A
     /regression_dev  /regression_prod — Regression
     /main_dev  /main_prod         — Main
     /document_dev  /document_prod — Document
@@ -62,11 +62,11 @@ _MAIN = "tests/test_main/test_all_main.py"
 _DOCUMENT = "tests/test_document/test_all_document_runner.py"
 
 TARGETS = {
-    "all":        [_SETUP, _GROUPA, _REGRESSION, _MAIN, _DOCUMENT],
-    "setup":      [_SETUP, _GROUPA],   # 2 soatlik juftlik (GitHub avtomat ham shu)
-    "regression": [_REGRESSION],
-    "main":       [_MAIN],
-    "document":   [_DOCUMENT],
+    "all":          [_SETUP, _GROUPA, _REGRESSION, _MAIN, _DOCUMENT],
+    "setup_groupa": [_SETUP, _GROUPA],   # 2 soatlik juftlik (GitHub avtomat ham shu)
+    "regression":   [_REGRESSION],
+    "main":         [_MAIN],
+    "document":     [_DOCUMENT],
 }
 DEFAULT_TARGET = "all"
 
@@ -223,13 +223,13 @@ def _status(chat_id: str) -> None:
 HELP = (
     "\U0001F916 <b>Smartup24 test bot</b>\n"
     "<b>All test:</b> /start_dev · /start_prod\n"
-    "<b>Setup + Group A:</b> /setup_dev · /setup_prod\n"
+    "<b>Setup + Group A:</b> /setup_groupa_dev · /setup_groupa_prod\n"
     "<b>Regression:</b> /regression_dev · /regression_prod\n"
     "<b>Main:</b> /main_dev · /main_prod\n"
     "<b>Document:</b> /document_dev · /document_prod\n"
     "/stop · /status · /help\n\n"
     "Matn shakli ham bor: <b>start dev main</b>, <b>start prod regression</b>.\n"
-    "(<b>setup</b> = setup + group_a; <b>prod</b> = jonli server!)"
+    "(<b>prod</b> = jonli server!)"
 )
 
 # Telegram buyruq menyusi ("/" bosilganда chiqadi — setMyCommands bilan o'rnatiladi).
@@ -237,7 +237,7 @@ HELP = (
 # start_dev/start_prod = All test (barcha bo'lim bitta login bilan).
 _MENU_SECTIONS = [
     ("start", "All test"),
-    ("setup", "Setup + Group A"),
+    ("setup_groupa", "Setup + Group A"),
     ("regression", "Regression"),
     ("main", "Main"),
     ("document", "Document"),

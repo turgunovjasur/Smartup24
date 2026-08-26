@@ -119,5 +119,7 @@ ishlaganда nom to'qnashmaydi (main/document o'z prefikslari bilan). Individual
 JADVAL: GitHub Actions (`.github/workflows/e2e.yml`) har 2 soatda setup+group_a,
 har 12 soatda (UTC 03:00/15:00 = Toshkent 08:00/20:00) regression — bitta
 concurrency guruhda (parallel yo'q). Telegram bot (`tg_bot_runner.py`): `start
-[dev|prod] [all|setup|regression|main|document]` (default `dev all`).
+[dev|prod] [all|setup_groupa|regression|main|document]` (default `dev all`);
+slash: `/start_dev` `/setup_groupa_dev` `/regression_prod` `/main_dev` ... (har
+bo'lim×dev/prod). `setup_groupa` = setup + group_a.
 Yangi UI patternni yozishdan oldin Playwright MCP bilan real DOM'da tasdiqla — fieldlarni taxmin qilma.
