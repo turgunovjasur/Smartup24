@@ -4,16 +4,19 @@ Bu ALOHIDA doimiy ishlab turadigan jarayon (conftest emas). Ishga tushiring:
 
     python tg_bot_runner.py
 
-Keyin bot bilan Telegram'da yozishmadan boshqaring:
-    start [env] [bo'lim] — testlarni ishga tushiradi (agar ishlamayotgan bo'lsa).
-                           env: dev|prod (default dev). bo'lim: all|setup|
-                           regression|main|document (default all = hamma test
-                           bitta login bilan; setup = setup + group_a).
-    stop    — ishlab turgan testlarni (brauzerlari bilan) to'xtatadi
-    status  — hozir test ishlayaptimi + qaysi muhit/bo'lim ekanini aytadi
-    help    — buyruqlar ro'yxati
+Keyin bot bilan Telegram'da yozishmadan boshqaring. Har bo'lim uchun alohida
+slash buyrug'i bor (<bo'lim>_<env>):
+    /start_dev  /start_prod       — All test (barcha bo'lim, bitta login)
+    /setup_dev  /setup_prod       — Setup + Group A
+    /regression_dev  /regression_prod — Regression
+    /main_dev  /main_prod         — Main
+    /document_dev  /document_prod — Document
+    /stop    — ishlab turgan testlarni (brauzerlari bilan) to'xtatadi
+    /status  — test ishlayaptimi + qaysi muhit/bo'lim ekanini aytadi
+    /help    — buyruqlar ro'yxati
 
-Slash bilan ham bo'ladi: /start_dev /start_prod /stop /status.
+Matn shakli ham bor: "start [env] [bo'lim]" — masalan "start dev main",
+"start prod regression" (env default dev, bo'lim default all).
 
 SOZLAMA (.env):
     TG_BOT_TOKEN     — bot tokeni (BotFather)
@@ -219,25 +222,34 @@ def _status(chat_id: str) -> None:
 
 HELP = (
     "\U0001F916 <b>Smartup24 test bot</b>\n"
-    "/start_dev — HAMMA testni DEV (sm24) da boshlash\n"
-    "/start_prod — HAMMA testni PROD (test, jonli!) da boshlash\n"
-    "/stop — ishlab turgan testlarni to'xtatish\n"
-    "/status — holat + qaysi muhit/bo'lim ekani\n"
-    "/help — shu ro'yxat\n\n"
-    "Bo'lim tanlab ham bo'ladi (default <b>all</b>):\n"
-    f"<b>{', '.join(TARGETS)}</b>\n"
-    "Masalan: <b>start dev regression</b>, <b>start prod setup</b>, "
-    "<b>start dev document</b>.\n"
-    "(<b>setup</b> = setup + group_a; <b>all</b> = hammasi bitta login bilan)"
+    "<b>All test:</b> /start_dev · /start_prod\n"
+    "<b>Setup + Group A:</b> /setup_dev · /setup_prod\n"
+    "<b>Regression:</b> /regression_dev · /regression_prod\n"
+    "<b>Main:</b> /main_dev · /main_prod\n"
+    "<b>Document:</b> /document_dev · /document_prod\n"
+    "/stop · /status · /help\n\n"
+    "Matn shakli ham bor: <b>start dev main</b>, <b>start prod regression</b>.\n"
+    "(<b>setup</b> = setup + group_a; <b>prod</b> = jonli server!)"
 )
 
-# Telegram buyruq menyusi ("/" bosilganda chiqadi — setMyCommands bilan o'rnatiladi)
-BOT_COMMANDS = [
-    {"command": "start_dev",  "description": "HAMMA testni DEV (sm24) da boshlash"},
-    {"command": "start_prod", "description": "HAMMA testni PROD (test, jonli!) da boshlash"},
-    {"command": "stop",       "description": "Ishlab turgan testlarni to'xtatish"},
-    {"command": "status",     "description": "Holat + qaysi muhit/bo'lim ekani"},
-    {"command": "help",       "description": "Buyruqlar ro'yxati + bo'limlar"},
+# Telegram buyruq menyusi ("/" bosilganда chiqadi — setMyCommands bilan o'rnatiladi).
+# Har bo'lim uchun DEV va PROD variantlari — bittasini alohida ishga tushirish uchun.
+# start_dev/start_prod = All test (barcha bo'lim bitta login bilan).
+_MENU_SECTIONS = [
+    ("start", "All test"),
+    ("setup", "Setup + Group A"),
+    ("regression", "Regression"),
+    ("main", "Main"),
+    ("document", "Document"),
+]
+BOT_COMMANDS = []
+for _key, _label in _MENU_SECTIONS:
+    BOT_COMMANDS.append({"command": f"{_key}_dev",  "description": f"{_label} — DEV"})
+    BOT_COMMANDS.append({"command": f"{_key}_prod", "description": f"{_label} — PROD (jonli!)"})
+BOT_COMMANDS += [
+    {"command": "stop",   "description": "Ishlab turgan testlarni to'xtatish"},
+    {"command": "status", "description": "Holat + qaysi muhit/bo'lim ekani"},
+    {"command": "help",   "description": "Buyruqlar ro'yxati"},
 ]
 
 
@@ -264,12 +276,16 @@ def _handle(text: str, chat_id: str) -> None:
     parts = text.strip().split()
     if not parts:
         return
-    cmd = parts[0].lstrip("/").split("@")[0].lower()  # "/start_dev@bot" -> "start_dev"
+    cmd = parts[0].lstrip("/").split("@")[0].lower()  # "/main_dev@bot" -> "main_dev"
     rest = [p.lower() for p in parts[1:]]
-    if cmd == "start_dev":
-        _start_tests(chat_id, "dev", rest[0] if rest else DEFAULT_TARGET)
-    elif cmd == "start_prod":
-        _start_tests(chat_id, "prod", rest[0] if rest else DEFAULT_TARGET)
+    # "<bo'lim>_<env>" slash buyruqlari: start_dev, setup_prod, main_dev, ...
+    # (start_dev/start_prod = all). Har bo'limni alohida ishga tushirish uchun.
+    sub = cmd.rsplit("_", 1)
+    if cmd in ("start_dev", "start_prod"):
+        env = "dev" if cmd == "start_dev" else "prod"
+        _start_tests(chat_id, env, rest[0] if rest else DEFAULT_TARGET)
+    elif len(sub) == 2 and sub[1] in ENV_LABELS and sub[0] in TARGETS:
+        _start_tests(chat_id, sub[1], sub[0])   # masalan main_dev -> env=dev, target=main
     elif cmd == "start":
         # "start [env] [bo'lim]" — env birinchi, bo'lim ixtiyoriy
         run_env = rest[0] if len(rest) > 0 else DEFAULT_ENV
