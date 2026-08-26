@@ -150,6 +150,63 @@ def _run_block(env: str, target: str) -> str:
     )
 
 
+# conftest jonli progress xabarining {msg_id, text} ni shu faylga yozadi — bot
+# uni o'qib, band holatda O'SHA xabarning o'ziga flash qiladi (yangi xabar emas).
+_PROGRESS_FILE = os.path.join(PROJECT_DIR, "test-results", "tg_progress.json")
+
+
+def _read_progress_file() -> dict | None:
+    """conftest yozgan progress {msg_id, text} — yo'q/xato bo'lsa None."""
+    try:
+        with open(_PROGRESS_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        if d.get("msg_id") and d.get("text") is not None:
+            return d
+    except Exception:
+        return None
+    return None
+
+
+def _edit_message(msg_id: int, text: str) -> None:
+    """Mavjud (progress) xabarini tahrirlaydi — band-flash uchun."""
+    try:
+        requests.post(
+            f"{API}/editMessageText",
+            data={"chat_id": CHAT_ID, "message_id": msg_id, "text": text, "parse_mode": "HTML"},
+            timeout=10,
+        )
+    except Exception as e:
+        print(f"[bot] edit xato: {e}")
+
+
+def _flash_busy(chat_id: str) -> None:
+    """Test ishlab turganда yangi start bosilsa — YANGI xabar YUBORMASDAN,
+    jonli progress xabarining o'ziga vaqtincha "band" ogohlantirishini qo'shadi
+    va ~5s dan keyin asl progressga qaytaradi (orada conftest o'zi ham yangilaydi).
+    Progress fayli topilmasa — qisqa auto-o'chadigan xabar (fallback)."""
+    info = _read_progress_file()
+    if not info:
+        _send(
+            "⏳ <b>Band</b> — hozir test ishlab turibdi. Ikkinchi runni birga "
+            "ishga tushirib bo'lmaydi. Avval /stop.",
+            chat_id, ttl=_TEMP_TTL,
+        )
+        return
+    warn = (
+        "\n\n⏳ <b>Band — parallel run imkonsiz.</b>\n"
+        f"Hozir <b>{TARGET_LABELS.get(_run_target, _run_target)}</b> ishlab turibdi "
+        "— avval /stop."
+    )
+    _edit_message(info["msg_id"], info["text"] + warn)
+
+    def _restore() -> None:
+        fresh = _read_progress_file()
+        if fresh:
+            _edit_message(fresh["msg_id"], fresh["text"])
+
+    threading.Timer(5, _restore).start()
+
+
 def _is_running() -> bool:
     """Test jarayoni hozir ishlab turibdimi (tugagan bo'lsa holatni tozalaydi)."""
     global _proc
@@ -166,12 +223,7 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
     ``target`` bo'limi bilan)."""
     global _proc, _run_env, _run_target
     if _is_running():
-        _send(
-            "⏳ <b>Band</b> — hozir test ishlab turibdi:\n"
-            f"{_run_block(_run_env, _run_target)}\n\n"
-            "Ikkinchi runni birga ishga tushirib bo'lmaydi. Avval /stop bosing.",
-            chat_id, ttl=_TEMP_TTL,
-        )
+        _flash_busy(chat_id)   # yangi xabar EMAS — progress xabariga flash
         return
     if run_env not in ENV_LABELS:
         _send(
@@ -216,15 +268,16 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
         return
     _run_env = run_env
     _run_target = target
-    warn = "\n\U0001F534 <b>DIQQAT: PROD — jonli server!</b>" if run_env == "prod" else ""
-    # Bu ack o'zini o'chiradi: bir necha soniyada conftest'ning jonli progress
-    # xabari paydo bo'ladi va yagona doimiy xabar bo'lib qoladi (spam bo'lmasin).
-    _send(
-        "\U0001F680 <b>Ishga tushirilmoqda…</b>\n"
-        f"{_run_block(run_env, target)}{warn}\n\n"
-        "Jonli progress quyida alohida xabarda yangilanadi. To'xtatish: /stop",
-        chat_id, ttl=15,
-    )
+    # Muvaffaqiyatli startда ALOHIDA xabar YUBORMAYMIZ (foydalanuvchi so'rovi:
+    # "test xabar yuborib o'chirmasin") — bir necha soniyada conftest'ning jonli
+    # progress xabari paydo bo'lib, yagona xabar bo'lib qoladi. PROD bo'lsa faqat
+    # bitta qisqa auto-o'chadigan ogohlantirish (xavfsizlik uchun).
+    if run_env == "prod":
+        _send(
+            "\U0001F534 <b>PROD (jonli server)</b> da ishga tushirildi — "
+            f"{TARGET_LABELS.get(target, target)}. Jonli progress quyida.",
+            chat_id, ttl=12,
+        )
 
 
 def _stop_tests(chat_id: str) -> None:

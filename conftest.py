@@ -388,6 +388,51 @@ def _edit_telegram(message_id: int, text: str) -> None:
         print(f"[Telegram] tahrirlashda xato: {e}")
 
 
+def _send_telegram_photo(png_bytes: bytes, caption: str) -> None:
+    """Telegram'ga rasm (screenshot) yuboradi. Yiqilgan testlar oxirida
+    xatoning ekran holatini ko'rsatish uchun."""
+    if not TG_BOT_TOKEN or not TG_CHAT_ID:
+        return
+    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendPhoto"
+    try:
+        requests.post(
+            url,
+            data={"chat_id": TG_CHAT_ID, "caption": caption[:1024], "parse_mode": "HTML"},
+            files={"photo": ("failure.png", png_bytes, "image/png")},
+            timeout=30,
+        )
+    except Exception as e:
+        print(f"[Telegram] rasm yuborishda xato: {e}")
+
+
+# Progress xabarining msg_id + joriy matnini shu faylga yozamiz — Telegram bot
+# (ALOHIDA jarayon) uni o'qib, test ishlab turganда yangi start bosilса o'sha
+# xabarning O'ZIGA vaqtincha "band" ogohlantirishini chaqillatadi (yangi xabar
+# yubormasdan). Fayl bo'lmasa (run yo'q) bot fallback qiladi.
+TG_PROGRESS_FILE = os.path.join("test-results", "tg_progress.json")
+
+
+def _persist_progress(text: str | None) -> None:
+    """Progress xabar msg_id + matnini faylga yozadi (bot o'qishi uchun).
+    ``text=None`` — faylni o'chiradi (run tugadi/progress yo'q)."""
+    try:
+        if text is None or not _progress.get("msg_id"):
+            if os.path.exists(TG_PROGRESS_FILE):
+                os.remove(TG_PROGRESS_FILE)
+            return
+        os.makedirs(os.path.dirname(TG_PROGRESS_FILE), exist_ok=True)
+        with open(TG_PROGRESS_FILE, "w", encoding="utf-8") as f:
+            json.dump({"msg_id": _progress["msg_id"], "text": text}, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[progress-file] xato: {e}")
+
+
+# Yiqilgan testlarning screenshotlari (nom, png) — sessiya oxirida Telegram'ga
+# yuboriladi. Spam bo'lmasligi uchun birinchi bir nechtasi bilan cheklanadi.
+_failure_shots: list[tuple[str, bytes]] = []
+_MAX_FAILURE_SHOTS = 5
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Jonli progress bar holati (faqat master jarayon, session davomida saqlanadi).
@@ -505,7 +550,9 @@ def pytest_collection_finish(session):
     _progress["passed"] = 0
     _progress["failed"] = 0
     _progress["suite"] = _suite_label(session.items)
-    _progress["msg_id"] = _send_telegram(_render_progress())
+    text = _render_progress()
+    _progress["msg_id"] = _send_telegram(text)
+    _persist_progress(text)  # bot o'qishi uchun (band-flash)
 
 
 def pytest_runtest_logstart(nodeid, location):
@@ -517,7 +564,9 @@ def pytest_runtest_logstart(nodeid, location):
     if now - _progress["last_edit"] < _PROGRESS_MIN_INTERVAL:
         return
     _progress["last_edit"] = now
-    _edit_telegram(_progress["msg_id"], _render_progress(_short_nodeid(nodeid)))
+    text = _render_progress(_short_nodeid(nodeid))
+    _edit_telegram(_progress["msg_id"], text)
+    _persist_progress(text)
 
 
 def pytest_runtest_logreport(report):
@@ -544,7 +593,9 @@ def pytest_runtest_logreport(report):
     if not is_last and now - _progress["last_edit"] < _PROGRESS_MIN_INTERVAL:
         return
     _progress["last_edit"] = now
-    _edit_telegram(_progress["msg_id"], _render_progress())
+    text = _render_progress()
+    _edit_telegram(_progress["msg_id"], text)
+    _persist_progress(text)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -588,6 +639,18 @@ def pytest_sessionfinish(session, exitstatus):
             lines.append(f"\U0001F536 Xpass: {xpassed}")
         if skipped:
             lines.append(f"⏭ Skipped: {skipped}")
+
+        # Xato QAYERDA — yiqilgan/error test NOMLARINI ro'yxatlaymiz (foydalanuvchi
+        # so'rovi: "3 failed bo'lsa qaysi testlar" — masalan client_view, supplier).
+        fail_reports = list(stats.get("failed", [])) + list(stats.get("error", []))
+        if fail_reports:
+            lines.append("")
+            lines.append("<b>Yiqilgan joylar:</b>")
+            for rep in fail_reports[:10]:
+                lines.append(f"  ❌ <code>{_short_nodeid(rep.nodeid)}</code>")
+            if len(fail_reports) > 10:
+                lines.append(f"  … va yana {len(fail_reports) - 10} ta")
+
         lines += [
             "━━━━━━━━━━━━━",
             f"\U0001F4CA Jami: <b>{total}</b>   ·   exit: {exitstatus}",
@@ -600,6 +663,13 @@ def pytest_sessionfinish(session, exitstatus):
             _edit_telegram(_progress["msg_id"], final_text)
         else:
             _send_telegram("\n".join(lines))
+
+        # Yiqilgan testlarning screenshotlarini oxirida yuboramiz (xato ekran holati).
+        for name, png in _failure_shots:
+            _send_telegram_photo(png, f"❌ <code>{name}</code>")
+
+    # Progress faylini o'chiramiz — run tugadi, bot endi "band-flash" qilmasin.
+    _persist_progress(None)
 
     _finish_allure_report(session)
 
@@ -673,6 +743,14 @@ def pytest_runtest_makereport(item, call):
                     name="screenshot",
                     attachment_type=allure.attachment_type.PNG,
                 )
+                # Telegram uchun ALOHIDA viewport screenshot to'playmiz (sessiya
+                # oxirida yuboriladi) — full_page juda baland bo'lib Telegram rasm
+                # nisbat cheklovidan o'tmasligi mumkin, viewport toza ko'rinadi.
+                if len(_failure_shots) < _MAX_FAILURE_SHOTS:
+                    try:
+                        _failure_shots.append((_short_nodeid(item.nodeid), page.screenshot()))
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
