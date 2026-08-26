@@ -76,26 +76,12 @@ def run_cooperation(page: Page, code) -> None:
         m.expect_heading("Клиент (Просмотр)")
 
     with allure.step(f"Запросы поставщиков: '{supplier_name}' so'rovini tasdiqlash"):
+        # DIQQAT: bu bosqich dev BACKEND 500'iga qarab yiqilishi mumkin —
+        # request_list:supplier_requests "FAZO_QUERY: Field not found
+        # [supplier_pinfl]" qaytaradi (2026-08-26 trace). Bu test kodidan
+        # tuzatib bo'lmaydi; runner'da test_214 shu sabab xfail belgilangan.
         m.click_button("Запросы на сотрудничество")
-        # Klient tomonidagi "Запросы поставщиков" ro'yxati BIR MARTALIK yuklanadi
-        # va bu tab'da qidiruv ISHLATILMAYDI — supplier yuborgan so'rov serverda
-        # ozgina KECHIKIB paydo bo'lsa, grid_row eski (bo'sh) DOM'ni qayta
-        # tekshiraveradi va uni ko'rmaydi ("Нет результатов" bilan yiqiladi —
-        # test_214, 2026-08-25 CI). Shu sabab ro'yxatni "Мои запросы" ↔ "Запросы
-        # поставщиков" tablari orasida qayta ochib (server ro'yxatni QAYTA
-        # so'raydi) supplier qatori chiqquncha bir necha marta urinamiz.
-        supplier_row = page.locator(".smt-data-row").filter(has_text=supplier_name).first
-        for attempt in range(6):
-            m.click_button("Запросы поставщиков")
-            m.settle()
-            try:
-                expect(supplier_row).to_be_visible(timeout=5_000)
-                break
-            except AssertionError:
-                if attempt == 5:
-                    raise
-                m.click_button("Мои запросы")  # tab almashtirib ro'yxatni qayta yuklaymiz
-                m.settle()
+        m.click_button("Запросы поставщиков")
         m.click_grid_row(supplier_name)
         m.click_button("Подтвердить")
         m.confirm("да")

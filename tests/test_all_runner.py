@@ -404,9 +404,25 @@ def test_213_ga_client_user(session_page: Page, code) -> None:
     ga_client_user(session_page, _ga_code(code))
 
 
+# Quyidagi 3 test dev BACKEND'idagi 500 xatosiga bog'liq (test bug EMAS): klient
+# tomonidagi hamkorlik-so'rovlar ro'yxati endpointlari
+# (request_list:supplier_requests / client_requests) "FAZO_QUERY: Field not
+# found [supplier_pinfl]" bilan 500 qaytaradi (trace bilan tasdiqlandi
+# 2026-08-26). Ro'yxat yuklanmaydi → cooperation tasdiqlanmaydi →
+# order/order_status kaskad bilan yiqiladi. Server tuzatilgach bu markerni
+# olib tashlash kerak (strict=False bo'lgani uchun o'zi xpass bo'ladi, suite
+# yiqilmaydi).
+_BACKEND_500_XFAIL = pytest.mark.xfail(
+    reason="dev backend 500: FAZO_QUERY Field not found [supplier_pinfl] "
+           "(request_list:supplier_requests/client_requests)",
+    strict=False,
+)
+
+
 @allure.epic("Group A")
 @allure.feature("Сотрудничество")
 @allure.title("Group A: Запрос на сотрудничество — yuborish va tasdiqlash")
+@_BACKEND_500_XFAIL
 def test_214_ga_cooperation(session_page: Page, code) -> None:
     ga_cooperation(session_page, _ga_code(code))
 
@@ -439,6 +455,7 @@ def test_216_ga_product_linking(session_page: Page, code, runner_state) -> None:
 @allure.epic("Клиент")
 @allure.feature("Group A")
 @allure.title("Group A: Заказ — klient foydalanuvchisi nomidan yaratish")
+@_BACKEND_500_XFAIL
 def test_217_ga_order(session_page: Page, code, runner_state) -> None:
     """Order faqat klient rolida ko'rinadi — admin seansdan chiqib, group_a'da
     yaratilgan klient foydalanuvchisi bilan kiramiz."""
@@ -451,6 +468,7 @@ def test_217_ga_order(session_page: Page, code, runner_state) -> None:
 @allure.epic("Поставщик")
 @allure.feature("Group A")
 @allure.title("Group A: Статус заказа — postavshik nomidan Новый → Завершен")
+@_BACKEND_500_XFAIL
 def test_218_ga_order_status(session_page: Page, code) -> None:
     """Status faqat postavshik rolida o'zgartiriladi — klient seansdan chiqib,
     group_a'da yaratilgan postavshik foydalanuvchisi bilan kiramiz."""
