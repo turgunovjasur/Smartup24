@@ -399,6 +399,12 @@ _progress = {
     "last_edit": 0.0,
 }
 
+# Progress barni JUDA tez-tez tahrirlamaslik uchun minimal interval (sekund).
+# editMessageText'ni har testda chaqirish (~2×test soni) test oqimini
+# sekinlashtiradi va Telegram rate-limit xavfini tug'diradi — shu interval
+# throttle qiladi. Oxirgi test bundan MUSTASNO: yakuniy holat DOIM ko'rsatiladi.
+_PROGRESS_MIN_INTERVAL = 3.0
+
 
 def _progress_bar(pct: int, width: int = 12) -> str:
     """``[██████░░░░░░] 60%`` ko'rinishidagi matnli progress bar qaytaradi."""
@@ -429,22 +435,6 @@ def _render_progress(current_name: str = "") -> str:
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-def pytest_sessionstart(session):
-    """Testlar boshlanishidan oldin Telegram'ga "boshlandi" bildirishnomasini yuboradi.
-
-    Token/chat_id ``.env`` yoki env'da bo'lmasa jim o'tadi (``_send_telegram``).
-    xdist worker jarayoni EMAS, faqat master yuboradi; ``--collect-only`` da
-    haqiqiy run bo'lmagani uchun yubormaymiz (sessionfinish bilan simmetrik)."""
-    if getattr(session.config, "workerinput", None) is not None:
-        return
-    if session.config.option.collectonly:
-        return
-    _send_telegram(
-        f"\U0001F680 <b>Smartup24 test boshlandi</b>\n"
-        f"\U0001F5A5 Host: {socket.gethostname()}"
-    )
-
-
 def pytest_collection_finish(session):
     """Testlar yig'ilib bo'lgach jonli progress xabarini yaratadi.
 
@@ -465,9 +455,14 @@ def pytest_collection_finish(session):
 
 
 def pytest_runtest_logstart(nodeid, location):
-    """Har test boshlanganda progress xabarini joriy test nomi bilan yangilaydi."""
+    """Har test boshlanganda progress xabarini joriy test nomi bilan yangilaydi
+    (throttle: ``_PROGRESS_MIN_INTERVAL`` sekunddan tez tahrirlamaymiz)."""
     if not _progress["msg_id"]:
         return
+    now = time.monotonic()
+    if now - _progress["last_edit"] < _PROGRESS_MIN_INTERVAL:
+        return
+    _progress["last_edit"] = now
     _edit_telegram(_progress["msg_id"], _render_progress(_short_nodeid(nodeid)))
 
 
@@ -489,7 +484,12 @@ def pytest_runtest_logreport(report):
         _progress["passed"] += 1
     elif report.failed:
         _progress["failed"] += 1
-    # skipped ni alohida sanamaymiz (done'ga kiradi, natijada ko'rinmaydi)
+    # skipped/xfailed ni alohida sanamaymiz (done'ga kiradi, natijada ko'rinmaydi)
+    now = time.monotonic()
+    is_last = _progress["done"] >= _progress["total"]
+    if not is_last and now - _progress["last_edit"] < _PROGRESS_MIN_INTERVAL:
+        return
+    _progress["last_edit"] = now
     _edit_telegram(_progress["msg_id"], _render_progress())
 
 
@@ -504,14 +504,16 @@ def pytest_sessionfinish(session, exitstatus):
 
     # --collect-only da session.items to'ladi, lekin test ishlamaydi — xabar yubormaymiz
     if session.items and not session.config.option.collectonly:
-        # terminalreporter.stats — passed/failed/error ro'yxatlari shu yerda to'planadi
+        # terminalreporter.stats — passed/failed/error/xfailed ro'yxatlari shu yerda
         reporter = session.config.pluginmanager.get_plugin("terminalreporter")
         stats = getattr(reporter, "stats", {}) if reporter else {}
         passed  = len(stats.get("passed", []))
         failed  = len(stats.get("failed", []))
         errors  = len(stats.get("error", []))
         skipped = len(stats.get("skipped", []))
-        total   = passed + failed + errors
+        xfailed = len(stats.get("xfailed", []))
+        xpassed = len(stats.get("xpassed", []))
+        total   = passed + failed + errors + skipped + xfailed + xpassed
 
         status_emoji = "✅" if (failed == 0 and errors == 0) else "❌"
         lines = [
@@ -522,10 +524,21 @@ def pytest_sessionfinish(session, exitstatus):
             f"❌ Failed: {failed}",
             f"\U0001F6A8 Error: {errors}",
         ]
+        if xfailed:
+            lines.append(f"\U0001F536 Xfail (kutilgan): {xfailed}")
+        if xpassed:
+            lines.append(f"\U0001F536 Xpass: {xpassed}")
         if skipped:
             lines.append(f"⏭ Skipped: {skipped}")
         lines.append(f"exit code: {exitstatus}")
-        _send_telegram("\n".join(lines))
+        final_text = "\n".join(lines)
+        # BITTA xabar oqimi (foydalanuvchi so'rovi): progress xabari bo'lsa uni
+        # YAKUNIY holatga TAHRIRLAYMIZ — yangi xabar yubormaymiz. Progress
+        # bo'lmasa (Telegram o'chiq/xato) yangi xabar sifatida yuboramiz.
+        if _progress["msg_id"]:
+            _edit_telegram(_progress["msg_id"], final_text)
+        else:
+            _send_telegram("\n".join(lines))
 
     _finish_allure_report(session)
 
