@@ -93,16 +93,31 @@ m.wait_for_loader()                                 # app-global-page-loader
 - `test_<nomi>(page, code)` — `authorization(page)` + `run_<nomi>(...)` (alohida run uchun).
 - Unikal nom `f"...{code}"`; har navigatsiya/save dan keyin `expect_heading(...)`.
 - Barcha forma amallari `BasePage` orqali; navbar/link/tugma uchun raw `get_by_role`.
-- Yangi test `tests/test_all_runner.py` zanjiriga alohida `test_...` sifatida qo'shiladi.
+- Yangi test tegishli BO'LIM runneriga alohida `test_...` sifatida qo'shiladi (pastga qarang).
 
 ## Ishga tushirish
+Suite BO'LIM-runnerlarga bo'lingan (har biri o'z login bilan, bitta seans) — turli
+jadvalda ishlashi uchun (eski yagona `test_all_runner.py` OLIB TASHLANGAN):
 ```bash
-python -m pytest tests/test_all_runner.py -v                 # to'liq zanjir (bitta login)
-python -m pytest tests/test_regression/test_region.py -v     # bitta modul (debug)
-python -m pytest tests/test_regression/test_negative.py -v   # negativ/validatsiya testlari
-allure serve test-results/allure-results                     # report
+python -m pytest tests/test_setup/test_all_setup.py -v            # setup (basic create), code
+python -m pytest tests/test_group_a/test_all_group_a.py -v        # group_a (order oqimi), {code}2
+python -m pytest tests/test_regression/test_all_regression.py -v  # regression (to'liq CRUD), {code}3
+python -m pytest tests/test_main/test_all_main.py -v              # main ("Главное")
+python -m pytest tests/test_document/test_all_document_runner.py -v  # document
+python -m pytest tests/test_regression/test_region.py -v          # bitta modul (debug)
+allure serve test-results/allure-results                          # report
 ```
-DIQQAT: `test_all_runner.py` — hammasini BITTA seansda ketma-ket bajaradigan yagona
-kirish nuqtasi. Individual `test_...` fayllar debug uchun (har biri o'z login bilan).
-Har modulning eski `test_X_all` aggregatorlari OLIB TASHLANGAN (runner ularni bosadi).
+"HAMMASI" (bitta login) — 5 faylni bitta chaqiruvda ketma-ket ber (tartib saqlanadi):
+```bash
+python -m pytest tests/test_setup/test_all_setup.py tests/test_group_a/test_all_group_a.py \
+  tests/test_regression/test_all_regression.py tests/test_main/test_all_main.py \
+  tests/test_document/test_all_document_runner.py -v
+```
+KOD VARIANTI: setup=`code`, group_a=`{code}2`, regression=`{code}3` — birga
+ishlaganда nom to'qnashmaydi (main/document o'z prefikslari bilan). Individual
+`test_...` fayllar debug uchun (har biri o'z login bilan).
+JADVAL: GitHub Actions (`.github/workflows/e2e.yml`) har 2 soatda setup+group_a,
+har 12 soatda (UTC 03:00/15:00 = Toshkent 08:00/20:00) regression — bitta
+concurrency guruhda (parallel yo'q). Telegram bot (`tg_bot_runner.py`): `start
+[dev|prod] [all|setup|regression|main|document]` (default `dev all`).
 Yangi UI patternni yozishdan oldin Playwright MCP bilan real DOM'da tasdiqla — fieldlarni taxmin qilma.

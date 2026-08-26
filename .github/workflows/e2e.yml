@@ -2,51 +2,108 @@ name: E2E (Playwright)
 
 # NIMA ISHLAYDI
 # ------------
-# Faqat to'liq suite `tests/test_all_runner.py` (boshqa test YO'Q). Har 3 soatda
-# (UTC) + qo'lda ishga tushiriladi. Suite JONLI tashqi ERP'ga va ULASHILGAN
-# akkauntga tegadi — bir akkauntda ikki run parallel yursa ikkalasi ham yiqiladi,
-# shuning uchun concurrency guard bir vaqtda faqat BITTA run'ga ruxsat beradi.
-# CI headless ishlaydi (HEADLESS=1). Natija Telegramga yuboriladi
-# (conftest.pytest_sessionfinish → TG_BOT_TOKEN/TG_CHAT_ID env'lardan).
+# Suite ikki jadval bo'yicha, TURLI bo'limlar bilan ishlaydi:
+#   * Har 2 soatda   → setup + group_a  (tez/kritik: basic create + zakaz oqimi)
+#   * Har 12 soatda  → regression       (og'ir to'liq CRUD; Toshkent 08:00 / 20:00)
+# GitHub cron UTC bo'yicha: "0 3,15 * * *" = Toshkent (UTC+5) 08:00 va 20:00.
+#
+# Har scheduled hodisa BUTUN workflow'ni ishga tushiradi — kerakli job'ni
+# `github.event.schedule` bo'yicha `if:` ajratadi, shuning uchun bir vaqtda
+# FAQAT bitta job yuradi (2 soatlik va 12 soatlik cron'lar soatlari kesishmaydi:
+# */2 juft soatlarda, 3/15 toq soatlarda). Qo'lda (workflow_dispatch) `target`
+# input bilan bitta bo'lim tanlanadi.
+#
+# Suite JONLI tashqi ERP'ga va ULASHILGAN akkauntga tegadi — bir akkauntda ikki
+# run parallel yursa ikkalasi ham yiqiladi. concurrency guard butun workflow
+# uchun bir vaqtda BITTA run'ga ruxsat beradi (yangisi kutadi). Job'lar ham
+# hech qachon parallel ishlamaydi (yuqoridagi if: ajratish + har run'da bitta
+# job). CI headless (HEADLESS=1); natija Telegramga yuboriladi
+# (conftest → TG_BOT_TOKEN/TG_CHAT_ID). Muhit har doim DEV (TEST_ENV berilmaydi)
+# — PROD faqat Telegram bot orqali qo'lda.
 
 on:
-  workflow_dispatch: {}        # qo'lda ishga tushirish
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Qaysi bo'lim ishga tushsin"
+        type: choice
+        options:
+          - setup_groupa
+          - regression
+        default: setup_groupa
   schedule:
-    - cron: "0 */3 * * *"      # har 3 soatda (UTC)
+    - cron: "0 */2 * * *"     # har 2 soatda → setup + group_a
+    - cron: "0 3,15 * * *"    # har 12 soatda → regression (Toshkent 08:00 / 20:00)
 
 concurrency:
   group: e2e-shared-account    # ulashilgan akkaunt — overlapping run YO'Q
   cancel-in-progress: false    # boshlangan run tugasin, yangisi kutsin
 
 jobs:
-  runner:
+  # ── Har 2 soatda: setup + group_a (bitta login, bitta seans) ─────────────────
+  setup_groupa:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '0 */2 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'setup_groupa')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      HEADLESS: "1"                              # conftest brauzerni ko'rsatmaydi
-      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}  # Telegram bildirishnoma uchun
+      HEADLESS: "1"
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
       TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           python -m playwright install --with-deps chromium
-
-      - name: Run full suite (test_all_runner)
-        run: python -m pytest tests/test_all_runner.py -v
-
+      - name: Run setup + group_a
+        run: >-
+          python -m pytest
+          tests/test_setup/test_all_setup.py
+          tests/test_group_a/test_all_group_a.py
+          -v
       - name: Upload Allure results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
+          name: allure-results-setup-groupa
+          path: test-results/allure-results
+          if-no-files-found: ignore
+
+  # ── Har 12 soatda: regression (to'liq CRUD) ──────────────────────────────────
+  regression:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '0 3,15 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'regression')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      HEADLESS: "1"
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+      TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Run regression
+        run: python -m pytest tests/test_regression/test_all_regression.py -v
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-regression
           path: test-results/allure-results
           if-no-files-found: ignore

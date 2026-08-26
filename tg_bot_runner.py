@@ -5,12 +5,15 @@ Bu ALOHIDA doimiy ishlab turadigan jarayon (conftest emas). Ishga tushiring:
     python tg_bot_runner.py
 
 Keyin bot bilan Telegram'da yozishmadan boshqaring:
-    start   — test_all_runner ni ishga tushiradi (agar ishlamayotgan bo'lsa)
+    start [env] [bo'lim] — testlarni ishga tushiradi (agar ishlamayotgan bo'lsa).
+                           env: dev|prod (default dev). bo'lim: all|setup|
+                           regression|main|document (default all = hamma test
+                           bitta login bilan; setup = setup + group_a).
     stop    — ishlab turgan testlarni (brauzerlari bilan) to'xtatadi
-    status  — hozir test ishlayaptimi yoki yo'qligini aytadi
+    status  — hozir test ishlayaptimi + qaysi muhit/bo'lim ekanini aytadi
     help    — buyruqlar ro'yxati
 
-Slash bilan ham bo'ladi: /start /stop /status.
+Slash bilan ham bo'ladi: /start_dev /start_prod /stop /status.
 
 SOZLAMA (.env):
     TG_BOT_TOKEN     — bot tokeni (BotFather)
@@ -46,11 +49,27 @@ ALLOWED_CHATS = {c.strip() for c in (_ADMIN or "").split(",") if c.strip()}
 API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Ishga tushiriladigan test buyrug'i. TEST_CMD env bilan almashtirsa bo'ladi.
-DEFAULT_TEST_ARGS = [
-    "-m", "pytest", "tests/test_all_runner.py", "-v",
-    "--alluredir=test-results/allure-results",
-]
+# Bo'lim runnerlari — har biri o'z login bilan, bitta seansda ishlaydi.
+# "all" hammasini BITTA pytest chaqiruvida (bitta login) ketma-ket ishlatadi:
+# setup → group_a → regression → main → document (fayl tartibi saqlanadi).
+_SETUP = "tests/test_setup/test_all_setup.py"
+_GROUPA = "tests/test_group_a/test_all_group_a.py"
+_REGRESSION = "tests/test_regression/test_all_regression.py"
+_MAIN = "tests/test_main/test_all_main.py"
+_DOCUMENT = "tests/test_document/test_all_document_runner.py"
+
+TARGETS = {
+    "all":        [_SETUP, _GROUPA, _REGRESSION, _MAIN, _DOCUMENT],
+    "setup":      [_SETUP, _GROUPA],   # 2 soatlik juftlik (GitHub avtomat ham shu)
+    "regression": [_REGRESSION],
+    "main":       [_MAIN],
+    "document":   [_DOCUMENT],
+}
+DEFAULT_TARGET = "all"
+
+# Ishga tushiriladigan test buyrug'i. TEST_CMD env bilan to'liq almashtirsa bo'ladi
+# (u berilsa target e'tiborsiz qoladi).
+_PYTEST_TAIL = ["-v", "--alluredir=test-results/allure-results"]
 
 # Bot orqali tanlanadigan muhitlar (flow_authorization.TEST_ENV bilan bir xil).
 # "start prod" / "start dev" — TEST_ENV env var'i orqali test qaysi serverga
@@ -58,9 +77,10 @@ DEFAULT_TEST_ARGS = [
 ENV_LABELS = {"dev": "DEV (sm24)", "prod": "PROD (test)"}
 DEFAULT_ENV = "dev"
 
-# Ishlab turgan test jarayoni (bir vaqtda faqat bitta) + qaysi muhitda ekani
+# Ishlab turgan test jarayoni (bir vaqtda faqat bitta) + qaysi muhit/bo'lim ekani
 _proc: subprocess.Popen | None = None
 _run_env: str = DEFAULT_ENV
+_run_target: str = DEFAULT_TARGET
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -90,13 +110,14 @@ def _is_running() -> bool:
     return True
 
 
-def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV) -> None:
-    """Testlarni yangi subprocess'da ishga tushiradi (``run_env`` muhitida)."""
-    global _proc, _run_env
+def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT_TARGET) -> None:
+    """Testlarni yangi subprocess'da ishga tushiradi (``run_env`` muhitida,
+    ``target`` bo'limi bilan)."""
+    global _proc, _run_env, _run_target
     if _is_running():
         _send(
-            f"⚠️ Testlar allaqachon ishlab turibdi ({ENV_LABELS[_run_env]}). "
-            "Avval <b>stop</b> qiling.",
+            f"⚠️ Testlar allaqachon ishlab turibdi "
+            f"({ENV_LABELS[_run_env]} / {_run_target}). Avval <b>stop</b> qiling.",
             chat_id,
         )
         return
@@ -107,9 +128,19 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV) -> None:
             chat_id,
         )
         return
+    if target not in TARGETS:
+        _send(
+            f"❌ Noma'lum bo'lim: <code>{target}</code>. "
+            f"Ruxsat: <b>{', '.join(TARGETS)}</b>.",
+            chat_id,
+        )
+        return
 
     args = os.getenv("TEST_CMD")
-    cmd = [sys.executable] + (args.split() if args else DEFAULT_TEST_ARGS)
+    if args:
+        cmd = [sys.executable] + args.split()
+    else:
+        cmd = [sys.executable, "-m", "pytest"] + TARGETS[target] + _PYTEST_TAIL
 
     env = os.environ.copy()
     # Test qaysi serverga tegishini shu env var belgilaydi (flow_authorization o'qiydi).
@@ -132,10 +163,12 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV) -> None:
         _send(f"❌ Ishga tushirib bo'lmadi: {e}", chat_id)
         return
     _run_env = run_env
+    _run_target = target
     warn = "\n\U0001F534 <b>DIQQAT: bu PROD (jonli) server!</b>" if run_env == "prod" else ""
     _send(
         f"\U0001F680 <b>Testlar ishga tushdi.</b>\n"
-        f"\U0001F310 Muhit: <b>{ENV_LABELS[run_env]}</b>{warn}\n"
+        f"\U0001F310 Muhit: <b>{ENV_LABELS[run_env]}</b>\n"
+        f"\U0001F4E6 Bo'lim: <b>{target}</b>{warn}\n"
         "Progress alohida xabar bo'lib yangilanib turadi. To'xtatish: <b>stop</b>",
         chat_id,
     )
@@ -173,33 +206,38 @@ def _status(chat_id: str) -> None:
     if _is_running():
         _send(
             f"\U0001F7E2 Testlar hozir <b>ishlab turibdi</b> — "
-            f"muhit: <b>{ENV_LABELS[_run_env]}</b>.",
+            f"muhit: <b>{ENV_LABELS[_run_env]}</b>, bo'lim: <b>{_run_target}</b>.",
             chat_id,
         )
     else:
         _send(
-            "⚪ Hozir test ishlamayapti. Boshlash: <b>start dev</b> yoki <b>start prod</b>.",
+            "⚪ Hozir test ishlamayapti. Boshlash: <b>start dev</b> yoki <b>start prod</b> "
+            "(default: hammasi).",
             chat_id,
         )
 
 
 HELP = (
     "\U0001F916 <b>Smartup24 test bot</b>\n"
-    "/start_dev — testlarni DEV (sm24) da boshlash\n"
-    "/start_prod — testlarni PROD (test, jonli!) da boshlash\n"
+    "/start_dev — HAMMA testni DEV (sm24) da boshlash\n"
+    "/start_prod — HAMMA testni PROD (test, jonli!) da boshlash\n"
     "/stop — ishlab turgan testlarni to'xtatish\n"
-    "/status — holat + qaysi muhitda ekani\n"
+    "/status — holat + qaysi muhit/bo'lim ekani\n"
     "/help — shu ro'yxat\n\n"
-    "Slash'siz ham bo'ladi: <b>start dev</b>, <b>start prod</b>, <b>stop</b>."
+    "Bo'lim tanlab ham bo'ladi (default <b>all</b>):\n"
+    f"<b>{', '.join(TARGETS)}</b>\n"
+    "Masalan: <b>start dev regression</b>, <b>start prod setup</b>, "
+    "<b>start dev document</b>.\n"
+    "(<b>setup</b> = setup + group_a; <b>all</b> = hammasi bitta login bilan)"
 )
 
 # Telegram buyruq menyusi ("/" bosilganda chiqadi — setMyCommands bilan o'rnatiladi)
 BOT_COMMANDS = [
-    {"command": "start_dev",  "description": "Testlarni DEV (sm24) da boshlash"},
-    {"command": "start_prod", "description": "Testlarni PROD (test, jonli!) da boshlash"},
+    {"command": "start_dev",  "description": "HAMMA testni DEV (sm24) da boshlash"},
+    {"command": "start_prod", "description": "HAMMA testni PROD (test, jonli!) da boshlash"},
     {"command": "stop",       "description": "Ishlab turgan testlarni to'xtatish"},
-    {"command": "status",     "description": "Holat + qaysi muhitda ekani"},
-    {"command": "help",       "description": "Buyruqlar ro'yxati"},
+    {"command": "status",     "description": "Holat + qaysi muhit/bo'lim ekani"},
+    {"command": "help",       "description": "Buyruqlar ro'yxati + bo'limlar"},
 ]
 
 
@@ -221,18 +259,22 @@ def _register_commands() -> None:
 
 def _handle(text: str, chat_id: str) -> None:
     """Bitta buyruqni bajaradi. Slash menyu: /start_dev /start_prod /stop /status
-    /help. Slash'siz matn ham: 'start dev', 'start prod', 'stop' ..."""
+    /help. Slash'siz matn ham: 'start dev [bo'lim]', 'start prod [bo'lim]', 'stop'.
+    Bo'lim (target) ixtiyoriy — berilmasa 'all' (hamma test bitta login bilan)."""
     parts = text.strip().split()
     if not parts:
         return
     cmd = parts[0].lstrip("/").split("@")[0].lower()  # "/start_dev@bot" -> "start_dev"
-    arg = parts[1].lower() if len(parts) > 1 else DEFAULT_ENV  # muhit ("start dev" uchun)
+    rest = [p.lower() for p in parts[1:]]
     if cmd == "start_dev":
-        _start_tests(chat_id, "dev")
+        _start_tests(chat_id, "dev", rest[0] if rest else DEFAULT_TARGET)
     elif cmd == "start_prod":
-        _start_tests(chat_id, "prod")
+        _start_tests(chat_id, "prod", rest[0] if rest else DEFAULT_TARGET)
     elif cmd == "start":
-        _start_tests(chat_id, arg)
+        # "start [env] [bo'lim]" — env birinchi, bo'lim ixtiyoriy
+        run_env = rest[0] if len(rest) > 0 else DEFAULT_ENV
+        target = rest[1] if len(rest) > 1 else DEFAULT_TARGET
+        _start_tests(chat_id, run_env, target)
     elif cmd == "stop":
         _stop_tests(chat_id)
     elif cmd == "status":

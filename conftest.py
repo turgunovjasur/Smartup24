@@ -320,8 +320,8 @@ def code():
 
 @pytest.fixture(scope="session")
 def runner_state():
-    """test_all_runner testlari ORASIDA runtime qiymatlarni uzatish uchun umumiy
-    lug'at (session scope).
+    """Bo'lim-runner (test_all_*) testlari ORASIDA runtime qiymatlarni uzatish
+    uchun umumiy lug'at (session scope).
 
     Aggregator mega-test bo'lganda bu qiymatlar oddiy lokal o'zgaruvchilar edi
     (masalan group_a'da yaratilgan ``product_name`` → linking → order). Endi har
