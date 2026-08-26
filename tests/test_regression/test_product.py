@@ -129,6 +129,12 @@ def run_product_edit(page: Page, code) -> None:
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}"):
         m.input(label="Название", value=new_name)
         m.input(label="Краткое название", value=new_name)
+        # "Код" maydonini ham yangilaymiz: create'da u `code-{old_name}` bo'lib,
+        # eski nomni substring sifatida saqlaydi — tegilmasa quyidagi
+        # expect_no_row(old_name) grid'da Код ustuni orqali eski nomni topib
+        # yiqiladi (2026-08-26 runner: test_421 edit). smtid orqali (label "Код"
+        # yonidagi "Код сервера" ga aralashadi).
+        m.input(smtid="code", value=f"code-{new_name}")
 
     with allure.step("Сохранить va ro'yxatga qaytish"):
         # Edit'dan keyin ham redirect barqaror emas (dashboard'ga tushadi) —
