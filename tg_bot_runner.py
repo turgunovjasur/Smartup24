@@ -158,7 +158,7 @@ _PROGRESS_FILE = os.path.join(PROJECT_DIR, "test-results", "tg_progress.json")
 def _read_progress_file() -> dict | None:
     """conftest yozgan progress {msg_id, text} — yo'q/xato bo'lsa None."""
     try:
-        with open(_PROGRESS_FILE, encoding="utf-8") as f:
+        with open(_PROGRESS_FILE, encoding="utf-8-sig") as f:  # -sig: BOM'ga chidamli
             d = json.load(f)
         if d.get("msg_id") and d.get("text") is not None:
             return d
@@ -207,15 +207,78 @@ def _flash_busy(chat_id: str) -> None:
     threading.Timer(5, _restore).start()
 
 
+# Ishlab turgan run holatini FAYLga ham yozamiz — bot qayta ishga tushsa
+# (kod yangilash / crash / logon), xotiradagi _proc yo'qoladi, lekin marker
+# fayl orqali run'ni ADOPT qiladi (aks holda ishlab turgan test ustiga ikkinchi
+# parallel run boshlanib, ulashilgan akkaunt ikkalasini yiqitardi).
+_RUN_MARKER = os.path.join(PROJECT_DIR, "test-results", "bot_run.json")
+
+
+def _write_marker(pid: int, env: str, target: str) -> None:
+    try:
+        os.makedirs(os.path.dirname(_RUN_MARKER), exist_ok=True)
+        with open(_RUN_MARKER, "w", encoding="utf-8") as f:
+            json.dump({"pid": pid, "env": env, "target": target, "ts": time.time()}, f)
+    except Exception as e:
+        print(f"[bot] marker yozish xato: {e}")
+
+
+def _read_marker() -> dict | None:
+    try:
+        with open(_RUN_MARKER, encoding="utf-8-sig") as f:  # -sig: BOM'ga chidamli
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _clear_marker() -> None:
+    try:
+        if os.path.exists(_RUN_MARKER):
+            os.remove(_RUN_MARKER)
+    except Exception as e:
+        print(f"[bot] marker o'chirish xato: {e}")
+
+
+def _pid_alive(pid: int) -> bool:
+    """PID hozir tirikmi (tasklist orqali — bot qayta ishga tushган bo'lsa ham)."""
+    if not pid or pid < 0:
+        return False
+    try:
+        out = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout
+        return str(pid) in out
+    except Exception:
+        return False
+
+
 def _is_running() -> bool:
-    """Test jarayoni hozir ishlab turibdimi (tugagan bo'lsa holatni tozalaydi)."""
-    global _proc
-    if _proc is None:
-        return False
-    if _proc.poll() is not None:  # tugagan
-        _proc = None
-        return False
-    return True
+    """Test jarayoni hozir ishlab turibdimi. Avval xotiradagi _proc, keyin
+    marker fayl (bot qayta ishga tushган bo'lса run'ni adopt qiladi)."""
+    global _proc, _run_env, _run_target
+    if _proc is not None:
+        if _proc.poll() is None:
+            return True
+        _proc = None  # tugagan
+    # _proc yo'q — marker fayldan tekshiramiz
+    m = _read_marker()
+    if m and _pid_alive(m.get("pid", -1)):
+        _run_env = m.get("env", _run_env)
+        _run_target = m.get("target", _run_target)
+        return True
+    _clear_marker()  # eskirgan/tugagan marker
+    return False
+
+
+def _running_pid() -> int | None:
+    """To'xtatish uchun ishlab turgan run PID'i (proc yoki marker)."""
+    if _proc is not None and _proc.poll() is None:
+        return _proc.pid
+    m = _read_marker()
+    if m and _pid_alive(m.get("pid", -1)):
+        return m["pid"]
+    return None
 
 
 def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT_TARGET) -> None:
@@ -268,6 +331,7 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
         return
     _run_env = run_env
     _run_target = target
+    _write_marker(_proc.pid, run_env, target)  # bot qayta ishga tushса adopt qilsin
     # Muvaffaqiyatli startда ALOHIDA xabar YUBORMAYMIZ (foydalanuvchi so'rovi:
     # "test xabar yuborib o'chirmasin") — bir necha soniyada conftest'ning jonli
     # progress xabari paydo bo'lib, yagona xabar bo'lib qoladi. PROD bo'lsa faqat
@@ -281,12 +345,14 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
 
 
 def _stop_tests(chat_id: str) -> None:
-    """Ishlab turgan test jarayonini (brauzerlari bilan birga) to'xtatadi."""
+    """Ishlab turgan test jarayonini (brauzerlari bilan birga) to'xtatadi.
+    PID xotiradagi _proc'dan YOKI marker fayldan olinadi (bot qayta ishga
+    tushган bo'lса ham to'xtata oladi)."""
     global _proc
     if not _is_running():
         _send("ℹ️ Hozir ishlab turgan test yo'q.", chat_id, ttl=_TEMP_TTL)
         return
-    pid = _proc.pid
+    pid = _running_pid()
     try:
         if os.name == "nt":
             # /T — butun daraxt (pytest + chromium jarayonlari), /F — majburiy
@@ -294,7 +360,7 @@ def _stop_tests(chat_id: str) -> None:
                 ["taskkill", "/PID", str(pid), "/T", "/F"],
                 capture_output=True, timeout=30,
             )
-        else:
+        elif _proc is not None:
             _proc.send_signal(signal.SIGTERM)
             try:
                 _proc.wait(timeout=10)
@@ -305,6 +371,7 @@ def _stop_tests(chat_id: str) -> None:
         return
     finally:
         _proc = None
+        _clear_marker()
     _send(
         "\U0001F6D1 <b>To'xtatildi</b>\n"
         f"{_run_block(_run_env, _run_target)}",
@@ -386,8 +453,13 @@ def _handle(text: str, chat_id: str) -> None:
         return
     cmd = parts[0].lstrip("/").split("@")[0].lower()  # "/main_dev@bot" -> "main_dev"
     rest = [p.lower() for p in parts[1:]]
+    # Ixtiyoriy "start_" prefiksni yechamiz: "/start_main_dev" == "/main_dev"
+    # (start_dev/start_prod = All bundan mustasno). Chalkashlik kamayadi.
+    if cmd.startswith("start_") and cmd not in ("start_dev", "start_prod"):
+        stripped = cmd[len("start_"):]
+        if stripped.rsplit("_", 1)[-1] in ENV_LABELS:
+            cmd = stripped
     # "<bo'lim>_<env>" slash buyruqlari: start_dev, setup_prod, main_dev, ...
-    # (start_dev/start_prod = all). Har bo'limni alohida ishga tushirish uchun.
     sub = cmd.rsplit("_", 1)
     if cmd in ("start_dev", "start_prod"):
         env = "dev" if cmd == "start_dev" else "prod"
@@ -405,7 +477,10 @@ def _handle(text: str, chat_id: str) -> None:
         _status(chat_id)
     elif cmd in ("help", "commands"):
         _send(HELP, chat_id)
-    # boshqa matnlarga javob bermaymiz (shovqin bo'lmasin)
+    elif text.strip().startswith("/"):
+        # Tanilmagan slash buyrug'i — qisqa yo'l-yo'riq (o'zi o'chadi)
+        _send("❓ Noma'lum buyruq. /help bosing.", chat_id, ttl=_TEMP_TTL)
+    # slash'siz begona matnga javob bermaymiz (shovqin bo'lmasin)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
