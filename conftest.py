@@ -18,6 +18,12 @@ load_dotenv()
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 TG_CHAT_ID   = os.getenv("TG_CHAT_ID")
 
+# Telegram xabari va Allure hisobotida ko'rinadigan "Host" nomi. Default —
+# kompyuterning Windows nomi (socket.gethostname(), masalan "sm24-akmal-hr").
+# .env da HOST_LABEL bilan istalgan nom qo'yish mumkin (Windows nomini
+# o'zgartirmasdan), masalan HOST_LABEL=Bahriddinov-PC.
+HOST_LABEL = os.getenv("HOST_LABEL") or socket.gethostname()
+
 TRACE_DIR = "test-results/traces"
 ALLURE_RESULTS_DIR = "test-results/allure-results"
 ALLURE_REPORT_DIR = "test-results/allure-report"
@@ -56,7 +62,7 @@ def pytest_configure(config):
         f.write("Framework=Playwright\n")
         f.write("Language=Python 3.11\n")
         f.write("Environment=Staging\n")
-        f.write(f"Host={socket.gethostname()}\n")
+        f.write(f"Host={HOST_LABEL}\n")
 
     # Categories
     categories_src = "allure/categories.json"
@@ -67,7 +73,7 @@ def pytest_configure(config):
     # Executor
     executor_path = os.path.join(ALLURE_RESULTS_DIR, "executor.json")
     executor_data = {
-        "name": socket.gethostname(),
+        "name": HOST_LABEL,
         "type": "local",
         "buildName": "Smoke Tests",
         "reportName": "Allure Report"
@@ -567,7 +573,7 @@ def pytest_sessionfinish(session, exitstatus):
             f"{status_emoji} <b>Smartup24 test yakuni</b>",
             _env_label(),
             f"\U0001F4E6 Bo'lim: <b>{_progress['suite'] or '—'}</b>",
-            f"\U0001F5A5 Host: {socket.gethostname()}",
+            f"\U0001F5A5 Host: {HOST_LABEL}",
             f"\U0001F4CA Jami: {total}",
             f"✅ Passed: {passed}",
             f"❌ Failed: {failed}",
