@@ -36,6 +36,7 @@ import sys
 import json
 import time
 import signal
+import threading
 import subprocess
 
 import requests
@@ -84,6 +85,20 @@ _PYTEST_TAIL = ["-v", "--alluredir=test-results/allure-results"]
 ENV_LABELS = {"dev": "DEV (sm24)", "prod": "PROD (test)"}
 DEFAULT_ENV = "dev"
 
+# Bo'lim (target) nomlarining o'qishli ko'rinishi — xabarlarda "all" o'rniga.
+TARGET_LABELS = {
+    "all":          "All test (5 bo'lim)",
+    "setup_groupa": "Setup + Group A",
+    "regression":   "Regression",
+    "main":         "Main",
+    "document":     "Document",
+}
+
+# Vaqtinchalik (o'zini-o'zi o'chiradigan) xabarlar umri — chatда to'planib
+# qolmasligi uchun. Doimiy qoladigan yagona xabar — conftest'ning jonli progress'i.
+_TEMP_TTL = 8       # ogohlantirish / tasdiq
+_STATUS_TTL = 20    # /status javobi
+
 # Ishlab turgan test jarayoni (bir vaqtda faqat bitta) + qaysi muhit/bo'lim ekani
 _proc: subprocess.Popen | None = None
 _run_env: str = DEFAULT_ENV
@@ -92,18 +107,47 @@ _run_target: str = DEFAULT_TARGET
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-def _send(text: str, chat_id: str | None = None) -> None:
-    """Telegram'ga xabar yuboradi (javob uchun)."""
+def _send(text: str, chat_id: str | None = None, ttl: int | None = None) -> int | None:
+    """Telegram'ga xabar yuboradi. ``ttl`` (soniya) berilsa xabar shuncha vaqtdan
+    keyin AVTOMAT o'chiriladi — vaqtinchalik javoblar (ogohlantirish/holat/tasdiq)
+    chatда ustma-ust to'planib qolmasligi uchun. message_id qaytaradi."""
     if not BOT_TOKEN:
-        return
+        return None
+    target_chat = chat_id or CHAT_ID
+    try:
+        r = requests.post(
+            f"{API}/sendMessage",
+            data={"chat_id": target_chat, "text": text, "parse_mode": "HTML"},
+            timeout=10,
+        )
+        mid = r.json().get("result", {}).get("message_id") if r.ok else None
+    except Exception as e:
+        print(f"[bot] send xato: {e}")
+        return None
+    if ttl and mid:
+        # Fon taymeri xabarni o'chiradi (bot jarayoni doim ishlab turadi)
+        threading.Timer(ttl, _delete, args=(target_chat, mid)).start()
+    return mid
+
+
+def _delete(chat_id: str, message_id: int) -> None:
+    """Xabarni o'chiradi (auto-o'chadigan vaqtinchalik javoblar uchun)."""
     try:
         requests.post(
-            f"{API}/sendMessage",
-            data={"chat_id": chat_id or CHAT_ID, "text": text, "parse_mode": "HTML"},
+            f"{API}/deleteMessage",
+            data={"chat_id": chat_id, "message_id": message_id},
             timeout=10,
         )
     except Exception as e:
-        print(f"[bot] send xato: {e}")
+        print(f"[bot] delete xato: {e}")
+
+
+def _run_block(env: str, target: str) -> str:
+    """Muhit + bo'lim ma'lumot bloki (xabarlarda bir xil ko'rinadi)."""
+    return (
+        f"\U0001F310 Muhit: <b>{ENV_LABELS.get(env, env)}</b>\n"
+        f"\U0001F4E6 Bo'lim: <b>{TARGET_LABELS.get(target, target)}</b>"
+    )
 
 
 def _is_running() -> bool:
@@ -123,23 +167,24 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
     global _proc, _run_env, _run_target
     if _is_running():
         _send(
-            f"⚠️ Testlar allaqachon ishlab turibdi "
-            f"({ENV_LABELS[_run_env]} / {_run_target}). Avval <b>stop</b> qiling.",
-            chat_id,
+            "⏳ <b>Band</b> — hozir test ishlab turibdi:\n"
+            f"{_run_block(_run_env, _run_target)}\n\n"
+            "Ikkinchi runni birga ishga tushirib bo'lmaydi. Avval /stop bosing.",
+            chat_id, ttl=_TEMP_TTL,
         )
         return
     if run_env not in ENV_LABELS:
         _send(
-            f"❌ Noma'lum muhit: <code>{run_env}</code>. "
-            "Ruxsat: <b>start dev</b> yoki <b>start prod</b>.",
-            chat_id,
+            f"❌ Noma'lum muhit: <code>{run_env}</code>\n"
+            "Ruxsat: <b>dev</b> · <b>prod</b>",
+            chat_id, ttl=_TEMP_TTL,
         )
         return
     if target not in TARGETS:
         _send(
-            f"❌ Noma'lum bo'lim: <code>{target}</code>. "
-            f"Ruxsat: <b>{', '.join(TARGETS)}</b>.",
-            chat_id,
+            f"❌ Noma'lum bo'lim: <code>{target}</code>\n"
+            f"Ruxsat: <b>{', '.join(TARGET_LABELS)}</b>",
+            chat_id, ttl=_TEMP_TTL,
         )
         return
 
@@ -167,17 +212,18 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
             cmd, cwd=PROJECT_DIR, env=env, creationflags=creationflags,
         )
     except Exception as e:
-        _send(f"❌ Ishga tushirib bo'lmadi: {e}", chat_id)
+        _send(f"❌ Ishga tushirib bo'lmadi: {e}", chat_id, ttl=_TEMP_TTL)
         return
     _run_env = run_env
     _run_target = target
-    warn = "\n\U0001F534 <b>DIQQAT: bu PROD (jonli) server!</b>" if run_env == "prod" else ""
+    warn = "\n\U0001F534 <b>DIQQAT: PROD — jonli server!</b>" if run_env == "prod" else ""
+    # Bu ack o'zini o'chiradi: bir necha soniyada conftest'ning jonli progress
+    # xabari paydo bo'ladi va yagona doimiy xabar bo'lib qoladi (spam bo'lmasin).
     _send(
-        f"\U0001F680 <b>Testlar ishga tushdi.</b>\n"
-        f"\U0001F310 Muhit: <b>{ENV_LABELS[run_env]}</b>\n"
-        f"\U0001F4E6 Bo'lim: <b>{target}</b>{warn}\n"
-        "Progress alohida xabar bo'lib yangilanib turadi. To'xtatish: <b>stop</b>",
-        chat_id,
+        "\U0001F680 <b>Ishga tushirilmoqda…</b>\n"
+        f"{_run_block(run_env, target)}{warn}\n\n"
+        "Jonli progress quyida alohida xabarda yangilanadi. To'xtatish: /stop",
+        chat_id, ttl=15,
     )
 
 
@@ -185,7 +231,7 @@ def _stop_tests(chat_id: str) -> None:
     """Ishlab turgan test jarayonini (brauzerlari bilan birga) to'xtatadi."""
     global _proc
     if not _is_running():
-        _send("ℹ️ Hozir ishlab turgan test yo'q.", chat_id)
+        _send("ℹ️ Hozir ishlab turgan test yo'q.", chat_id, ttl=_TEMP_TTL)
         return
     pid = _proc.pid
     try:
@@ -202,25 +248,30 @@ def _stop_tests(chat_id: str) -> None:
             except subprocess.TimeoutExpired:
                 _proc.kill()
     except Exception as e:
-        _send(f"❌ To'xtatishda xato: {e}", chat_id)
+        _send(f"❌ To'xtatishda xato: {e}", chat_id, ttl=_TEMP_TTL)
         return
     finally:
         _proc = None
-    _send("\U0001F6D1 <b>Testlar to'xtatildi.</b>", chat_id)
+    _send(
+        "\U0001F6D1 <b>To'xtatildi</b>\n"
+        f"{_run_block(_run_env, _run_target)}",
+        chat_id, ttl=_TEMP_TTL,
+    )
 
 
 def _status(chat_id: str) -> None:
     if _is_running():
         _send(
-            f"\U0001F7E2 Testlar hozir <b>ishlab turibdi</b> — "
-            f"muhit: <b>{ENV_LABELS[_run_env]}</b>, bo'lim: <b>{_run_target}</b>.",
-            chat_id,
+            "\U0001F7E2 <b>Ishlamoqda</b>\n"
+            f"{_run_block(_run_env, _run_target)}\n\n"
+            "To'xtatish: /stop",
+            chat_id, ttl=_STATUS_TTL,
         )
     else:
         _send(
-            "⚪ Hozir test ishlamayapti. Boshlash: <b>start dev</b> yoki <b>start prod</b> "
-            "(default: hammasi).",
-            chat_id,
+            "⚪️ <b>Bo'sh</b> — test ishlamayapti\n"
+            "Boshlash: /start_dev (hammasi) yoki bo'lim buyrug'i — /help",
+            chat_id, ttl=_STATUS_TTL,
         )
 
 

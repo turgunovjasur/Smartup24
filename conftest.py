@@ -456,10 +456,10 @@ def _suite_label(items) -> str:
     return f"{len(files)} fayl (debug)"
 
 
-def _progress_bar(pct: int, width: int = 12) -> str:
-    """``[██████░░░░░░] 60%`` ko'rinishidagi matnli progress bar qaytaradi."""
+def _progress_bar(pct: int, width: int = 14) -> str:
+    """``██████████░░░░  62%`` ko'rinishidagi toza progress bar qaytaradi."""
     filled = round(width * pct / 100)
-    return f"[{'█' * filled}{'░' * (width - filled)}] {pct}%"
+    return f"{'█' * filled}{'░' * (width - filled)}  {pct}%"
 
 
 def _short_nodeid(nodeid: str) -> str:
@@ -472,13 +472,14 @@ def _render_progress(current_name: str = "") -> str:
     total = _progress["total"] or 1
     done = _progress["done"]
     pct = int(done * 100 / total)
+    env_emoji = "\U0001F534" if TEST_ENV == "prod" else "\U0001F7E2"  # 🔴 prod / 🟢 dev
     lines = [
-        "\U0001F504 <b>Smartup24 test bajarilmoqda</b>",
-        _env_label(),
-        f"\U0001F4E6 Bo'lim: <b>{_progress['suite'] or '—'}</b>",
+        "\U0001F504 <b>Smartup24 — Test bajarilmoqda</b>",
+        "━━━━━━━━━━━━━",
+        f"{env_emoji} {TEST_ENV.upper()} ({COMPANY_CODE})   "
+        f"\U0001F4E6 <b>{_progress['suite'] or '—'}</b>",
         _progress_bar(pct),
-        f"\U0001F4CA {done}/{_progress['total']}"
-        f"  ✅ {_progress['passed']}  ❌ {_progress['failed']}",
+        f"✅ {_progress['passed']}   ❌ {_progress['failed']}   ⏳ {done}/{_progress['total']}",
     ]
     if current_name:
         lines.append(f"▶️ <code>{current_name}</code>")
@@ -569,15 +570,17 @@ def pytest_sessionfinish(session, exitstatus):
         total   = passed + failed + errors + skipped + xfailed + xpassed
 
         status_emoji = "✅" if (failed == 0 and errors == 0) else "❌"
+        env_emoji = "\U0001F534" if TEST_ENV == "prod" else "\U0001F7E2"  # 🔴 prod / 🟢 dev
         lines = [
-            f"{status_emoji} <b>Smartup24 test yakuni</b>",
-            _env_label(),
-            f"\U0001F4E6 Bo'lim: <b>{_progress['suite'] or '—'}</b>",
-            f"\U0001F5A5 Host: {HOST_LABEL}",
-            f"\U0001F4CA Jami: {total}",
-            f"✅ Passed: {passed}",
-            f"❌ Failed: {failed}",
-            f"\U0001F6A8 Error: {errors}",
+            f"{status_emoji} <b>Smartup24 — Test yakunlandi</b>",
+            "━━━━━━━━━━━━━",
+            f"{env_emoji} {TEST_ENV.upper()} ({COMPANY_CODE})   "
+            f"\U0001F4E6 <b>{_progress['suite'] or '—'}</b>",
+            f"\U0001F5A5 {HOST_LABEL}",
+            "",
+            f"✅ Passed: <b>{passed}</b>",
+            f"❌ Failed: <b>{failed}</b>",
+            f"\U0001F6A8 Error: <b>{errors}</b>",
         ]
         if xfailed:
             lines.append(f"\U0001F536 Xfail (kutilgan): {xfailed}")
@@ -585,7 +588,10 @@ def pytest_sessionfinish(session, exitstatus):
             lines.append(f"\U0001F536 Xpass: {xpassed}")
         if skipped:
             lines.append(f"⏭ Skipped: {skipped}")
-        lines.append(f"exit code: {exitstatus}")
+        lines += [
+            "━━━━━━━━━━━━━",
+            f"\U0001F4CA Jami: <b>{total}</b>   ·   exit: {exitstatus}",
+        ]
         final_text = "\n".join(lines)
         # BITTA xabar oqimi (foydalanuvchi so'rovi): progress xabari bo'lsa uni
         # YAKUNIY holatga TAHRIRLAYMIZ — yangi xabar yubormaymiz. Progress
