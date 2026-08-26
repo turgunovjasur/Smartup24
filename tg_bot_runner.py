@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import os
 import sys
+import json
 import time
 import signal
 import subprocess
@@ -184,23 +185,53 @@ def _status(chat_id: str) -> None:
 
 HELP = (
     "\U0001F916 <b>Smartup24 test bot</b>\n"
-    "<b>start</b> — testlarni DEV (sm24) da ishga tushirish\n"
-    "<b>start dev</b> — DEV (sm24) da\n"
-    "<b>start prod</b> — PROD (test, jonli!) da\n"
-    "<b>stop</b> — ishlab turgan testlarni to'xtatish\n"
-    "<b>status</b> — holat + qaysi muhitda ekani\n"
-    "<b>help</b> — shu ro'yxat"
+    "/start_dev — testlarni DEV (sm24) da boshlash\n"
+    "/start_prod — testlarni PROD (test, jonli!) da boshlash\n"
+    "/stop — ishlab turgan testlarni to'xtatish\n"
+    "/status — holat + qaysi muhitda ekani\n"
+    "/help — shu ro'yxat\n\n"
+    "Slash'siz ham bo'ladi: <b>start dev</b>, <b>start prod</b>, <b>stop</b>."
 )
+
+# Telegram buyruq menyusi ("/" bosilganda chiqadi — setMyCommands bilan o'rnatiladi)
+BOT_COMMANDS = [
+    {"command": "start_dev",  "description": "Testlarni DEV (sm24) da boshlash"},
+    {"command": "start_prod", "description": "Testlarni PROD (test, jonli!) da boshlash"},
+    {"command": "stop",       "description": "Ishlab turgan testlarni to'xtatish"},
+    {"command": "status",     "description": "Holat + qaysi muhitda ekani"},
+    {"command": "help",       "description": "Buyruqlar ro'yxati"},
+]
+
+
+def _register_commands() -> None:
+    """Telegram'da buyruq menyusini o'rnatadi — chatда "/" bosilганда ular
+    ro'yxat bo'lib chiqadi (chalkashliksiz tanlash)."""
+    if not BOT_TOKEN:
+        return
+    try:
+        r = requests.post(
+            f"{API}/setMyCommands",
+            data={"commands": json.dumps(BOT_COMMANDS)},
+            timeout=10,
+        )
+        print(f"[bot] setMyCommands: {'OK' if r.ok else r.text[:150]}")
+    except Exception as e:
+        print(f"[bot] setMyCommands xato: {e}")
 
 
 def _handle(text: str, chat_id: str) -> None:
-    """Bitta buyruqni bajaradi. Matn: 'start', 'start prod', 'start dev' ..."""
+    """Bitta buyruqni bajaradi. Slash menyu: /start_dev /start_prod /stop /status
+    /help. Slash'siz matn ham: 'start dev', 'start prod', 'stop' ..."""
     parts = text.strip().split()
     if not parts:
         return
-    cmd = parts[0].lstrip("/").split("@")[0].lower()  # "/start@bot" -> "start"
-    arg = parts[1].lower() if len(parts) > 1 else DEFAULT_ENV  # muhit (start uchun)
-    if cmd == "start":
+    cmd = parts[0].lstrip("/").split("@")[0].lower()  # "/start_dev@bot" -> "start_dev"
+    arg = parts[1].lower() if len(parts) > 1 else DEFAULT_ENV  # muhit ("start dev" uchun)
+    if cmd == "start_dev":
+        _start_tests(chat_id, "dev")
+    elif cmd == "start_prod":
+        _start_tests(chat_id, "prod")
+    elif cmd == "start":
         _start_tests(chat_id, arg)
     elif cmd == "stop":
         _stop_tests(chat_id)
@@ -219,7 +250,8 @@ def main() -> None:
         sys.exit(1)
 
     print(f"[bot] ishga tushdi. Ruxsat etilgan chat(lar): {ALLOWED_CHATS}")
-    print("[bot] Telegram: 'start dev' / 'start prod' / 'stop' / 'status'. To'xtatish: Ctrl+C")
+    print("[bot] Telegram: /start_dev /start_prod /stop /status. To'xtatish: Ctrl+C")
+    _register_commands()  # "/" menyusini o'rnatamiz
 
     # Boshlanishida eski (kutib qolgan) xabarlarni tashlab yuboramiz — bot yopiq
     # turgan paytdagi 'stop' kabi buyruqlar qayta ishlamasin.
