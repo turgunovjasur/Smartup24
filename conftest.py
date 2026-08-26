@@ -442,8 +442,8 @@ def _suite_label(items) -> str:
     known = [_RUNNER_LABELS[f] for f in files if f in _RUNNER_LABELS]
     if len(known) == len(files) and known:  # hammasi tanilgan runner fayllar
         if len(known) == len(_RUNNER_LABELS):
-            return f"HAMMASI ({len(known)} bo'lim)"
-        return " + ".join(known)
+            return "All test"
+        return " + ".join(f"{k} section" for k in known)
     # aralash yoki individual debug fayllar
     if len(files) == 1:
         return files[0]
