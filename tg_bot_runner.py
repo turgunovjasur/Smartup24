@@ -94,11 +94,6 @@ TARGET_LABELS = {
     "document":     "Document",
 }
 
-# Vaqtinchalik (o'zini-o'zi o'chiradigan) xabarlar umri — chatда to'planib
-# qolmasligi uchun. Doimiy qoladigan yagona xabar — conftest'ning jonli progress'i.
-_TEMP_TTL = 8       # ogohlantirish / tasdiq
-_STATUS_TTL = 20    # /status javobi
-
 # Ishlab turgan test jarayoni (bir vaqtda faqat bitta) + qaysi muhit/bo'lim ekani
 _proc: subprocess.Popen | None = None
 _run_env: str = DEFAULT_ENV
@@ -189,7 +184,7 @@ def _flash_busy(chat_id: str) -> None:
         _send(
             "⏳ <b>Band</b> — hozir test ishlab turibdi. Ikkinchi runni birga "
             "ishga tushirib bo'lmaydi. Avval /stop.",
-            chat_id, ttl=_TEMP_TTL,
+            chat_id,
         )
         return
     warn = (
@@ -292,14 +287,14 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
         _send(
             f"❌ Noma'lum muhit: <code>{run_env}</code>\n"
             "Ruxsat: <b>dev</b> · <b>prod</b>",
-            chat_id, ttl=_TEMP_TTL,
+            chat_id,
         )
         return
     if target not in TARGETS:
         _send(
             f"❌ Noma'lum bo'lim: <code>{target}</code>\n"
             f"Ruxsat: <b>{', '.join(TARGET_LABELS)}</b>",
-            chat_id, ttl=_TEMP_TTL,
+            chat_id,
         )
         return
 
@@ -327,21 +322,20 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
             cmd, cwd=PROJECT_DIR, env=env, creationflags=creationflags,
         )
     except Exception as e:
-        _send(f"❌ Ishga tushirib bo'lmadi: {e}", chat_id, ttl=_TEMP_TTL)
+        _send(f"❌ Ishga tushirib bo'lmadi: {e}", chat_id)
         return
     _run_env = run_env
     _run_target = target
     _write_marker(_proc.pid, run_env, target)  # bot qayta ishga tushса adopt qilsin
-    # Muvaffaqiyatli startда ALOHIDA xabar YUBORMAYMIZ (foydalanuvchi so'rovi:
-    # "test xabar yuborib o'chirmasin") — bir necha soniyada conftest'ning jonli
-    # progress xabari paydo bo'lib, yagona xabar bo'lib qoladi. PROD bo'lsa faqat
-    # bitta qisqa auto-o'chadigan ogohlantirish (xavfsizlik uchun).
-    if run_env == "prod":
-        _send(
-            "\U0001F534 <b>PROD (jonli server)</b> da ishga tushirildi — "
-            f"{TARGET_LABELS.get(target, target)}. Jonli progress quyida.",
-            chat_id, ttl=12,
-        )
+    # DOIMIY qisqa log qatori (senior yondashuv: chat = audit log, o'chirmaymiz).
+    # Jonli progress esa alohida BITTA xabar bo'lib quyida yangilanadi.
+    warn = "\n\U0001F534 <b>DIQQAT: PROD — jonli server!</b>" if run_env == "prod" else ""
+    _send(
+        "\U0001F680 <b>Ishga tushdi</b>\n"
+        f"{_run_block(run_env, target)}{warn}\n\n"
+        "Jonli progress quyida yangilanadi. To'xtatish: /stop",
+        chat_id,
+    )
 
 
 def _stop_tests(chat_id: str) -> None:
@@ -350,7 +344,7 @@ def _stop_tests(chat_id: str) -> None:
     tushган bo'lса ham to'xtata oladi)."""
     global _proc
     if not _is_running():
-        _send("ℹ️ Hozir ishlab turgan test yo'q.", chat_id, ttl=_TEMP_TTL)
+        _send("ℹ️ Hozir ishlab turgan test yo'q.", chat_id)
         return
     pid = _running_pid()
     try:
@@ -367,7 +361,7 @@ def _stop_tests(chat_id: str) -> None:
             except subprocess.TimeoutExpired:
                 _proc.kill()
     except Exception as e:
-        _send(f"❌ To'xtatishda xato: {e}", chat_id, ttl=_TEMP_TTL)
+        _send(f"❌ To'xtatishda xato: {e}", chat_id)
         return
     finally:
         _proc = None
@@ -375,7 +369,7 @@ def _stop_tests(chat_id: str) -> None:
     _send(
         "\U0001F6D1 <b>To'xtatildi</b>\n"
         f"{_run_block(_run_env, _run_target)}",
-        chat_id, ttl=_TEMP_TTL,
+        chat_id,
     )
 
 
@@ -386,20 +380,20 @@ def _status(chat_id: str) -> None:
         # boshlangan yoki eski kodli run) asosiy ma'lumot bilan cheklanamiz.
         info = _read_progress_file()
         if info and info.get("text"):
-            _send(f"{info['text']}\n\nTo'xtatish: /stop", chat_id, ttl=_STATUS_TTL)
+            _send(f"{info['text']}\n\nTo'xtatish: /stop", chat_id)
         else:
             _send(
                 "\U0001F7E2 <b>Ishlamoqda</b>\n"
                 f"{_run_block(_run_env, _run_target)}\n\n"
                 "(jonli progress hali tayyor emas — bir zumdan keyin /status)\n"
                 "To'xtatish: /stop",
-                chat_id, ttl=_STATUS_TTL,
+                chat_id,
             )
     else:
         _send(
             "⚪️ <b>Bo'sh</b> — test ishlamayapti\n"
             "Boshlash: /start_dev (hammasi) yoki bo'lim buyrug'i — /help",
-            chat_id, ttl=_STATUS_TTL,
+            chat_id,
         )
 
 
@@ -487,7 +481,7 @@ def _handle(text: str, chat_id: str) -> None:
         _send(HELP, chat_id)
     elif text.strip().startswith("/"):
         # Tanilmagan slash buyrug'i — qisqa yo'l-yo'riq (o'zi o'chadi)
-        _send("❓ Noma'lum buyruq. /help bosing.", chat_id, ttl=_TEMP_TTL)
+        _send("❓ Noma'lum buyruq. /help bosing.", chat_id)
     # slash'siz begona matnga javob bermaymiz (shovqin bo'lmasin)
 
 
