@@ -332,13 +332,15 @@ def runner_state():
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-def _send_telegram(text: str) -> None:
+def _send_telegram(text: str) -> int | None:
     """Telegram Bot API orqali ``text`` xabarini yuboradi.
 
     Token yoki chat_id ``.env`` da bo'lmasa jim o'tadi (masalan lokal ishlab
-    chiqishda). Tarmoq/API xatosi butun sessiyani yiqitmasligi uchun yutiladi."""
+    chiqishda). Tarmoq/API xatosi butun sessiyani yiqitmasligi uchun yutiladi.
+    Muvaffaqiyatli bo'lsa yuborilgan xabarning ``message_id`` sini qaytaradi —
+    keyinchalik uni ``_edit_telegram`` bilan yangilash (progress bar) uchun."""
     if not TG_BOT_TOKEN or not TG_CHAT_ID:
-        return
+        return None
     url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
     try:
         resp = requests.post(
@@ -348,8 +350,81 @@ def _send_telegram(text: str) -> None:
         )
         if resp.status_code != 200:
             print(f"[Telegram] yuborilmadi (HTTP {resp.status_code}): {resp.text[:200]}")
+            return None
+        return resp.json().get("result", {}).get("message_id")
     except Exception as e:
         print(f"[Telegram] yuborishda xato: {e}")
+        return None
+
+
+def _edit_telegram(message_id: int, text: str) -> None:
+    """Oldin yuborilgan Telegram xabarini (``message_id``) yangilaydi.
+
+    Progress bar shu funksiya bilan jonli yangilanadi — har testda YANGI xabar
+    yubormasdan bitta xabar tahrirlanadi (GitHub CI progressiga o'xshab). Telegram
+    matn o'zgarmasa "message is not modified" (400) qaytaradi — bu xato emas, jim
+    o'tamiz. Tarmoq/API xatosi runni yiqitmasligi uchun yutiladi."""
+    if not TG_BOT_TOKEN or not TG_CHAT_ID or not message_id:
+        return
+    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/editMessageText"
+    try:
+        requests.post(
+            url,
+            data={
+                "chat_id": TG_CHAT_ID,
+                "message_id": message_id,
+                "text": text,
+                "parse_mode": "HTML",
+            },
+            timeout=10,
+        )
+    except Exception as e:
+        print(f"[Telegram] tahrirlashda xato: {e}")
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+# Jonli progress bar holati (faqat master jarayon, session davomida saqlanadi).
+#   msg_id — tahrirlanadigan Telegram xabarining ID'si (None bo'lsa progress o'chiq)
+#   total  — yig'ilgan testlar soni
+#   done   — tugagan testlar soni
+#   passed/failed — natija hisoblagichlari (jonli ko'rsatish uchun)
+#   last_edit — oxirgi tahrir vaqti (throttle uchun, monotonic sekund)
+_progress = {
+    "msg_id": None,
+    "total": 0,
+    "done": 0,
+    "passed": 0,
+    "failed": 0,
+    "last_edit": 0.0,
+}
+
+
+def _progress_bar(pct: int, width: int = 12) -> str:
+    """``[██████░░░░░░] 60%`` ko'rinishidagi matnli progress bar qaytaradi."""
+    filled = round(width * pct / 100)
+    return f"[{'█' * filled}{'░' * (width - filled)}] {pct}%"
+
+
+def _short_nodeid(nodeid: str) -> str:
+    """``tests/x.py::test_010_region`` → ``test_010_region`` (test nomi)."""
+    return nodeid.split("::")[-1] if nodeid else nodeid
+
+
+def _render_progress(current_name: str = "") -> str:
+    """Progress xabari matnini yig'adi (bar + hisoblagichlar + joriy test)."""
+    total = _progress["total"] or 1
+    done = _progress["done"]
+    pct = int(done * 100 / total)
+    lines = [
+        "\U0001F504 <b>Smartup24 test bajarilmoqda</b>",
+        _progress_bar(pct),
+        f"\U0001F4CA {done}/{_progress['total']}"
+        f"  ✅ {_progress['passed']}  ❌ {_progress['failed']}",
+    ]
+    if current_name:
+        lines.append(f"▶️ <code>{current_name}</code>")
+    return "\n".join(lines)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -368,6 +443,54 @@ def pytest_sessionstart(session):
         f"\U0001F680 <b>Smartup24 test boshlandi</b>\n"
         f"\U0001F5A5 Host: {socket.gethostname()}"
     )
+
+
+def pytest_collection_finish(session):
+    """Testlar yig'ilib bo'lgach jonli progress xabarini yaratadi.
+
+    ``pytest_sessionstart`` payti testlar hali yig'ilmagani uchun JAMI son
+    NOMA'LUM — shuning uchun progress xabarini aynan shu yerda (collection
+    tugagach) yaratamiz. Xabar ID'sini ``_progress`` da saqlaymiz; keyingi
+    ``pytest_runtest_*`` hooklari uni tahrirlab (editMessageText) barni jonli
+    yangilaydi. xdist worker EMAS, faqat master; ``--collect-only`` da o'tamiz."""
+    if getattr(session.config, "workerinput", None) is not None:
+        return
+    if session.config.option.collectonly or not session.items:
+        return
+    _progress["total"] = len(session.items)
+    _progress["done"] = 0
+    _progress["passed"] = 0
+    _progress["failed"] = 0
+    _progress["msg_id"] = _send_telegram(_render_progress())
+
+
+def pytest_runtest_logstart(nodeid, location):
+    """Har test boshlanganda progress xabarini joriy test nomi bilan yangilaydi."""
+    if not _progress["msg_id"]:
+        return
+    _edit_telegram(_progress["msg_id"], _render_progress(_short_nodeid(nodeid)))
+
+
+def pytest_runtest_logreport(report):
+    """Har test tugaganda (call fazasi) done/passed/failed hisoblagichini oshiradi
+    va progress barni yangilaydi.
+
+    ``call`` fazasini sanaymiz — bitta test uchun setup/call/teardown uchta report
+    beradi, biz mantiqiy testni bir marta (call) hisoblaymiz. Test call fazasigacha
+    yetmay setup'da yiqilsa (error), uni ham bir marta sanash uchun setup xatosini
+    alohida qamraymiz."""
+    if not _progress["msg_id"]:
+        return
+    counted = report.when == "call" or (report.when == "setup" and report.failed)
+    if not counted:
+        return
+    _progress["done"] += 1
+    if report.passed:
+        _progress["passed"] += 1
+    elif report.failed:
+        _progress["failed"] += 1
+    # skipped ni alohida sanamaymiz (done'ga kiradi, natijada ko'rinmaydi)
+    _edit_telegram(_progress["msg_id"], _render_progress())
 
 
 # ----------------------------------------------------------------------------------------------------------------------
