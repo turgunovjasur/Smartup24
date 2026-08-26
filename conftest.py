@@ -397,6 +397,7 @@ _progress = {
     "passed": 0,
     "failed": 0,
     "last_edit": 0.0,
+    "suite": "",   # qaysi bo'lim(lar) ishlayapti — Telegram xabarlarida ko'rsatiladi
 }
 
 # Progress barni JUDA tez-tez tahrirlamaslik uchun minimal interval (sekund).
@@ -413,6 +414,40 @@ def _env_label() -> str:
     xabarlarida run QAYERDA (prod/dev) ketayotgani ko'rinib tursin."""
     emoji = "\U0001F534" if TEST_ENV == "prod" else "\U0001F7E2"  # 🔴 prod / 🟢 dev
     return f"{emoji} Muhit: {TEST_ENV.upper()} ({COMPANY_CODE})"
+
+
+# Bo'lim-runner fayllari → ko'rsatiladigan nom. Aynan shu fayllar yig'ilsa,
+# Telegram xabarida "Setup", "Group A", "Setup + Group A", "HAMMASI" ko'rinadi.
+_RUNNER_LABELS = {
+    "test_all_setup.py":            "Setup",
+    "test_all_group_a.py":          "Group A",
+    "test_all_regression.py":       "Regression",
+    "test_all_main.py":             "Main",
+    "test_all_document_runner.py":  "Document",
+}
+
+
+def _suite_label(items) -> str:
+    """Yig'ilgan testlarning fayllaridan qaysi bo'lim(lar) ishlayotganini aniqlaydi.
+
+    setup+group_a → "Setup + Group A"; faqat regression → "Regression"; beshtasi
+    birga → "HAMMASI (5 bo'lim)". Runner bo'lmagan (individual debug) fayllar
+    yig'ilsa — fayl nomi(lari) ko'rsatiladi. Fayl tartibi buyruq qatoridan
+    saqlanadi, shuning uchun 'Setup + Group A' to'g'ri tartibda chiqadi."""
+    files = []
+    for it in items:
+        base = it.nodeid.split("::")[0].rsplit("/", 1)[-1]
+        if base not in files:
+            files.append(base)
+    known = [_RUNNER_LABELS[f] for f in files if f in _RUNNER_LABELS]
+    if len(known) == len(files) and known:  # hammasi tanilgan runner fayllar
+        if len(known) == len(_RUNNER_LABELS):
+            return f"HAMMASI ({len(known)} bo'lim)"
+        return " + ".join(known)
+    # aralash yoki individual debug fayllar
+    if len(files) == 1:
+        return files[0]
+    return f"{len(files)} fayl (debug)"
 
 
 def _progress_bar(pct: int, width: int = 12) -> str:
@@ -434,6 +469,7 @@ def _render_progress(current_name: str = "") -> str:
     lines = [
         "\U0001F504 <b>Smartup24 test bajarilmoqda</b>",
         _env_label(),
+        f"\U0001F4E6 Bo'lim: <b>{_progress['suite'] or '—'}</b>",
         _progress_bar(pct),
         f"\U0001F4CA {done}/{_progress['total']}"
         f"  ✅ {_progress['passed']}  ❌ {_progress['failed']}",
@@ -461,6 +497,7 @@ def pytest_collection_finish(session):
     _progress["done"] = 0
     _progress["passed"] = 0
     _progress["failed"] = 0
+    _progress["suite"] = _suite_label(session.items)
     _progress["msg_id"] = _send_telegram(_render_progress())
 
 
@@ -529,6 +566,7 @@ def pytest_sessionfinish(session, exitstatus):
         lines = [
             f"{status_emoji} <b>Smartup24 test yakuni</b>",
             _env_label(),
+            f"\U0001F4E6 Bo'lim: <b>{_progress['suite'] or '—'}</b>",
             f"\U0001F5A5 Host: {socket.gethostname()}",
             f"\U0001F4CA Jami: {total}",
             f"✅ Passed: {passed}",
