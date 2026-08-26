@@ -1,19 +1,24 @@
+import os
+
 from playwright.sync_api import Page, expect
 
-# Muhitni almashtirish: kerakli JUFTLIKNI ochiq qoldirib, ikkinchisini komentga
-# oling. URL va COMPANY_CODE DOIM birga almashadi — bittasini almashtirib
-# ikkinchisini unutmang (aks holda group_a userlari noto'g'ri kompaniya bilan
-# login qilib yiqiladi). Parol ikkala muhitda ham bir xil: greenwhite.
-# DIQQAT: production'da yangi UI /a2/... da (prefiks yo'q), dev'da /x24/a2/... da;
+# Muhitni TEST_ENV environment variable tanlaydi: "dev" (default) yoki "prod".
+# Telegram bot (tg_bot_runner.py) "start prod" / "start dev" bilan aynan shu
+# env'ni beradi — endi faylni qo'lda tahrirlash SHART EMAS. Berilmasa yoki
+# noto'g'ri qiymatда DEV (sm24) ishlatiladi (avvalgi default xatti-harakat).
+# URL va COMPANY_CODE DOIM birga keladi. Parol ikkala muhitda ham greenwhite.
+# DIQQAT: production yangi UI /a2/... da (prefiks yo'q), dev /x24/a2/... da;
 # app.smartup24.com/login.html — ESKI biruni UI, testlar u yerda ishlamaydi.
+_ENVIRONMENTS = {
+    # env kaliti: (LOGIN_URL, COMPANY_CODE)
+    "prod": ("https://app.smartup24.com/a2/auth/login", "test"),
+    "dev":  ("https://app3.greenwhite.uz/x24/a2/auth/login", "sm24"),
+}
 
-# x24 production — kompaniya "test" (admin@test):
-# LOGIN_URL = "https://app.smartup24.com/a2/auth/login"
-# COMPANY_CODE = "test"
-
-# x24 dev (app3) — kompaniya "sm24" (admin@sm24):
-LOGIN_URL = "https://app3.greenwhite.uz/x24/a2/auth/login"
-COMPANY_CODE = "sm24"
+TEST_ENV = (os.getenv("TEST_ENV") or "dev").strip().lower()
+if TEST_ENV not in _ENVIRONMENTS:
+    TEST_ENV = "dev"
+LOGIN_URL, COMPANY_CODE = _ENVIRONMENTS[TEST_ENV]
 
 
 def authorization(page: Page, email=None, password="greenwhite") -> None:

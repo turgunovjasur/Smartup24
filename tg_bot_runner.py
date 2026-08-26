@@ -51,8 +51,15 @@ DEFAULT_TEST_ARGS = [
     "--alluredir=test-results/allure-results",
 ]
 
-# Ishlab turgan test jarayoni (bir vaqtda faqat bitta)
+# Bot orqali tanlanadigan muhitlar (flow_authorization.TEST_ENV bilan bir xil).
+# "start prod" / "start dev" — TEST_ENV env var'i orqali test qaysi serverga
+# tegishini belgilaydi. Berilmasa DEV (sm24) — avvalgi default.
+ENV_LABELS = {"dev": "DEV (sm24)", "prod": "PROD (test)"}
+DEFAULT_ENV = "dev"
+
+# Ishlab turgan test jarayoni (bir vaqtda faqat bitta) + qaysi muhitda ekani
 _proc: subprocess.Popen | None = None
+_run_env: str = DEFAULT_ENV
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -82,17 +89,30 @@ def _is_running() -> bool:
     return True
 
 
-def _start_tests(chat_id: str) -> None:
-    """Testlarni yangi subprocess'da ishga tushiradi."""
-    global _proc
+def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV) -> None:
+    """Testlarni yangi subprocess'da ishga tushiradi (``run_env`` muhitida)."""
+    global _proc, _run_env
     if _is_running():
-        _send("⚠️ Testlar allaqachon ishlab turibdi. Avval <b>stop</b> qiling.", chat_id)
+        _send(
+            f"⚠️ Testlar allaqachon ishlab turibdi ({ENV_LABELS[_run_env]}). "
+            "Avval <b>stop</b> qiling.",
+            chat_id,
+        )
+        return
+    if run_env not in ENV_LABELS:
+        _send(
+            f"❌ Noma'lum muhit: <code>{run_env}</code>. "
+            "Ruxsat: <b>start dev</b> yoki <b>start prod</b>.",
+            chat_id,
+        )
         return
 
     args = os.getenv("TEST_CMD")
     cmd = [sys.executable] + (args.split() if args else DEFAULT_TEST_ARGS)
 
     env = os.environ.copy()
+    # Test qaysi serverga tegishini shu env var belgilaydi (flow_authorization o'qiydi).
+    env["TEST_ENV"] = run_env
     # Bot fon rejimida ishlagani uchun allure brauzerini OCHMAYMIZ (osilib qolmasin) —
     # conftest _finish_allure_report shu env'ni tekshiradi. Natijalar baribir yoziladi.
     env["NO_ALLURE_SERVE"] = "1"
@@ -110,8 +130,11 @@ def _start_tests(chat_id: str) -> None:
     except Exception as e:
         _send(f"❌ Ishga tushirib bo'lmadi: {e}", chat_id)
         return
+    _run_env = run_env
+    warn = "\n\U0001F534 <b>DIQQAT: bu PROD (jonli) server!</b>" if run_env == "prod" else ""
     _send(
-        "\U0001F680 <b>Testlar ishga tushdi.</b>\n"
+        f"\U0001F680 <b>Testlar ishga tushdi.</b>\n"
+        f"\U0001F310 Muhit: <b>{ENV_LABELS[run_env]}</b>{warn}\n"
         "Progress alohida xabar bo'lib yangilanib turadi. To'xtatish: <b>stop</b>",
         chat_id,
     )
@@ -147,25 +170,38 @@ def _stop_tests(chat_id: str) -> None:
 
 def _status(chat_id: str) -> None:
     if _is_running():
-        _send("\U0001F7E2 Testlar hozir <b>ishlab turibdi</b>.", chat_id)
+        _send(
+            f"\U0001F7E2 Testlar hozir <b>ishlab turibdi</b> — "
+            f"muhit: <b>{ENV_LABELS[_run_env]}</b>.",
+            chat_id,
+        )
     else:
-        _send("⚪ Hozir test ishlamayapti. Boshlash: <b>start</b>", chat_id)
+        _send(
+            "⚪ Hozir test ishlamayapti. Boshlash: <b>start dev</b> yoki <b>start prod</b>.",
+            chat_id,
+        )
 
 
 HELP = (
     "\U0001F916 <b>Smartup24 test bot</b>\n"
-    "<b>start</b> — testlarni ishga tushirish\n"
+    "<b>start</b> — testlarni DEV (sm24) da ishga tushirish\n"
+    "<b>start dev</b> — DEV (sm24) da\n"
+    "<b>start prod</b> — PROD (test, jonli!) da\n"
     "<b>stop</b> — ishlab turgan testlarni to'xtatish\n"
-    "<b>status</b> — holatni ko'rish\n"
+    "<b>status</b> — holat + qaysi muhitda ekani\n"
     "<b>help</b> — shu ro'yxat"
 )
 
 
 def _handle(text: str, chat_id: str) -> None:
-    """Bitta buyruqni bajaradi (matn kichik harfga keltirilgan)."""
-    cmd = text.strip().lstrip("/").split("@")[0].lower()  # "/start@bot" -> "start"
+    """Bitta buyruqni bajaradi. Matn: 'start', 'start prod', 'start dev' ..."""
+    parts = text.strip().split()
+    if not parts:
+        return
+    cmd = parts[0].lstrip("/").split("@")[0].lower()  # "/start@bot" -> "start"
+    arg = parts[1].lower() if len(parts) > 1 else DEFAULT_ENV  # muhit (start uchun)
     if cmd == "start":
-        _start_tests(chat_id)
+        _start_tests(chat_id, arg)
     elif cmd == "stop":
         _stop_tests(chat_id)
     elif cmd == "status":
@@ -183,7 +219,7 @@ def main() -> None:
         sys.exit(1)
 
     print(f"[bot] ishga tushdi. Ruxsat etilgan chat(lar): {ALLOWED_CHATS}")
-    print("[bot] Telegram'da 'start' / 'stop' / 'status' yozing. To'xtatish: Ctrl+C")
+    print("[bot] Telegram: 'start dev' / 'start prod' / 'stop' / 'status'. To'xtatish: Ctrl+C")
 
     # Boshlanishida eski (kutib qolgan) xabarlarni tashlab yuboramiz — bot yopiq
     # turgan paytdagi 'stop' kabi buyruqlar qayta ishlamasin.

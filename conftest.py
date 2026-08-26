@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from typing import Any, Generator
 from playwright.sync_api import sync_playwright, Browser, Page, expect
 
-from flows.flow_authorization import logout
+from flows.flow_authorization import logout, TEST_ENV, COMPANY_CODE
 
 # .env fayldan Telegram bildirishnoma sozlamalarini o'qiymiz (fayl bo'lmasa jim o'tadi)
 load_dotenv()
@@ -406,6 +406,15 @@ _progress = {
 _PROGRESS_MIN_INTERVAL = 3.0
 
 
+def _env_label() -> str:
+    """Joriy muhit yorlig'i, masalan ``PROD (test)`` yoki ``DEV (sm24)``.
+
+    Muhitni ``flow_authorization`` TEST_ENV env var'idan aniqlaydi — Telegram
+    xabarlarida run QAYERDA (prod/dev) ketayotgani ko'rinib tursin."""
+    emoji = "\U0001F534" if TEST_ENV == "prod" else "\U0001F7E2"  # 🔴 prod / 🟢 dev
+    return f"{emoji} Muhit: {TEST_ENV.upper()} ({COMPANY_CODE})"
+
+
 def _progress_bar(pct: int, width: int = 12) -> str:
     """``[██████░░░░░░] 60%`` ko'rinishidagi matnli progress bar qaytaradi."""
     filled = round(width * pct / 100)
@@ -424,6 +433,7 @@ def _render_progress(current_name: str = "") -> str:
     pct = int(done * 100 / total)
     lines = [
         "\U0001F504 <b>Smartup24 test bajarilmoqda</b>",
+        _env_label(),
         _progress_bar(pct),
         f"\U0001F4CA {done}/{_progress['total']}"
         f"  ✅ {_progress['passed']}  ❌ {_progress['failed']}",
@@ -518,6 +528,7 @@ def pytest_sessionfinish(session, exitstatus):
         status_emoji = "✅" if (failed == 0 and errors == 0) else "❌"
         lines = [
             f"{status_emoji} <b>Smartup24 test yakuni</b>",
+            _env_label(),
             f"\U0001F5A5 Host: {socket.gethostname()}",
             f"\U0001F4CA Jami: {total}",
             f"✅ Passed: {passed}",
