@@ -2,7 +2,7 @@ name: E2E (Playwright)
 
 # NIMA ISHLAYDI
 # ------------
-# Faqat to'liq suite `tests/test_all_runner.py` (boshqa test YO'Q). Har 2 soatda
+# Faqat to'liq suite `tests/test_all_runner.py` (boshqa test YO'Q). Har 3 soatda
 # (UTC) + qo'lda ishga tushiriladi. Suite JONLI tashqi ERP'ga va ULASHILGAN
 # akkauntga tegadi — bir akkauntda ikki run parallel yursa ikkalasi ham yiqiladi,
 # shuning uchun concurrency guard bir vaqtda faqat BITTA run'ga ruxsat beradi.
@@ -12,7 +12,7 @@ name: E2E (Playwright)
 on:
   workflow_dispatch: {}        # qo'lda ishga tushirish
   schedule:
-    - cron: "0 */2 * * *"      # har 2 soatda (UTC)
+    - cron: "0 */3 * * *"      # har 3 soatda (UTC)
 
 concurrency:
   group: e2e-shared-account    # ulashilgan akkaunt — overlapping run YO'Q
