@@ -381,12 +381,20 @@ def _stop_tests(chat_id: str) -> None:
 
 def _status(chat_id: str) -> None:
     if _is_running():
-        _send(
-            "\U0001F7E2 <b>Ishlamoqda</b>\n"
-            f"{_run_block(_run_env, _run_target)}\n\n"
-            "To'xtatish: /stop",
-            chat_id, ttl=_STATUS_TTL,
-        )
+        # To'liq jonli progress (foiz, passed/failed, joriy test) conftest yozgan
+        # progress faylida — o'shani ko'rsatamiz. Yo'q bo'lsa (run endigina
+        # boshlangan yoki eski kodli run) asosiy ma'lumot bilan cheklanamiz.
+        info = _read_progress_file()
+        if info and info.get("text"):
+            _send(f"{info['text']}\n\nTo'xtatish: /stop", chat_id, ttl=_STATUS_TTL)
+        else:
+            _send(
+                "\U0001F7E2 <b>Ishlamoqda</b>\n"
+                f"{_run_block(_run_env, _run_target)}\n\n"
+                "(jonli progress hali tayyor emas — bir zumdan keyin /status)\n"
+                "To'xtatish: /stop",
+                chat_id, ttl=_STATUS_TTL,
+            )
     else:
         _send(
             "⚪️ <b>Bo'sh</b> — test ishlamayapti\n"
