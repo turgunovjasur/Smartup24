@@ -672,6 +672,15 @@ def pytest_collection_finish(session):
     _progress["suite"] = _suite_label(session.items)
     _progress["current"] = ""
     _progress["start_ts"] = time.time()
+    # "Test boshlandi" — ALOHIDA yangi xabar (foydalanuvchi so'rovi). Progress
+    # xabari undan keyin alohida yuboriladi va jonli yangilanadi.
+    env_emoji = "\U0001F534" if TEST_ENV == "prod" else "\U0001F7E2"  # 🔴 prod / 🟢 dev
+    _send_telegram(
+        "\U0001F680 <b>Test boshlandi</b>\n"
+        f"{env_emoji} {TEST_ENV.upper()} ({COMPANY_CODE})   "
+        f"\U0001F4E6 <b>{_progress['suite']}</b>\n"
+        f"\U0001F4CA {_progress['total']} test   \U0001F5A5 {HOST_LABEL}"
+    )
     text = _render_progress()
     _progress["msg_id"] = _send_telegram(text)
     _persist_progress(text)  # bot o'qishi uchun (band-flash)
