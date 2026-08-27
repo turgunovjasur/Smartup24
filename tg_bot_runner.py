@@ -235,15 +235,32 @@ def _clear_marker() -> None:
 
 
 def _pid_alive(pid: int) -> bool:
-    """PID hozir tirikmi (tasklist orqali — bot qayta ishga tushган bo'lsa ham)."""
+    """PID hozir tirikmi — TEZ native tekshiruv. Avval `tasklist` (subprocess)
+    ishlatilardi, u HAR buyruqda ~1-3s sekinlashtirardi (bot sekin javob berardi).
+    Windows: OpenProcess + WaitForSingleObject (mikrosekund, subprocess YO'Q)."""
     if not pid or pid < 0:
         return False
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return False
     try:
-        out = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
-            capture_output=True, text=True, timeout=10,
-        ).stdout
-        return str(pid) in out
+        import ctypes
+        SYNCHRONIZE = 0x00100000
+        WAIT_TIMEOUT = 0x00000102   # hali ishlayapti (signal berilmagan)
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(SYNCHRONIZE, False, int(pid))
+        if not h:
+            return False
+        res = k.WaitForSingleObject(h, 0)
+        k.CloseHandle(h)
+        return res == WAIT_TIMEOUT
     except Exception:
         return False
 
@@ -546,7 +563,12 @@ def main() -> None:
                 print(f"[bot] ruxsatsiz chat {chat_id} e'tiborsiz: {text!r}")
                 continue
             print(f"[bot] buyruq {chat_id}: {text!r}")
-            _handle(text, chat_id)
+            # Bitta xato buyruq BUTUN botni yiqitmasin — handler himoyalanadi.
+            try:
+                _handle(text, chat_id)
+            except Exception as e:
+                print(f"[bot] handler xato: {e}")
+                _send(f"❌ Ichki xato: {e}", chat_id)
 
 
 if __name__ == "__main__":
