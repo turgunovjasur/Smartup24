@@ -187,6 +187,25 @@ def _read_progress_file() -> dict | None:
     return None
 
 
+# conftest GLOBAL run-lock (test-results/run.lock) — HAR QANDAY run (terminal / CI /
+# bot) ni qamraydi. Bot shuni ham tekshiradi: terminaldан ishga tushirilgan run
+# bo'lsa, bot start'ни darhol rad etadi (aks holda parallel — ulashilgan akkaunt).
+_RUN_LOCK = os.path.join(PROJECT_DIR, "test-results", "run.lock")
+
+
+def _lock_active() -> int | None:
+    """Global qulf tirik PID ushlab turibdimi (terminal/CI/bot). pid yoki None."""
+    try:
+        with open(_RUN_LOCK, encoding="utf-8-sig") as f:
+            d = json.load(f)
+        pid = d.get("pid")
+        if pid and _pid_alive(pid):
+            return pid
+    except Exception:
+        return None
+    return None
+
+
 def _flash_busy(chat_id: str, reply_to: int | None = None) -> None:
     """Test ishlab turganда yangi start bosilsa — ALOHIDA, lekin TO'LIQ MA'LUMOTLI
     xabar: parallel imkonsizligini aytadi va hozirgi run holatini (foiz, passed,
@@ -282,6 +301,10 @@ def _is_running() -> bool:
         _run_target = m.get("target", _run_target)
         return True
     _clear_marker()  # eskirgan/tugagan marker
+    # conftest GLOBAL qulfi — TERMINAL yoki CI'dan ishga tushirilgan run ham
+    # (bot marker'ida yo'q). Bittasi ishlab tursa — bot start'ни rad etadi.
+    if _lock_active():
+        return True
     return False
 
 

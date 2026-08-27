@@ -29,6 +29,39 @@ TRACE_DIR = "test-results/traces"
 ALLURE_RESULTS_DIR = "test-results/allure-results"
 ALLURE_REPORT_DIR = "test-results/allure-report"
 
+# GLOBAL RUN-LOCK: ulashilgan ERP akkaunt — bir vaqtda faqat BITTA test run
+# ishlashi mumkin (ikkitasi parallel yursa ikkalasi ham yiqiladi). Bu qulf
+# conftest'да (har qanday pytest run'ning O'ZIDA) tekshiriladi — shuning uchun
+# terminal ham, bot ham, CI ham — bittasi ishlab tursa ikkinchisi RAD etiladi
+# (faqat botning marker'i emas, universal himoya). 2026-08-27 bug: terminaldan
+# ishga tushirilgan run bot marker'ini bilmay parallel ketardi.
+_RUN_LOCK = "test-results/run.lock"
+
+
+def _lock_pid_alive(pid: int) -> bool:
+    """PID hozir tirikmi — tez native tekshiruv (Windows: OpenProcess)."""
+    if not pid or pid < 0:
+        return False
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, OSError):
+            return False
+        except PermissionError:
+            return True
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x00100000, False, int(pid))  # SYNCHRONIZE
+        if not h:
+            return False
+        res = k.WaitForSingleObject(h, 0)
+        k.CloseHandle(h)
+        return res == 0x00000102  # WAIT_TIMEOUT = hali ishlayapti
+    except Exception:
+        return False
+
 # Timeout konstantalari — bitta joyda, butun loyiha bo'ylab ishlatiladi
 # DIQQAT: sessiya qulfi handleri (_auto_continue_session) bajarilish vaqti uni
 # chaqirgan amalning TIMEOUT'iga KIRADI (Playwright add_locator_handler
@@ -81,6 +114,56 @@ def pytest_configure(config):
     }
     with open(executor_path, "w", encoding="utf-8") as f:
         json.dump(executor_data, f, indent=2)
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+def pytest_sessionstart(session):
+    """GLOBAL RUN-LOCK: boshqa test run allaqachon ishlab tursa — SESSIYANI DARHOL
+    to'xtatadi (parallel run ulashilgan akkauntда ikkalasini yiqitadi). Terminal,
+    bot, CI — hammasi shu conftest'ni yuklaydi, universal himoya. xdist worker
+    EMAS, --collect-only da o'tkazamiz (haqiqiy run emas)."""
+    if getattr(session.config, "workerinput", None) is not None:
+        return
+    if session.config.option.collectonly:
+        return
+    other = None
+    try:
+        os.makedirs(os.path.dirname(_RUN_LOCK), exist_ok=True)
+        if os.path.exists(_RUN_LOCK):
+            try:
+                with open(_RUN_LOCK, encoding="utf-8-sig") as f:
+                    d = json.load(f)
+            except Exception:
+                d = {}
+            o = d.get("pid")
+            if o and o != os.getpid() and _lock_pid_alive(o):
+                other = (o, d.get("host", "?"))
+    except Exception as e:
+        print(f"[run-lock] tekshirishda xato (davom etadi): {e}")
+    if other:
+        pid, host = other
+        msg = (f"Boshqa test run allaqachon ishlayapti (PID {pid}, {host}) — "
+               "ulashilgan akkaunt, parallel run mumkin emas. Avval uni tugating (yoki /stop).")
+        _send_telegram(f"\U0001F6AB <b>Run rad etildi</b>\n{msg}")
+        pytest.exit(msg, returncode=2)   # sessiyani darhol to'xtatadi (try'дан TASHQARIDA)
+    try:  # qulf bo'sh yoki eskirgan (PID o'lgan) — o'zimiznikini yozamiz
+        with open(_RUN_LOCK, "w", encoding="utf-8") as f:
+            json.dump({"pid": os.getpid(), "ts": time.time(), "host": HOST_LABEL}, f)
+    except Exception as e:
+        print(f"[run-lock] yozishda xato: {e}")
+
+
+def _release_run_lock() -> None:
+    """Run tugagach global qulfni bo'shatadi (agar bizniki bo'lsa)."""
+    try:
+        if os.path.exists(_RUN_LOCK):
+            with open(_RUN_LOCK, encoding="utf-8-sig") as f:
+                d = json.load(f)
+            if d.get("pid") == os.getpid():
+                os.remove(_RUN_LOCK)
+    except Exception as e:
+        print(f"[run-lock] bo'shatishda xato: {e}")
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -715,6 +798,7 @@ def pytest_sessionfinish(session, exitstatus):
 
     # Progress faylini o'chiramiz — run tugadi, bot endi "band-flash" qilmasin.
     _persist_progress(None)
+    _release_run_lock()   # global qulfni bo'shatamiz — keyingi run boshlanishi mumkin
 
     _finish_allure_report(session)
 
