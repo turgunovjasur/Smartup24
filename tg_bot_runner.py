@@ -298,11 +298,21 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
         )
         return
 
+    # MUHIM: Task Scheduler bot'ni pythonw.exe (oynasiz) bilan ishga tushiradi,
+    # shuning uchun sys.executable = pythonw.exe. Agar pytest'ni pythonw bilan
+    # ishga tushirsak — u stdout/stderr'siz DARHOL qulaydi (progress chiqmaydi,
+    # bot qayta-qayta urinadi). Konsolli python.exe ishlatamiz.
+    py = sys.executable
+    if py.lower().endswith("pythonw.exe"):
+        cand = py[:-len("pythonw.exe")] + "python.exe"
+        if os.path.exists(cand):
+            py = cand
+
     args = os.getenv("TEST_CMD")
     if args:
-        cmd = [sys.executable] + args.split()
+        cmd = [py] + args.split()
     else:
-        cmd = [sys.executable, "-m", "pytest"] + TARGETS[target] + _PYTEST_TAIL
+        cmd = [py, "-m", "pytest"] + TARGETS[target] + _PYTEST_TAIL
 
     env = os.environ.copy()
     # Test qaysi serverga tegishini shu env var belgilaydi (flow_authorization o'qiydi).
@@ -311,15 +321,22 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
     # conftest _finish_allure_report shu env'ni tekshiradi. Natijalar baribir yoziladi.
     env["NO_ALLURE_SERVE"] = "1"
 
-    # CREATE_NEW_PROCESS_GROUP: keyin butun daraxtni (pytest + playwright brauzerlari)
-    # taskkill /T bilan o'chirish uchun alohida guruh.
+    # CREATE_NEW_PROCESS_GROUP: daraxtni (pytest + brauzerlar) taskkill /T bilan
+    # o'chirish uchun. CREATE_NO_WINDOW: python.exe konsol oynasi chiqmasin
+    # (chiqish baribir log faylga yo'naltiriladi).
     creationflags = 0
     if os.name == "nt":
-        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
 
+    # Chiqishni log faylga yo'naltiramiz — pytest DOIM yaroqli stdout oladi (pythonw
+    # ostidagi qulash oldini oladi) va debug uchun log qoladi.
     try:
+        os.makedirs(os.path.join(PROJECT_DIR, "test-results"), exist_ok=True)
+        logf = open(os.path.join(PROJECT_DIR, "test-results", "last_bot_run.log"),
+                    "w", encoding="utf-8", errors="replace")
         _proc = subprocess.Popen(
             cmd, cwd=PROJECT_DIR, env=env, creationflags=creationflags,
+            stdout=logf, stderr=subprocess.STDOUT,
         )
     except Exception as e:
         _send(f"❌ Ishga tushirib bo'lmadi: {e}", chat_id)
