@@ -102,41 +102,23 @@ _run_target: str = DEFAULT_TARGET
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-def _send(text: str, chat_id: str | None = None, ttl: int | None = None,
-          reply_to: int | None = None) -> int | None:
-    """Telegram'ga xabar yuboradi. ``reply_to`` — foydalanuvchi buyrug'i message_id
-    (javob strelkasi bilan chiqadi). ``ttl`` (soniya) berilsa xabar shuncha vaqtdan
-    keyin AVTOMAT o'chiriladi — vaqtinchalik javoblar (ogohlantirish/holat/tasdiq)
-    chatда ustma-ust to'planib qolmasligi uchun. message_id qaytaradi."""
+def _send(text: str, chat_id: str | None = None, reply_to: int | None = None) -> None:
+    """Telegram'ga xabar yuboradi — NON-BLOKING (tarmoq chaqiruvi fon thread'ida).
+    Polling loop Telegram javobini KUTMAYDI, shuning uchun bot keyingi buyruqni
+    DARHOL qayta ishlaydi (sekin tarmoqда ham tez his qilinadi)."""
     if not BOT_TOKEN:
-        return None
-    target_chat = chat_id or CHAT_ID
-    data = {"chat_id": target_chat, "text": text, "parse_mode": "HTML"}
+        return
+    data = {"chat_id": chat_id or CHAT_ID, "text": text, "parse_mode": "HTML"}
     if reply_to:
-        # Xabar aynan foydalanuvchi buyrug'iga JAVOB bo'lib chiqadi (reply strelka)
         data["reply_to_message_id"] = reply_to
-    try:
-        r = requests.post(f"{API}/sendMessage", data=data, timeout=10)
-        mid = r.json().get("result", {}).get("message_id") if r.ok else None
-    except Exception as e:
-        print(f"[bot] send xato: {e}")
-        return None
-    if ttl and mid:
-        # Fon taymeri xabarni o'chiradi (bot jarayoni doim ishlab turadi)
-        threading.Timer(ttl, _delete, args=(target_chat, mid)).start()
-    return mid
 
+    def _do():
+        try:
+            requests.post(f"{API}/sendMessage", data=data, timeout=10)
+        except Exception as e:
+            print(f"[bot] send xato: {e}")
 
-def _delete(chat_id: str, message_id: int) -> None:
-    """Xabarni o'chiradi (auto-o'chadigan vaqtinchalik javoblar uchun)."""
-    try:
-        requests.post(
-            f"{API}/deleteMessage",
-            data={"chat_id": chat_id, "message_id": message_id},
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"[bot] delete xato: {e}")
+    threading.Thread(target=_do, daemon=True).start()
 
 
 def _run_block(env: str, target: str) -> str:
@@ -164,30 +146,21 @@ def _read_progress_file() -> dict | None:
     return None
 
 
-def _edit_message(msg_id: int, text: str) -> None:
-    """Mavjud (progress) xabarini tahrirlaydi — band-flash uchun."""
-    try:
-        requests.post(
-            f"{API}/editMessageText",
-            data={"chat_id": CHAT_ID, "message_id": msg_id, "text": text, "parse_mode": "HTML"},
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"[bot] edit xato: {e}")
-
-
 def _flash_busy(chat_id: str, reply_to: int | None = None) -> None:
-    """Test ishlab turganда yangi start bosilsa — foydalanuvchi buyrug'iga ANIQ,
-    KO'RINADIGAN JAVOB (reply) beradi. (Avval progress xabari ichiga edit qilardim,
-    lekin Telegram edit'ga bildirishnoma bermaydi va progress tepaga surilib
-    ketgani uchun foydalanuvchi ko'rmasdi — "hech qanday xabar kelmadi".)"""
-    _send(
-        "🚫 <b>Parallel run imkonsiz</b>\n"
-        f"Hozir <b>{TARGET_LABELS.get(_run_target, _run_target)}</b> "
-        f"({ENV_LABELS.get(_run_env, _run_env)}) ishlab turibdi.\n"
-        "Yangisini boshlash uchun avval /stop bosing.",
-        chat_id, reply_to=reply_to,
-    )
+    """Test ishlab turganда yangi start bosilsa — ALOHIDA, lekin TO'LIQ MA'LUMOTLI
+    xabar: parallel imkonsizligini aytadi va hozirgi run holatini (foiz, passed,
+    failed, joriy test) ko'rsatadi (progress fayldan). Ko'rinadigan va foydali —
+    reply/edit emas (foydalanuvchi tanlovi)."""
+    info = _read_progress_file()
+    head = "🚫 <b>Parallel run imkonsiz</b> — hozir test ishlab turibdi:\n\n"
+    tail = "\n\nYangisini boshlash uchun avval /stop bosing."
+    if info and info.get("text"):
+        _send(head + info["text"] + tail, chat_id)
+    else:
+        _send(
+            head + f"{_run_block(_run_env, _run_target)}" + tail,
+            chat_id,
+        )
 
 
 # Ishlab turgan run holatini FAYLga ham yozamiz — bot qayta ishga tushsa
@@ -510,7 +483,6 @@ def _handle(text: str, chat_id: str, msg_id: int | None = None) -> None:
     elif cmd in ("help", "commands"):
         _send(HELP, chat_id)
     elif text.strip().startswith("/"):
-        # Tanilmagan slash buyrug'i — qisqa yo'l-yo'riq (o'zi o'chadi)
         _send("❓ Noma'lum buyruq. /help bosing.", chat_id)
     # slash'siz begona matnga javob bermaymiz (shovqin bo'lmasin)
 
