@@ -102,19 +102,21 @@ _run_target: str = DEFAULT_TARGET
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-def _send(text: str, chat_id: str | None = None, ttl: int | None = None) -> int | None:
-    """Telegram'ga xabar yuboradi. ``ttl`` (soniya) berilsa xabar shuncha vaqtdan
+def _send(text: str, chat_id: str | None = None, ttl: int | None = None,
+          reply_to: int | None = None) -> int | None:
+    """Telegram'ga xabar yuboradi. ``reply_to`` — foydalanuvchi buyrug'i message_id
+    (javob strelkasi bilan chiqadi). ``ttl`` (soniya) berilsa xabar shuncha vaqtdan
     keyin AVTOMAT o'chiriladi — vaqtinchalik javoblar (ogohlantirish/holat/tasdiq)
     chatда ustma-ust to'planib qolmasligi uchun. message_id qaytaradi."""
     if not BOT_TOKEN:
         return None
     target_chat = chat_id or CHAT_ID
+    data = {"chat_id": target_chat, "text": text, "parse_mode": "HTML"}
+    if reply_to:
+        # Xabar aynan foydalanuvchi buyrug'iga JAVOB bo'lib chiqadi (reply strelka)
+        data["reply_to_message_id"] = reply_to
     try:
-        r = requests.post(
-            f"{API}/sendMessage",
-            data={"chat_id": target_chat, "text": text, "parse_mode": "HTML"},
-            timeout=10,
-        )
+        r = requests.post(f"{API}/sendMessage", data=data, timeout=10)
         mid = r.json().get("result", {}).get("message_id") if r.ok else None
     except Exception as e:
         print(f"[bot] send xato: {e}")
@@ -174,28 +176,18 @@ def _edit_message(msg_id: int, text: str) -> None:
         print(f"[bot] edit xato: {e}")
 
 
-def _flash_busy(chat_id: str) -> None:
-    """Test ishlab turganда yangi start bosilsa — YANGI (alohida) xabar YUBORMAYMIZ
-    (foydalanuvchi so'rovi). Ogohlantirish jonli progress ("start") xabarining
-    o'ziga qo'shilib chiqadi va ~6s dan keyin YO'QOLADI (asl progressga qaytadi;
-    orada conftest o'zi ham yangilaydi). Progress fayli topilmasa (kamdan-kam) —
-    bir martalik oddiy xabar (fallback)."""
-    info = _read_progress_file()
-    warn = (
-        "\n\n🚫 <b>Parallel run imkonsiz</b> — hozir "
-        f"<b>{TARGET_LABELS.get(_run_target, _run_target)}</b> ishlab turibdi. /stop"
+def _flash_busy(chat_id: str, reply_to: int | None = None) -> None:
+    """Test ishlab turganда yangi start bosilsa — foydalanuvchi buyrug'iga ANIQ,
+    KO'RINADIGAN JAVOB (reply) beradi. (Avval progress xabari ichiga edit qilardim,
+    lekin Telegram edit'ga bildirishnoma bermaydi va progress tepaga surilib
+    ketgani uchun foydalanuvchi ko'rmasdi — "hech qanday xabar kelmadi".)"""
+    _send(
+        "🚫 <b>Parallel run imkonsiz</b>\n"
+        f"Hozir <b>{TARGET_LABELS.get(_run_target, _run_target)}</b> "
+        f"({ENV_LABELS.get(_run_env, _run_env)}) ishlab turibdi.\n"
+        "Yangisini boshlash uchun avval /stop bosing.",
+        chat_id, reply_to=reply_to,
     )
-    if not info:
-        _send("🚫 <b>Parallel run imkonsiz</b> — test ishlab turibdi. Avval /stop.", chat_id)
-        return
-    _edit_message(info["msg_id"], info["text"] + warn)
-
-    def _restore() -> None:
-        fresh = _read_progress_file()
-        if fresh:
-            _edit_message(fresh["msg_id"], fresh["text"])
-
-    threading.Timer(6, _restore).start()
 
 
 # Ishlab turgan run holatini FAYLga ham yozamiz — bot qayta ishga tushsa
@@ -289,12 +281,13 @@ def _running_pid() -> int | None:
     return None
 
 
-def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT_TARGET) -> None:
+def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT_TARGET,
+                 reply_to: int | None = None) -> None:
     """Testlarni yangi subprocess'da ishga tushiradi (``run_env`` muhitida,
     ``target`` bo'limi bilan)."""
     global _proc, _run_env, _run_target
     if _is_running():
-        _flash_busy(chat_id)   # yangi xabar EMAS — progress xabariga flash
+        _flash_busy(chat_id, reply_to)   # buyruqqa aniq JAVOB (parallel imkonsiz)
         return
     if run_env not in ENV_LABELS:
         _send(
@@ -483,10 +476,10 @@ def _register_commands() -> None:
         print(f"[bot] setMyCommands xato: {e}")
 
 
-def _handle(text: str, chat_id: str) -> None:
-    """Bitta buyruqni bajaradi. Slash menyu: /start_dev /start_prod /stop /status
-    /help. Slash'siz matn ham: 'start dev [bo'lim]', 'start prod [bo'lim]', 'stop'.
-    Bo'lim (target) ixtiyoriy — berilmasa 'all' (hamma test bitta login bilan)."""
+def _handle(text: str, chat_id: str, msg_id: int | None = None) -> None:
+    """Bitta buyruqni bajaradi. ``msg_id`` — buyruq xabari (band bo'lsa unga reply).
+    Slash menyu: /start_dev /start_prod /stop /status /help. Slash'siz matn ham:
+    'start dev [bo'lim]'. Bo'lim ixtiyoriy — berilmasa 'all'."""
     parts = text.strip().split()
     if not parts:
         return
@@ -502,14 +495,14 @@ def _handle(text: str, chat_id: str) -> None:
     sub = cmd.rsplit("_", 1)
     if cmd in ("start_dev", "start_prod"):
         env = "dev" if cmd == "start_dev" else "prod"
-        _start_tests(chat_id, env, rest[0] if rest else DEFAULT_TARGET)
+        _start_tests(chat_id, env, rest[0] if rest else DEFAULT_TARGET, reply_to=msg_id)
     elif len(sub) == 2 and sub[1] in ENV_LABELS and sub[0] in TARGETS:
-        _start_tests(chat_id, sub[1], sub[0])   # masalan main_dev -> env=dev, target=main
+        _start_tests(chat_id, sub[1], sub[0], reply_to=msg_id)   # main_dev -> dev/main
     elif cmd == "start":
         # "start [env] [bo'lim]" — env birinchi, bo'lim ixtiyoriy
         run_env = rest[0] if len(rest) > 0 else DEFAULT_ENV
         target = rest[1] if len(rest) > 1 else DEFAULT_TARGET
-        _start_tests(chat_id, run_env, target)
+        _start_tests(chat_id, run_env, target, reply_to=msg_id)
     elif cmd == "stop":
         _stop_tests(chat_id)
     elif cmd == "status":
@@ -568,7 +561,7 @@ def main() -> None:
             print(f"[bot] buyruq {chat_id}: {text!r}")
             # Bitta xato buyruq BUTUN botni yiqitmasin — handler himoyalanadi.
             try:
-                _handle(text, chat_id)
+                _handle(text, chat_id, msg.get("message_id"))
             except Exception as e:
                 print(f"[bot] handler xato: {e}")
                 _send(f"❌ Ichki xato: {e}", chat_id)
