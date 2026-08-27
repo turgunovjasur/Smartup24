@@ -655,7 +655,9 @@ _ticker_stop = threading.Event()
 def _ticker_loop():
     while not _ticker_stop.wait(12):   # har 12s (rate-limit'siz, spam emas)
         if _progress["msg_id"]:
-            _edit_telegram(_progress["msg_id"], _render_progress())
+            text = _render_progress()
+            _edit_telegram(_progress["msg_id"], text)
+            _persist_progress(text)   # /status ham FAYLdan o'qiydi — u ham live bo'lsin
 
 
 def _start_ticker():
