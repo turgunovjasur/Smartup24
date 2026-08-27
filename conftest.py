@@ -4,6 +4,7 @@ import time
 import shutil
 import socket
 import random
+import threading
 import allure
 import pytest
 import requests
@@ -366,26 +367,26 @@ def _send_telegram(text: str) -> int | None:
 def _edit_telegram(message_id: int, text: str) -> None:
     """Oldin yuborilgan Telegram xabarini (``message_id``) yangilaydi.
 
-    Progress bar shu funksiya bilan jonli yangilanadi — har testda YANGI xabar
-    yubormasdan bitta xabar tahrirlanadi (GitHub CI progressiga o'xshab). Telegram
-    matn o'zgarmasa "message is not modified" (400) qaytaradi — bu xato emas, jim
-    o'tamiz. Tarmoq/API xatosi runni yiqitmasligi uchun yutiladi."""
+    NON-BLOKING: tarmoq chaqiruvi FON thread'ida bajariladi — test jarayoni
+    Telegram javobini KUTMAYDI (aks holda har tahrir ~300ms test vaqtini yerdi,
+    40 daqiqalik runда bir necha daqiqa). Matn o'zgarmasa "message is not modified"
+    (400) — bu xato emas. Tarmoq/API xatosi runni yiqitmaydi."""
     if not TG_BOT_TOKEN or not TG_CHAT_ID or not message_id:
         return
     url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/editMessageText"
-    try:
-        requests.post(
-            url,
-            data={
-                "chat_id": TG_CHAT_ID,
-                "message_id": message_id,
-                "text": text,
-                "parse_mode": "HTML",
-            },
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"[Telegram] tahrirlashda xato: {e}")
+
+    def _do():
+        try:
+            requests.post(
+                url,
+                data={"chat_id": TG_CHAT_ID, "message_id": message_id,
+                      "text": text, "parse_mode": "HTML"},
+                timeout=10,
+            )
+        except Exception as e:
+            print(f"[Telegram] tahrirlashda xato: {e}")
+
+    threading.Thread(target=_do, daemon=True).start()
 
 
 def _send_telegram_photo(png_bytes: bytes, caption: str) -> None:
@@ -461,15 +462,6 @@ _progress = {
 # sekinlashtiradi va Telegram rate-limit xavfini tug'diradi — shu interval
 # throttle qiladi. Oxirgi test bundan MUSTASNO: yakuniy holat DOIM ko'rsatiladi.
 _PROGRESS_MIN_INTERVAL = 3.0
-
-
-def _env_label() -> str:
-    """Joriy muhit yorlig'i, masalan ``PROD (test)`` yoki ``DEV (sm24)``.
-
-    Muhitni ``flow_authorization`` TEST_ENV env var'idan aniqlaydi — Telegram
-    xabarlarida run QAYERDA (prod/dev) ketayotgani ko'rinib tursin."""
-    emoji = "\U0001F534" if TEST_ENV == "prod" else "\U0001F7E2"  # 🔴 prod / 🟢 dev
-    return f"{emoji} Muhit: {TEST_ENV.upper()} ({COMPANY_CODE})"
 
 
 # Bo'lim-runner fayllari → ko'rsatiladigan nom. Aynan shu fayllar yig'ilsa,
