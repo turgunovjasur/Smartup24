@@ -233,20 +233,16 @@ def _lock_active() -> int | None:
 
 
 def _flash_busy(chat_id: str, reply_to: int | None = None) -> None:
-    """Test ishlab turganда yangi start bosilsa — ALOHIDA, lekin TO'LIQ MA'LUMOTLI
-    xabar: parallel imkonsizligini aytadi va hozirgi run holatini (foiz, passed,
-    failed, joriy test) ko'rsatadi (progress fayldan). Ko'rinadigan va foydali —
-    reply/edit emas (foydalanuvchi tanlovi)."""
-    info = _read_progress_file()
-    head = "🚫 <b>Parallel run imkonsiz</b> — hozir test ishlab turibdi:\n\n"
-    tail = "\n\nYangisini boshlash uchun avval /stop bosing."
-    if info and info.get("text"):
-        _send(head + info["text"] + tail, chat_id)
-    else:
-        _send(
-            head + f"{_run_block(_run_env, _run_target)}" + tail,
-            chat_id,
-        )
+    """Test ishlab turganда yangi start bosilsa — QISQA, VAQTINCHA (auto-o'chadigan)
+    javob. Professional 'hozir mumkin emas' javobi: aniq ko'rinadi, ~10s dan keyin
+    o'zi yo'qoladi (chatда to'planmasin). Edit/pin/doimiy EMAS (foydalanuvchi +
+    senior tanlovi)."""
+    _send_autodelete(
+        "🚫 <b>Parallel run imkonsiz</b>\n"
+        f"Hozir <b>{TARGET_LABELS.get(_run_target, _run_target)}</b> "
+        f"({ENV_LABELS.get(_run_env, _run_env)}) ishlab turibdi — avval /stop.",
+        chat_id, ttl=10,
+    )
 
 
 # Ishlab turgan run holatini FAYLga ham yozamiz — bot qayta ishga tushsa
