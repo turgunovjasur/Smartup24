@@ -175,31 +175,17 @@ def _edit_message(msg_id: int, text: str) -> None:
 
 
 def _flash_busy(chat_id: str) -> None:
-    """Test ishlab turganда yangi start bosilsa — YANGI xabar YUBORMASDAN,
-    jonli progress xabarining o'ziga vaqtincha "band" ogohlantirishini qo'shadi
-    va ~5s dan keyin asl progressga qaytaradi (orada conftest o'zi ham yangilaydi).
-    Progress fayli topilmasa — qisqa auto-o'chadigan xabar (fallback)."""
-    info = _read_progress_file()
-    if not info:
-        _send(
-            "⏳ <b>Band</b> — hozir test ishlab turibdi. Ikkinchi runni birga "
-            "ishga tushirib bo'lmaydi. Avval /stop.",
-            chat_id,
-        )
-        return
-    warn = (
-        "\n\n⏳ <b>Band — parallel run imkonsiz.</b>\n"
-        f"Hozir <b>{TARGET_LABELS.get(_run_target, _run_target)}</b> ishlab turibdi "
-        "— avval /stop."
+    """Test ishlab turganда yangi start bosilsa — ANIQ, ko'rinadigan javob beradi
+    (yangi run BOSHLAMAYMIZ — ulashilgan akkaunt, parallel imkonsiz). Avval javob
+    progress xabari ichiga yashirin qo'shilardi, foydalanuvchi sezmasdi — endi
+    to'g'ridan-to'g'ri aniq xabar."""
+    _send(
+        "🚫 <b>Parallel run imkonsiz</b>\n"
+        f"Hozir <b>{TARGET_LABELS.get(_run_target, _run_target)}</b> "
+        f"({ENV_LABELS.get(_run_env, _run_env)}) ishlab turibdi.\n"
+        "Yangisini boshlash uchun avval /stop bosing.",
+        chat_id,
     )
-    _edit_message(info["msg_id"], info["text"] + warn)
-
-    def _restore() -> None:
-        fresh = _read_progress_file()
-        if fresh:
-            _edit_message(fresh["msg_id"], fresh["text"])
-
-    threading.Timer(5, _restore).start()
 
 
 # Ishlab turgan run holatini FAYLga ham yozamiz — bot qayta ishga tushsa
