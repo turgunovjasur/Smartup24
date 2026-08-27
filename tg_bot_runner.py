@@ -232,6 +232,28 @@ def _lock_active() -> int | None:
     return None
 
 
+# GitHub repo — bulut (CI) runlarини bilish uchun (public repo, auth shart emas).
+_GH_REPO = os.getenv("GITHUB_REPO", "turgunovjasur/Smartup24")
+
+
+def _github_run_active() -> dict | None:
+    """GitHub Actions'да hozir ishlab turган (in_progress/queued) CI run bormi.
+    /status faqat LOKALни ko'radi — bulut run alohida (boshqa mashina). None yoki
+    run ma'lumoti ({status, html_url, created_at})."""
+    try:
+        r = requests.get(
+            f"https://api.github.com/repos/{_GH_REPO}/actions/runs?per_page=5",
+            timeout=8,
+        )
+        if r.ok:
+            for run in r.json().get("workflow_runs", []):
+                if run.get("status") in ("in_progress", "queued"):
+                    return run
+    except Exception as e:
+        print(f"[bot] github tekshirish xato: {e}")
+    return None
+
+
 def _flash_busy(chat_id: str, reply_to: int | None = None) -> None:
     """Test ishlab turganда yangi start bosilsa — QISQA, VAQTINCHA (auto-o'chadigan)
     javob. Professional 'hozir mumkin emas' javobi: aniq ko'rinadi, ~10s dan keyin
@@ -482,11 +504,22 @@ def _status(chat_id: str) -> None:
                 chat_id,
             )
     else:
-        _send_autodelete(
-            "⚪️ <b>Bo'sh</b> — test ishlamayapti\n"
-            "Boshlash: /start_dev (hammasi) yoki bo'lim buyrug'i — /help",
-            chat_id,
-        )
+        # Lokal run yo'q — BULUT (GitHub CI) run ishlayaptimi tekshiramiz
+        gh = _github_run_active()
+        if gh:
+            _send_autodelete(
+                "☁️ <b>Bulut (GitHub CI) run ishlab turibdi</b>\n"
+                f"Holat: <b>{gh.get('status')}</b>  ·  {gh.get('event')}\n"
+                "Bu LOKAL emas — /stop bilan to'xtatib bo'lmaydi (GitHub'да bekor qilinadi).\n"
+                f"{gh.get('html_url', '')}",
+                chat_id,
+            )
+        else:
+            _send_autodelete(
+                "⚪️ <b>Bo'sh</b> — test ishlamayapti (lokal ham, bulut ham)\n"
+                "Boshlash: /start_dev (hammasi) yoki bo'lim buyrug'i — /help",
+                chat_id,
+            )
 
 
 HELP = (
