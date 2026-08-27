@@ -334,6 +334,10 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
     env = os.environ.copy()
     # Test qaysi serverga tegishini shu env var belgilaydi (flow_authorization o'qiydi).
     env["TEST_ENV"] = run_env
+    # Bot runlari HEADLESS — foydalanuvchi Telegram orqali kuzatadi, brauzer
+    # ko'rinishi shart emas; headless ~30-40% TEZROQ (render yo'q) va CI'da
+    # allaqachon sinalgan. (Lokal terminal runlarida brauzer ko'rinadi — o'zgармaydi.)
+    env["HEADLESS"] = "1"
     # Bot fon rejimida ishlagani uchun allure brauzerini OCHMAYMIZ (osilib qolmasin) —
     # conftest _finish_allure_report shu env'ni tekshiradi. Natijalar baribir yoziladi.
     env["NO_ALLURE_SERVE"] = "1"

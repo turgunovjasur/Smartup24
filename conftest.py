@@ -421,8 +421,12 @@ def _persist_progress(text: str | None) -> None:
                 os.remove(TG_PROGRESS_FILE)
             return
         os.makedirs(os.path.dirname(TG_PROGRESS_FILE), exist_ok=True)
-        with open(TG_PROGRESS_FILE, "w", encoding="utf-8") as f:
+        # Atomik yozuv: temp faylga yozib, keyin rename — bot (boshqa jarayon)
+        # yarim yozilgan faylni o'qib qolmasin (Windows'da os.replace atomik).
+        tmp = TG_PROGRESS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump({"msg_id": _progress["msg_id"], "text": text}, f, ensure_ascii=False)
+        os.replace(tmp, TG_PROGRESS_FILE)
     except Exception as e:
         print(f"[progress-file] xato: {e}")
 
@@ -449,6 +453,7 @@ _progress = {
     "failed": 0,
     "last_edit": 0.0,
     "suite": "",   # qaysi bo'lim(lar) ishlayapti — Telegram xabarlarida ko'rsatiladi
+    "current": "", # joriy ishlab turgan test nomi (jonli, /status uchun)
 }
 
 # Progress barni JUDA tez-tez tahrirlamaslik uchun minimal interval (sekund).
@@ -512,8 +517,12 @@ def _short_nodeid(nodeid: str) -> str:
     return nodeid.split("::")[-1] if nodeid else nodeid
 
 
-def _render_progress(current_name: str = "") -> str:
-    """Progress xabari matnini yig'adi (bar + hisoblagichlar + joriy test)."""
+def _render_progress(current_name: str | None = None) -> str:
+    """Progress xabari matnini yig'adi (bar + hisoblagichlar + joriy test).
+    ``current_name=None`` bo'lsa saqlangan ``_progress['current']`` ishlatiladi —
+    shunda logreport ham joriy test nomini yo'qotmaydi."""
+    if current_name is None:
+        current_name = _progress.get("current", "")
     total = _progress["total"] or 1
     done = _progress["done"]
     pct = int(done * 100 / total)
@@ -556,17 +565,19 @@ def pytest_collection_finish(session):
 
 
 def pytest_runtest_logstart(nodeid, location):
-    """Har test boshlanganda progress xabarini joriy test nomi bilan yangilaydi
-    (throttle: ``_PROGRESS_MIN_INTERVAL`` sekunddan tez tahrirlamaymiz)."""
+    """Har test boshlanganда joriy test nomini yangilaydi. Progress FAYLini DOIM
+    yozamiz (/status har doim yangi bo'lsin), faqat Telegram tahririni throttle
+    qilamiz (``_PROGRESS_MIN_INTERVAL`` — rate-limit va tezlik uchun)."""
     if not _progress["msg_id"]:
         return
+    _progress["current"] = _short_nodeid(nodeid)
+    text = _render_progress()
+    _persist_progress(text)   # DOIM — bot /status uchun yangi holat
     now = time.monotonic()
     if now - _progress["last_edit"] < _PROGRESS_MIN_INTERVAL:
         return
     _progress["last_edit"] = now
-    text = _render_progress(_short_nodeid(nodeid))
     _edit_telegram(_progress["msg_id"], text)
-    _persist_progress(text)
 
 
 def pytest_runtest_logreport(report):
@@ -588,14 +599,14 @@ def pytest_runtest_logreport(report):
     elif report.failed:
         _progress["failed"] += 1
     # skipped/xfailed ni alohida sanamaymiz (done'ga kiradi, natijada ko'rinmaydi)
+    text = _render_progress()
+    _persist_progress(text)   # DOIM — bot /status uchun yangi holat (throttle'siz)
     now = time.monotonic()
     is_last = _progress["done"] >= _progress["total"]
     if not is_last and now - _progress["last_edit"] < _PROGRESS_MIN_INTERVAL:
         return
     _progress["last_edit"] = now
-    text = _render_progress()
     _edit_telegram(_progress["msg_id"], text)
-    _persist_progress(text)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
