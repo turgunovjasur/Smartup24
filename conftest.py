@@ -646,29 +646,6 @@ def _render_progress(current_name: str | None = None) -> str:
     return "\n".join(lines)
 
 
-# Fon "ticker": run davomida progress xabarini har ~12s yangilab, o'tган vaqt
-# real vaqt kabi (soniyalar bilan) oshib borishini ta'minlaydi — uzun test
-# ishlayotган paytda ham (aks holda vaqt faqat test almashganда yangilanardi).
-_ticker_stop = threading.Event()
-
-
-def _ticker_loop():
-    while not _ticker_stop.wait(12):   # har 12s (rate-limit'siz, spam emas)
-        if _progress["msg_id"]:
-            text = _render_progress()
-            _edit_telegram(_progress["msg_id"], text)
-            _persist_progress(text)   # /status ham FAYLdan o'qiydi — u ham live bo'lsin
-
-
-def _start_ticker():
-    _ticker_stop.clear()
-    threading.Thread(target=_ticker_loop, daemon=True).start()
-
-
-def _stop_ticker():
-    _ticker_stop.set()
-
-
 # ----------------------------------------------------------------------------------------------------------------------
 
 def pytest_collection_finish(session):
@@ -694,7 +671,6 @@ def pytest_collection_finish(session):
     _progress["msg_id"] = _send_telegram(text)
     _persist_progress(text)  # bot o'qishi uchun (band-flash)
     _pin_telegram(_progress["msg_id"], pin=True)  # tepaga qadaymiz — ko'z oldida tursin
-    _start_ticker()  # o'tган vaqt real vaqt kabi oshib tursin (fon, har ~12s)
 
 
 def pytest_runtest_logstart(nodeid, location):
@@ -752,8 +728,6 @@ def pytest_sessionfinish(session, exitstatus):
     if getattr(session.config, "workerinput", None) is not None:
         return
 
-    _stop_ticker()  # fon vaqt-yangilashni to'xtatamiz (yakuniy xabarни bosmasin)
-
     # --collect-only da session.items to'ladi, lekin test ishlamaydi — xabar yubormaymiz
     if session.items and not session.config.option.collectonly:
         # terminalreporter.stats — passed/failed/error/xfailed ro'yxatlari shu yerda
@@ -798,10 +772,11 @@ def pytest_sessionfinish(session, exitstatus):
             if len(fail_reports) > 10:
                 lines.append(f"  … va yana {len(fail_reports) - 10} ta")
 
-        lines += [
-            "━━━━━━━━━━━━━",
-            f"\U0001F4CA Jami: <b>{total}</b>   ·   exit: {exitstatus}",
-        ]
+        lines += ["━━━━━━━━━━━━━"]
+        if _progress["start_ts"]:  # jami ishlash vaqti — eng qadrli vaqt ma'lumoti
+            dur = int(time.time() - _progress["start_ts"])
+            lines.append(f"⏱ Jami vaqt: <b>{dur // 60} daq {dur % 60} son</b>")
+        lines.append(f"\U0001F4CA Jami: <b>{total}</b>   ·   exit: {exitstatus}")
         final_text = "\n".join(lines)
         # BITTA xabar oqimi (foydalanuvchi so'rovi): progress xabari bo'lsa uni
         # YAKUNIY holatga TAHRIRLAYMIZ — yangi xabar yubormaymiz. Progress
