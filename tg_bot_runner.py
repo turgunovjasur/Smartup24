@@ -69,7 +69,6 @@ _DOCUMENT = "tests/test_document/test_all_document_runner.py"
 TARGETS = {
     "all":          [_SETUP, _GROUPA, _REGRESSION, _MAIN, _DOCUMENT],
     "setup_groupa": [_SETUP, _GROUPA],   # 2 soatlik juftlik (GitHub avtomat ham shu)
-    "reg_full":     [_REGRESSION, _MAIN, _DOCUMENT],  # 12 soatlik juftlik (GitHub bilan bir xil)
     "regression":   [_REGRESSION],
     "main":         [_MAIN],
     "document":     [_DOCUMENT],
@@ -90,7 +89,6 @@ DEFAULT_ENV = "dev"
 TARGET_LABELS = {
     "all":          "All test (5 bo'lim)",
     "setup_groupa": "Setup + Group A",
-    "reg_full":     "Regression + Main + Document (12h)",
     "regression":   "Regression",
     "main":         "Main",
     "document":     "Document",
@@ -504,7 +502,6 @@ SERVERS_MSG = (
 _MENU_SECTIONS = [
     ("start", "All test"),
     ("setup_groupa", "Setup + Group A"),
-    ("reg_full", "Regression+Main+Document (12h)"),
     ("regression", "Regression"),
     ("main", "Main"),
     ("document", "Document"),
