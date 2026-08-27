@@ -495,21 +495,6 @@ def _send_telegram_photo(png_bytes: bytes, caption: str) -> None:
         print(f"[Telegram] rasm yuborishda xato: {e}")
 
 
-def _pin_telegram(message_id, pin: bool = True) -> None:
-    """Progress xabarini chatда tepaga QADAYDI (pin) — yuqoriга surilib ketmasin,
-    jonli holat doim ko'z oldida tursin. ``pin=False`` — pinni oladi (run tugagach)."""
-    if not TG_BOT_TOKEN or not TG_CHAT_ID or not message_id:
-        return
-    method = "pinChatMessage" if pin else "unpinChatMessage"
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{TG_BOT_TOKEN}/{method}",
-            data={"chat_id": TG_CHAT_ID, "message_id": message_id,
-                  "disable_notification": True},
-            timeout=10,
-        )
-    except Exception as e:
-        print(f"[Telegram] pin xato: {e}")
 
 
 # Progress xabarining msg_id + joriy matnini shu faylga yozamiz — Telegram bot
@@ -684,7 +669,8 @@ def pytest_collection_finish(session):
     text = _render_progress()
     _progress["msg_id"] = _send_telegram(text)
     _persist_progress(text)  # bot o'qishi uchun (band-flash)
-    _pin_telegram(_progress["msg_id"], pin=True)  # tepaga qadaymiz — ko'z oldida tursin
+    # Pin QILMAYMIZ (senior): o'tkinchi progress'ни qadash professional emas —
+    # pin/unpin tizim shovqini + bezovta. Xabar shunchaki oxirgi bo'lib turadi.
 
 
 def pytest_runtest_logstart(nodeid, location):
@@ -799,7 +785,6 @@ def pytest_sessionfinish(session, exitstatus):
             # SINXRON: jarayon shu funksiyadan keyin DARHOL chiqadi — daemon
             # thread'да bo'lsa yakuniy xabar yuborilmay qolardi (2026-08-27 bug).
             _edit_telegram(_progress["msg_id"], final_text, sync=True)
-            _pin_telegram(_progress["msg_id"], pin=False)  # run tugadi — pinni olamiz
         else:
             _send_telegram("\n".join(lines))
 
