@@ -635,12 +635,8 @@ def _render_progress(current_name: str | None = None) -> str:
         _progress_bar(pct),
         f"✅ {_progress['passed']}   ❌ {_progress['failed']}   ⏳ {done}/{_progress['total']}",
     ]
-    # HAQIQIY o'tган vaqt (taxmin/ETA YO'Q — professional). Fon "ticker" har ~12s
-    # yangilab turadi, shuning uchun soniyalar real vaqt kabi oshib boradi.
-    if _progress["start_ts"]:
-        elapsed = int(time.time() - _progress["start_ts"])
-        m, s = divmod(elapsed, 60)
-        lines.append(f"⏱ O'tган vaqt: {m}:{s:02d}")
+    # Jonli progressда vaqt KO'RSATILMAYDI (marginal + chalkash edi) — jami ishlash
+    # vaqti faqat YAKUNIY xabarда beriladi (standart, qadrli). start_ts shu uchun.
     if current_name:
         lines.append(f"▶️ <code>{current_name}</code>")
     return "\n".join(lines)
