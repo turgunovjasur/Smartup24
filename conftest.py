@@ -533,7 +533,16 @@ def _persist_progress(text: str | None) -> None:
         tmp = TG_PROGRESS_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump({"msg_id": _progress["msg_id"], "text": text}, f, ensure_ascii=False)
-        os.replace(tmp, TG_PROGRESS_FILE)
+        # RETRY: Windows'да os.replace destination fayl OCHIQ bo'lsa (bot /status
+        # uchun o'qiyotган payt) PermissionError beradi -> fayl yangilanmasdan qolib,
+        # /status eskirar edi (2026-08-27: 14% da 11% ko'rsatgan). Bot o'qishni
+        # yopgach (bir necha ms) qayta urinamiz.
+        for _ in range(10):
+            try:
+                os.replace(tmp, TG_PROGRESS_FILE)
+                break
+            except PermissionError:
+                time.sleep(0.03)
     except Exception as e:
         print(f"[progress-file] xato: {e}")
 
