@@ -635,15 +635,36 @@ def _render_progress(current_name: str | None = None) -> str:
         _progress_bar(pct),
         f"✅ {_progress['passed']}   ❌ {_progress['failed']}   ⏳ {done}/{_progress['total']}",
     ]
-    # O'tган vaqt + taxminiy qolgan (ETA) — done'ga qarab proyeksiya.
-    # "daqiqa" bilan (mm:ss soat vaqtiga o'xshab chalkashtirmasin).
-    if _progress["start_ts"] and done:
-        elapsed = time.time() - _progress["start_ts"]
-        eta = elapsed / done * (total - done)
-        lines.append(f"⏱ {int(elapsed // 60)} daqiqa o'tdi · ~{round(eta / 60)} daqiqa qoldi")
+    # HAQIQIY o'tган vaqt (taxmin/ETA YO'Q — professional). Fon "ticker" har ~12s
+    # yangilab turadi, shuning uchun soniyalar real vaqt kabi oshib boradi.
+    if _progress["start_ts"]:
+        elapsed = int(time.time() - _progress["start_ts"])
+        m, s = divmod(elapsed, 60)
+        lines.append(f"⏱ O'tган vaqt: {m}:{s:02d}")
     if current_name:
         lines.append(f"▶️ <code>{current_name}</code>")
     return "\n".join(lines)
+
+
+# Fon "ticker": run davomida progress xabarini har ~12s yangilab, o'tган vaqt
+# real vaqt kabi (soniyalar bilan) oshib borishini ta'minlaydi — uzun test
+# ishlayotган paytda ham (aks holda vaqt faqat test almashganда yangilanardi).
+_ticker_stop = threading.Event()
+
+
+def _ticker_loop():
+    while not _ticker_stop.wait(12):   # har 12s (rate-limit'siz, spam emas)
+        if _progress["msg_id"]:
+            _edit_telegram(_progress["msg_id"], _render_progress())
+
+
+def _start_ticker():
+    _ticker_stop.clear()
+    threading.Thread(target=_ticker_loop, daemon=True).start()
+
+
+def _stop_ticker():
+    _ticker_stop.set()
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -671,6 +692,7 @@ def pytest_collection_finish(session):
     _progress["msg_id"] = _send_telegram(text)
     _persist_progress(text)  # bot o'qishi uchun (band-flash)
     _pin_telegram(_progress["msg_id"], pin=True)  # tepaga qadaymiz — ko'z oldida tursin
+    _start_ticker()  # o'tган vaqt real vaqt kabi oshib tursin (fon, har ~12s)
 
 
 def pytest_runtest_logstart(nodeid, location):
@@ -727,6 +749,8 @@ def pytest_sessionfinish(session, exitstatus):
     # worker o'z qismini yuborib, ko'p dublikat xabar chiqadi)
     if getattr(session.config, "workerinput", None) is not None:
         return
+
+    _stop_ticker()  # fon vaqt-yangilashni to'xtatamiz (yakuniy xabarни bosmasin)
 
     # --collect-only da session.items to'ladi, lekin test ishlamaydi — xabar yubormaymiz
     if session.items and not session.config.option.collectonly:
