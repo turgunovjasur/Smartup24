@@ -565,11 +565,6 @@ _progress = {
 }
 
 
-def _fmt_dur(seconds: float) -> str:
-    """125 → '2:05' (daqiqa:sekund)."""
-    seconds = int(seconds)
-    return f"{seconds // 60}:{seconds % 60:02d}"
-
 # Progress barni JUDA tez-tez tahrirlamaslik uchun minimal interval (sekund).
 # editMessageText'ni har testda chaqirish (~2×test soni) test oqimini
 # sekinlashtiradi va Telegram rate-limit xavfini tug'diradi — shu interval
@@ -640,11 +635,12 @@ def _render_progress(current_name: str | None = None) -> str:
         _progress_bar(pct),
         f"✅ {_progress['passed']}   ❌ {_progress['failed']}   ⏳ {done}/{_progress['total']}",
     ]
-    # O'tган vaqt + taxminiy qolgan (ETA) — done'ga qarab proyeksiya
+    # O'tган vaqt + taxminiy qolgan (ETA) — done'ga qarab proyeksiya.
+    # "daqiqa" bilan (mm:ss soat vaqtiga o'xshab chalkashtirmasin).
     if _progress["start_ts"] and done:
         elapsed = time.time() - _progress["start_ts"]
         eta = elapsed / done * (total - done)
-        lines.append(f"⏱ {_fmt_dur(elapsed)} o'tdi · ~{_fmt_dur(eta)} qoldi")
+        lines.append(f"⏱ {int(elapsed // 60)} daqiqa o'tdi · ~{round(eta / 60)} daqiqa qoldi")
     if current_name:
         lines.append(f"▶️ <code>{current_name}</code>")
     return "\n".join(lines)
