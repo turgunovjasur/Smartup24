@@ -407,9 +407,52 @@ HELP = (
     "<b>Regression:</b> /regression_dev · /regression_prod\n"
     "<b>Main:</b> /main_dev · /main_prod\n"
     "<b>Document:</b> /document_dev · /document_prod\n"
-    "/stop · /status · /help\n\n"
+    "/stop · /status · /servers · /help · /start\n\n"
     "Matn shakli ham bor: <b>start dev main</b>, <b>start prod regression</b>.\n"
     "(<b>prod</b> = jonli server!)"
+)
+
+# /start — onboarding (bot nima qiladi, qanday ishlatiladi, serverlar, avtomat run)
+START_MSG = (
+    "\U0001F44B <b>Salom!</b> Bu — Smartup24 (x24) Playwright UI avtotestlarini "
+    "ishga tushiradigan bot.\n\n"
+    "\U0001F4CC <b>Nima qiladi:</b>\n"
+    "Testlarni ishga tushiradi va jonli natijani shu chatga yuboradi — bitta xabar "
+    "foiz + passed/failed + joriy test bilan yangilanadi, oxirida yakuniy natija "
+    "(+ yiqilgan testlar va screenshot) chiqadi.\n\n"
+    "\U0001F680 <b>Qanday ishga tushiriladi:</b>\n"
+    "1. Bo'lim buyrug'ini yuboring (masalan /start_dev)\n"
+    "2. Jonli progress bitta xabarda yangilanib turadi\n"
+    "3. Tugagach yakuniy natija shu xabarda chiqadi\n\n"
+    "\U0001F4C2 <b>Bo'limlar (DEV):</b>\n"
+    "• /start_dev — <b>Hammasi</b> (5 bo'lim, bitta login)\n"
+    "• /setup_groupa_dev — Setup + Group A\n"
+    "• /regression_dev — Regression\n"
+    "• /main_dev — Main\n"
+    "• /document_dev — Document\n"
+    "\U0001F534 PROD uchun <b>_prod</b>: /start_prod, /main_prod … (jonli server!)\n\n"
+    "\U0001F310 <b>Serverlar:</b>\n"
+    "• DEV — app3.greenwhite.uz/x24 (sm24)\n"
+    "• PROD — app.smartup24.com (test) \U0001F534 jonli\n\n"
+    "⚠️ Bir vaqtda faqat <b>bitta</b> run — test ketayotganda yangi start rad "
+    "etiladi (avval /stop).\n\n"
+    "⏰ <b>Avtomat run (GitHub bulut):</b>\n"
+    "• Har 2 soatda → Setup + Group A\n"
+    "• Har 12 soatda → Regression\n\n"
+    "<b>Buyruqlar:</b> /start_dev · /stop · /status · /servers · /help"
+)
+
+# /servers — muhitlar/serverlar ro'yxati
+SERVERS_MSG = (
+    "\U0001F310 <b>Serverlar</b>\n\n"
+    "\U0001F7E2 <b>DEV</b> (test muhiti)\n"
+    "https://app3.greenwhite.uz/x24\n"
+    "Kompaniya: <b>sm24</b>\n\n"
+    "\U0001F534 <b>PROD</b> (jonli server!)\n"
+    "https://app.smartup24.com\n"
+    "Kompaniya: <b>test</b>\n\n"
+    "Muhitni buyruqда tanlaysiz: <b>_dev</b> yoki <b>_prod</b> "
+    "(masalan /main_dev yoki /main_prod)."
 )
 
 # Telegram buyruq menyusi ("/" bosilganда chiqadi — setMyCommands bilan o'rnatiladi).
@@ -427,9 +470,11 @@ for _key, _label in _MENU_SECTIONS:
     BOT_COMMANDS.append({"command": f"{_key}_dev",  "description": f"{_label} — DEV"})
     BOT_COMMANDS.append({"command": f"{_key}_prod", "description": f"{_label} — PROD (jonli!)"})
 BOT_COMMANDS += [
-    {"command": "stop",   "description": "Ishlab turgan testlarni to'xtatish"},
-    {"command": "status", "description": "Holat + qaysi muhit/bo'lim ekani"},
-    {"command": "help",   "description": "Buyruqlar ro'yxati"},
+    {"command": "stop",    "description": "Ishlab turgan testlarni to'xtatish"},
+    {"command": "status",  "description": "Holat + qaysi muhit/bo'lim ekani"},
+    {"command": "servers", "description": "Serverlar ro'yxati (DEV/PROD)"},
+    {"command": "help",    "description": "Buyruqlar ro'yxati"},
+    {"command": "start",   "description": "Bot haqida — to'liq ma'lumot"},
 ]
 
 
@@ -472,14 +517,20 @@ def _handle(text: str, chat_id: str, msg_id: int | None = None) -> None:
     elif len(sub) == 2 and sub[1] in ENV_LABELS and sub[0] in TARGETS:
         _start_tests(chat_id, sub[1], sub[0], reply_to=msg_id)   # main_dev -> dev/main
     elif cmd == "start":
-        # "start [env] [bo'lim]" — env birinchi, bo'lim ixtiyoriy
-        run_env = rest[0] if len(rest) > 0 else DEFAULT_ENV
-        target = rest[1] if len(rest) > 1 else DEFAULT_TARGET
-        _start_tests(chat_id, run_env, target, reply_to=msg_id)
+        if rest:
+            # "start dev main" — matn shakli: test ishga tushiradi
+            run_env = rest[0]
+            target = rest[1] if len(rest) > 1 else DEFAULT_TARGET
+            _start_tests(chat_id, run_env, target, reply_to=msg_id)
+        else:
+            # yakka /start — onboarding (to'liq ma'lumot)
+            _send(START_MSG, chat_id)
     elif cmd == "stop":
         _stop_tests(chat_id)
     elif cmd == "status":
         _status(chat_id)
+    elif cmd == "servers":
+        _send(SERVERS_MSG, chat_id)
     elif cmd in ("help", "commands"):
         _send(HELP, chat_id)
     elif text.strip().startswith("/"):
