@@ -102,21 +102,62 @@ _run_target: str = DEFAULT_TARGET
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-def _send(text: str, chat_id: str | None = None, reply_to: int | None = None) -> None:
+def _kb(rows: list) -> str:
+    """Inline klaviatura JSON'ini yasaydi. rows = [[(matn, callback_data), ...], ...]"""
+    return json.dumps({"inline_keyboard": [
+        [{"text": t, "callback_data": d} for (t, d) in row] for row in rows
+    ]})
+
+
+def _send(text: str, chat_id: str | None = None, reply_to: int | None = None,
+          buttons: list | None = None) -> None:
     """Telegram'ga xabar yuboradi — NON-BLOKING (tarmoq chaqiruvi fon thread'ida).
-    Polling loop Telegram javobini KUTMAYDI, shuning uchun bot keyingi buyruqni
-    DARHOL qayta ishlaydi (sekin tarmoqда ham tez his qilinadi)."""
+    ``buttons`` — inline tugmalar ([[(matn, data), ...], ...]). Polling loop
+    Telegram javobini KUTMAYDI, bot keyingi buyruqni DARHOL qayta ishlaydi."""
     if not BOT_TOKEN:
         return
     data = {"chat_id": chat_id or CHAT_ID, "text": text, "parse_mode": "HTML"}
     if reply_to:
         data["reply_to_message_id"] = reply_to
+    if buttons:
+        data["reply_markup"] = _kb(buttons)
 
     def _do():
         try:
             requests.post(f"{API}/sendMessage", data=data, timeout=10)
         except Exception as e:
             print(f"[bot] send xato: {e}")
+
+    threading.Thread(target=_do, daemon=True).start()
+
+
+def _edit(chat_id: str, message_id: int, text: str, buttons: list | None = None) -> None:
+    """Xabarni tahrirlaydi (inline tugma oqimi uchun) — NON-BLOKING."""
+    if not BOT_TOKEN:
+        return
+    data = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "HTML"}
+    data["reply_markup"] = _kb(buttons) if buttons else json.dumps({"inline_keyboard": []})
+
+    def _do():
+        try:
+            requests.post(f"{API}/editMessageText", data=data, timeout=10)
+        except Exception as e:
+            print(f"[bot] edit xato: {e}")
+
+    threading.Thread(target=_do, daemon=True).start()
+
+
+def _answer_callback(cb_id: str, text: str = "") -> None:
+    """Callback'ni tasdiqlaydi (tugmadagi 'soat' belgisini yo'qotadi) — NON-BLOKING."""
+    if not BOT_TOKEN:
+        return
+
+    def _do():
+        try:
+            requests.post(f"{API}/answerCallbackQuery",
+                          data={"callback_query_id": cb_id, "text": text}, timeout=10)
+        except Exception as e:
+            print(f"[bot] answerCallback xato: {e}")
 
     threading.Thread(target=_do, daemon=True).start()
 
@@ -469,6 +510,7 @@ BOT_COMMANDS = []
 for _key, _label in _MENU_SECTIONS:
     BOT_COMMANDS.append({"command": f"{_key}_dev",  "description": f"{_label} — DEV"})
     BOT_COMMANDS.append({"command": f"{_key}_prod", "description": f"{_label} — PROD (jonli!)"})
+BOT_COMMANDS = [{"command": "run", "description": "Test ishga tushirish (tugma bilan tanlash)"}] + BOT_COMMANDS
 BOT_COMMANDS += [
     {"command": "stop",    "description": "Ishlab turgan testlarni to'xtatish"},
     {"command": "status",  "description": "Holat + qaysi muhit/bo'lim ekani"},
@@ -494,6 +536,65 @@ def _register_commands() -> None:
         print(f"[bot] setMyCommands xato: {e}")
 
 
+def _confirm_prod(chat_id: str, target: str) -> None:
+    """PROD (jonli server) runи oldidan TASDIQ so'raydi (inline tugma). Bexosdan
+    jonli serverга test qilib qo'yishdan saqlaydi."""
+    _send(
+        "\U0001F534 <b>PROD — jonli server!</b>\n"
+        f"<b>{TARGET_LABELS.get(target, target)}</b> ni jonli serverда ishga "
+        "tushiramizmi?\n<i>(real ma'lumot yaratiladi/o'zgaradi)</i>",
+        chat_id,
+        buttons=[[("✅ Ha, PROD", f"go:{target}:prod"), ("❌ Yo'q", "x")]],
+    )
+
+
+def _request_run(chat_id: str, env: str, target: str, reply_to: int | None = None) -> None:
+    """Run so'rovi: PROD bo'lsa avval TASDIQ so'raydi, DEV bo'lsa darhol boshlaydi."""
+    if env == "prod":
+        _confirm_prod(chat_id, target)
+    else:
+        _start_tests(chat_id, env, target, reply_to=reply_to)
+
+
+def _run_menu(chat_id: str) -> None:
+    """/run — guided oqim: bo'limni tanlash (inline tugmalar)."""
+    rows = [[(TARGET_LABELS[t], f"sec:{t}")] for t in TARGETS]
+    _send("\U0001F680 <b>Test ishga tushirish</b>\nBo'limni tanlang:", chat_id, buttons=rows)
+
+
+def _handle_callback(cb: dict) -> None:
+    """Inline tugma bosilganda (callback_query) oqimni davom ettiradi:
+    bo'lim → muhit → (PROD tasdiq) → ishga tushirish."""
+    cb_id = cb.get("id", "")
+    data = cb.get("data", "")
+    msg = cb.get("message", {})
+    chat_id = str(msg.get("chat", {}).get("id"))
+    msg_id = msg.get("message_id")
+    _answer_callback(cb_id)  # tugmadagi "soat"ni yo'qotamiz
+    parts = data.split(":")
+    if parts[0] == "sec" and len(parts) == 2:          # bo'lim tanlandi → muhit
+        target = parts[1]
+        _edit(chat_id, msg_id,
+              f"\U0001F4E6 <b>{TARGET_LABELS.get(target, target)}</b> — muhitni tanlang:",
+              buttons=[[("🟢 DEV", f"go:{target}:dev"), ("🔴 PROD", f"cfp:{target}")],
+                       [("❌ Bekor", "x")]])
+    elif parts[0] == "cfp" and len(parts) == 2:        # PROD tanlandi → tasdiq
+        target = parts[1]
+        _edit(chat_id, msg_id,
+              "\U0001F534 <b>PROD — jonli server!</b>\n"
+              f"<b>{TARGET_LABELS.get(target, target)}</b> ni ishga tushiramizmi? "
+              "<i>(real ma'lumot)</i>",
+              buttons=[[("✅ Ha, PROD", f"go:{target}:prod"), ("❌ Yo'q", "x")]])
+    elif parts[0] == "go" and len(parts) == 3:         # tasdiqlandi → boshlash
+        target, env = parts[1], parts[2]
+        _edit(chat_id, msg_id,
+              f"\U0001F680 Ishga tushmoqda — <b>{TARGET_LABELS.get(target, target)}</b> "
+              f"({ENV_LABELS.get(env, env)})")
+        _start_tests(chat_id, env, target)
+    elif parts[0] == "x":                               # bekor
+        _edit(chat_id, msg_id, "❌ Bekor qilindi.")
+
+
 def _handle(text: str, chat_id: str, msg_id: int | None = None) -> None:
     """Bitta buyruqni bajaradi. ``msg_id`` — buyruq xabari (band bo'lsa unga reply).
     Slash menyu: /start_dev /start_prod /stop /status /help. Slash'siz matn ham:
@@ -511,17 +612,19 @@ def _handle(text: str, chat_id: str, msg_id: int | None = None) -> None:
             cmd = stripped
     # "<bo'lim>_<env>" slash buyruqlari: start_dev, setup_prod, main_dev, ...
     sub = cmd.rsplit("_", 1)
-    if cmd in ("start_dev", "start_prod"):
+    if cmd == "run":
+        _run_menu(chat_id)   # guided oqim (inline tugmalar)
+    elif cmd in ("start_dev", "start_prod"):
         env = "dev" if cmd == "start_dev" else "prod"
-        _start_tests(chat_id, env, rest[0] if rest else DEFAULT_TARGET, reply_to=msg_id)
+        _request_run(chat_id, env, rest[0] if rest else DEFAULT_TARGET, reply_to=msg_id)
     elif len(sub) == 2 and sub[1] in ENV_LABELS and sub[0] in TARGETS:
-        _start_tests(chat_id, sub[1], sub[0], reply_to=msg_id)   # main_dev -> dev/main
+        _request_run(chat_id, sub[1], sub[0], reply_to=msg_id)   # main_dev -> dev/main
     elif cmd == "start":
         if rest:
-            # "start dev main" — matn shakli: test ishga tushiradi
+            # "start dev main" — matn shakli: test ishga tushiradi (prod → tasdiq)
             run_env = rest[0]
             target = rest[1] if len(rest) > 1 else DEFAULT_TARGET
-            _start_tests(chat_id, run_env, target, reply_to=msg_id)
+            _request_run(chat_id, run_env, target, reply_to=msg_id)
         else:
             # yakka /start — onboarding (to'liq ma'lumot)
             _send(START_MSG, chat_id)
@@ -573,6 +676,16 @@ def main() -> None:
 
         for upd in resp.get("result", []):
             offset = upd["update_id"] + 1
+            # Inline tugma bosildi (callback_query) — guided oqim
+            cb = upd.get("callback_query")
+            if cb:
+                cid = str(cb.get("message", {}).get("chat", {}).get("id"))
+                if cid in ALLOWED_CHATS:
+                    try:
+                        _handle_callback(cb)
+                    except Exception as e:
+                        print(f"[bot] callback xato: {e}")
+                continue
             msg = upd.get("message") or upd.get("edited_message")
             if not msg:
                 continue

@@ -406,6 +406,23 @@ def _send_telegram_photo(png_bytes: bytes, caption: str) -> None:
         print(f"[Telegram] rasm yuborishda xato: {e}")
 
 
+def _pin_telegram(message_id, pin: bool = True) -> None:
+    """Progress xabarini chatда tepaga QADAYDI (pin) — yuqoriга surilib ketmasin,
+    jonli holat doim ko'z oldida tursin. ``pin=False`` — pinni oladi (run tugagach)."""
+    if not TG_BOT_TOKEN or not TG_CHAT_ID or not message_id:
+        return
+    method = "pinChatMessage" if pin else "unpinChatMessage"
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TG_BOT_TOKEN}/{method}",
+            data={"chat_id": TG_CHAT_ID, "message_id": message_id,
+                  "disable_notification": True},
+            timeout=10,
+        )
+    except Exception as e:
+        print(f"[Telegram] pin xato: {e}")
+
+
 # Progress xabarining msg_id + joriy matnini shu faylga yozamiz — Telegram bot
 # (ALOHIDA jarayon) uni o'qib, test ishlab turganда yangi start bosilса o'sha
 # xabarning O'ZIGA vaqtincha "band" ogohlantirishini chaqillatadi (yangi xabar
@@ -455,7 +472,14 @@ _progress = {
     "last_edit": 0.0,
     "suite": "",   # qaysi bo'lim(lar) ishlayapti — Telegram xabarlarida ko'rsatiladi
     "current": "", # joriy ishlab turgan test nomi (jonli, /status uchun)
+    "start_ts": 0.0,  # run boshlangan vaqt (o'tган vaqt/ETA uchun)
 }
+
+
+def _fmt_dur(seconds: float) -> str:
+    """125 → '2:05' (daqiqa:sekund)."""
+    seconds = int(seconds)
+    return f"{seconds // 60}:{seconds % 60:02d}"
 
 # Progress barni JUDA tez-tez tahrirlamaslik uchun minimal interval (sekund).
 # editMessageText'ni har testda chaqirish (~2×test soni) test oqimini
@@ -527,6 +551,11 @@ def _render_progress(current_name: str | None = None) -> str:
         _progress_bar(pct),
         f"✅ {_progress['passed']}   ❌ {_progress['failed']}   ⏳ {done}/{_progress['total']}",
     ]
+    # O'tган vaqt + taxminiy qolgan (ETA) — done'ga qarab proyeksiya
+    if _progress["start_ts"] and done:
+        elapsed = time.time() - _progress["start_ts"]
+        eta = elapsed / done * (total - done)
+        lines.append(f"⏱ {_fmt_dur(elapsed)} o'tdi · ~{_fmt_dur(eta)} qoldi")
     if current_name:
         lines.append(f"▶️ <code>{current_name}</code>")
     return "\n".join(lines)
@@ -551,9 +580,12 @@ def pytest_collection_finish(session):
     _progress["passed"] = 0
     _progress["failed"] = 0
     _progress["suite"] = _suite_label(session.items)
+    _progress["current"] = ""
+    _progress["start_ts"] = time.time()
     text = _render_progress()
     _progress["msg_id"] = _send_telegram(text)
     _persist_progress(text)  # bot o'qishi uchun (band-flash)
+    _pin_telegram(_progress["msg_id"], pin=True)  # tepaga qadaymiz — ko'z oldida tursin
 
 
 def pytest_runtest_logstart(nodeid, location):
@@ -664,6 +696,7 @@ def pytest_sessionfinish(session, exitstatus):
         # bo'lmasa (Telegram o'chiq/xato) yangi xabar sifatida yuboramiz.
         if _progress["msg_id"]:
             _edit_telegram(_progress["msg_id"], final_text)
+            _pin_telegram(_progress["msg_id"], pin=False)  # run tugadi — pinni olamiz
         else:
             _send_telegram("\n".join(lines))
 
