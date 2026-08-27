@@ -3,9 +3,11 @@ name: E2E (Playwright)
 # NIMA ISHLAYDI
 # ------------
 # Suite ikki jadval bo'yicha, TURLI bo'limlar bilan ishlaydi:
-#   * Har 2 soatda   → setup + group_a  (tez/kritik: basic create + zakaz oqimi)
-#   * Har 12 soatda  → regression       (og'ir to'liq CRUD; Toshkent 08:00 / 20:00)
+#   * Har 2 soatda   → setup + group_a               (tez/kritik: basic create + zakaz)
+#   * Har 12 soatda  → regression + main + document  (og'ir to'liq CRUD; Toshkent 08:00 / 20:00)
 # GitHub cron UTC bo'yicha: "0 3,15 * * *" = Toshkent (UTC+5) 08:00 va 20:00.
+# 12 soatlik run uch bo'limni BITTA pytest chaqiruvida (bitta login zanjiri, bitta
+# Telegram progress xabari) ketma-ket ishlatadi — ulashilgan akkaunt uchun xavfsiz.
 #
 # Har scheduled hodisa BUTUN workflow'ni ishga tushiradi — kerakli job'ni
 # `github.event.schedule` bo'yicha `if:` ajratadi, shuning uchun bir vaqtda
@@ -28,12 +30,12 @@ on:
         description: "Qaysi bo'lim ishga tushsin"
         type: choice
         options:
-          - setup_groupa
-          - regression
+          - setup_groupa            # setup + group_a
+          - regression              # regression + main + document
         default: setup_groupa
   schedule:
     - cron: "0 */2 * * *"     # har 2 soatda → setup + group_a
-    - cron: "0 3,15 * * *"    # har 12 soatda → regression (Toshkent 08:00 / 20:00)
+    - cron: "0 3,15 * * *"    # har 12 soatda → regression + main + document (Toshkent 08:00 / 20:00)
 
 concurrency:
   group: e2e-shared-account    # ulashilgan akkaunt — overlapping run YO'Q
@@ -76,13 +78,13 @@ jobs:
           path: test-results/allure-results
           if-no-files-found: ignore
 
-  # ── Har 12 soatda: regression (to'liq CRUD) ──────────────────────────────────
+  # ── Har 12 soatda: regression + main + document (to'liq CRUD, bitta seans) ────
   regression:
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 3,15 * * *') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'regression')
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     env:
       HEADLESS: "1"
       TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
@@ -98,8 +100,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           python -m playwright install --with-deps chromium
-      - name: Run regression
-        run: python -m pytest tests/test_regression/test_all_regression.py -v
+      - name: Run regression + main + document
+        run: >-
+          python -m pytest
+          tests/test_regression/test_all_regression.py
+          tests/test_main/test_all_main.py
+          tests/test_document/test_all_document_runner.py
+          -v
       - name: Upload Allure results
         if: always()
         uses: actions/upload-artifact@v4
