@@ -131,6 +131,32 @@ def _send(text: str, chat_id: str | None = None, reply_to: int | None = None,
     threading.Thread(target=_do, daemon=True).start()
 
 
+def _send_autodelete(text: str, chat_id: str | None = None, ttl: int = 25) -> None:
+    """Xabar yuboradi va ``ttl`` soniyadan keyin O'ZINI o'chiradi — /status
+    suratkash (snapshot) bo'lgani uchun eski qiymatli xabarlar chatда qolib
+    chalkashtirmasin. NON-BLOKING (fon thread)."""
+    if not BOT_TOKEN:
+        return
+    target = chat_id or CHAT_ID
+
+    def _do():
+        try:
+            r = requests.post(
+                f"{API}/sendMessage",
+                data={"chat_id": target, "text": text, "parse_mode": "HTML"},
+                timeout=10,
+            )
+            mid = r.json().get("result", {}).get("message_id") if r.ok else None
+            if mid:
+                time.sleep(ttl)
+                requests.post(f"{API}/deleteMessage",
+                              data={"chat_id": target, "message_id": mid}, timeout=10)
+        except Exception as e:
+            print(f"[bot] autodelete xato: {e}")
+
+    threading.Thread(target=_do, daemon=True).start()
+
+
 def _edit(chat_id: str, message_id: int, text: str, buttons: list | None = None) -> None:
     """Xabarni tahrirlaydi (inline tugma oqimi uchun) — NON-BLOKING."""
     if not BOT_TOKEN:
@@ -441,15 +467,18 @@ def _stop_tests(chat_id: str) -> None:
 
 
 def _status(chat_id: str) -> None:
+    # /status — SURATKASH: eski qiymatli xabar chatда qolmasin deb ~25s da o'zini
+    # o'chiradi (foydalanuvchi so'rovi — chalkashlik bo'lmasin). Jonli ko'rish
+    # uchun pin qilingan progress xabari bor.
     if _is_running():
         # To'liq jonli progress (foiz, passed/failed, joriy test) conftest yozgan
         # progress faylida — o'shani ko'rsatamiz. Yo'q bo'lsa (run endigina
         # boshlangan yoki eski kodli run) asosiy ma'lumot bilan cheklanamiz.
         info = _read_progress_file()
         if info and info.get("text"):
-            _send(f"{info['text']}\n\nTo'xtatish: /stop", chat_id)
+            _send_autodelete(f"{info['text']}\n\nTo'xtatish: /stop", chat_id)
         else:
-            _send(
+            _send_autodelete(
                 "\U0001F7E2 <b>Ishlamoqda</b>\n"
                 f"{_run_block(_run_env, _run_target)}\n\n"
                 "(jonli progress hali tayyor emas — bir zumdan keyin /status)\n"
@@ -457,7 +486,7 @@ def _status(chat_id: str) -> None:
                 chat_id,
             )
     else:
-        _send(
+        _send_autodelete(
             "⚪️ <b>Bo'sh</b> — test ishlamayapti\n"
             "Boshlash: /start_dev (hammasi) yoki bo'lim buyrug'i — /help",
             chat_id,
