@@ -383,10 +383,13 @@ def _stop_tests(chat_id: str) -> None:
     pid = _running_pid()
     try:
         if os.name == "nt":
-            # /T — butun daraxt (pytest + chromium jarayonlari), /F — majburiy
+            # /T — butun daraxt (pytest + chromium jarayonlari), /F — majburiy.
+            # CREATE_NO_WINDOW: bot pythonw (oynasiz) bo'lgani uchun taskkill konsol
+            # OYNA chaqnatmasligi uchun (foydalanuvchi kuzatuvi: "terminal ochilyapti").
             subprocess.run(
                 ["taskkill", "/PID", str(pid), "/T", "/F"],
                 capture_output=True, timeout=30,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
         elif _proc is not None:
             _proc.send_signal(signal.SIGTERM)
