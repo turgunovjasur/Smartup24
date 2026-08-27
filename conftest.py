@@ -364,13 +364,16 @@ def _send_telegram(text: str) -> int | None:
         return None
 
 
-def _edit_telegram(message_id: int, text: str) -> None:
+def _edit_telegram(message_id: int, text: str, sync: bool = False) -> None:
     """Oldin yuborilgan Telegram xabarini (``message_id``) yangilaydi.
 
-    NON-BLOKING: tarmoq chaqiruvi FON thread'ida bajariladi — test jarayoni
-    Telegram javobini KUTMAYDI (aks holda har tahrir ~300ms test vaqtini yerdi,
-    40 daqiqalik runда bir necha daqiqa). Matn o'zgarmasa "message is not modified"
-    (400) — bu xato emas. Tarmoq/API xatosi runni yiqitmaydi."""
+    Oddiy (oraliq) tahrirlar NON-BLOKING: tarmoq chaqiruvi FON thread'ida — test
+    jarayoni Telegram javobini KUTMAYDI (aks holda har tahrir ~300ms test vaqtini
+    yerdi). LEKIN ``sync=True`` — SINXRON (bloklaydi): YAKUNIY tahrir va OXIRGI test
+    uchun SHART, chunki pytest jarayoni sessionfinish'дан keyin DARHOL chiqadi va
+    daemon thread'даги tugamаган so'rov O'LADI (bag: yakuniy 'test yakunlandi'
+    xabari kelmasdi, progress muzlab qolardi — 2026-08-27). Matn o'zgarmasa
+    "message is not modified" (400) — xato emas. Tarmoq/API xatosi runni yiqitmaydi."""
     if not TG_BOT_TOKEN or not TG_CHAT_ID or not message_id:
         return
     url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/editMessageText"
@@ -386,7 +389,10 @@ def _edit_telegram(message_id: int, text: str) -> None:
         except Exception as e:
             print(f"[Telegram] tahrirlashda xato: {e}")
 
-    threading.Thread(target=_do, daemon=True).start()
+    if sync:
+        _do()  # jarayon chiqishдан oldin so'rov TUGAsin
+    else:
+        threading.Thread(target=_do, daemon=True).start()
 
 
 def _send_telegram_photo(png_bytes: bytes, caption: str) -> None:
@@ -630,7 +636,8 @@ def pytest_runtest_logreport(report):
     if not is_last and now - _progress["last_edit"] < _PROGRESS_MIN_INTERVAL:
         return
     _progress["last_edit"] = now
-    _edit_telegram(_progress["msg_id"], text)
+    # Oxirgi test — SINXRON (jarayon chiqishдан oldin so'rov tugasin)
+    _edit_telegram(_progress["msg_id"], text, sync=is_last)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -695,7 +702,9 @@ def pytest_sessionfinish(session, exitstatus):
         # YAKUNIY holatga TAHRIRLAYMIZ — yangi xabar yubormaymiz. Progress
         # bo'lmasa (Telegram o'chiq/xato) yangi xabar sifatida yuboramiz.
         if _progress["msg_id"]:
-            _edit_telegram(_progress["msg_id"], final_text)
+            # SINXRON: jarayon shu funksiyadan keyin DARHOL chiqadi — daemon
+            # thread'да bo'lsa yakuniy xabar yuborilmay qolardi (2026-08-27 bug).
+            _edit_telegram(_progress["msg_id"], final_text, sync=True)
             _pin_telegram(_progress["msg_id"], pin=False)  # run tugadi — pinni olamiz
         else:
             _send_telegram("\n".join(lines))
