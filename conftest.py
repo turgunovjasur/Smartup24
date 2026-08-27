@@ -888,7 +888,11 @@ def pytest_runtest_makereport(item, call):
                         document.body.appendChild(dot);
                     }
                 """)
-                screenshot = page.screenshot(full_page=True)
+                # QISQA timeout (8s): buzuq/muzlagan brauzerда screenshot default
+                # 60s osilib, makereport'ni (asosiy thread) bloklab, progress'ni
+                # muzlatardi (2026-08-27: ketma-ket FAILED testlarда progress qotib
+                # qolgan edi). Osilsa — screenshot'siz o'tamiz.
+                screenshot = page.screenshot(full_page=True, timeout=8000)
                 allure.attach(
                     screenshot,
                     name="screenshot",
@@ -899,7 +903,7 @@ def pytest_runtest_makereport(item, call):
                 # nisbat cheklovidan o'tmasligi mumkin, viewport toza ko'rinadi.
                 if len(_failure_shots) < _MAX_FAILURE_SHOTS:
                     try:
-                        _failure_shots.append((_short_nodeid(item.nodeid), page.screenshot()))
+                        _failure_shots.append((_short_nodeid(item.nodeid), page.screenshot(timeout=8000)))
                     except Exception:
                         pass
             except Exception:
