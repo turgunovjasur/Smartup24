@@ -1035,7 +1035,23 @@ class BasePage:
         tugmasi DOM'dan yo'qoladi — shu sabab yo'qolishini kutamiz; hali ko'rinib
         tursa (= forma yopilmagan = saqlanmagan) BIR marta qayta bosamiz. Tugma
         yo'qolgan bo'lsa qayta bosMAYMIZ, shuning uchun dubl submit bo'lmaydi."""
-        button = self.click_button(button_name, exact=exact)
+        # Oldingi amaldan (masalan Категории select) qolgan list-loader Save klikni
+        # "intercepts pointer events" bilan to'sib, forma async re-init'да tugma
+        # DOM'dan uzilib 60s timeout berardi (group_a product/category, 2026-08-27).
+        # 1s-probe'li wait_for_loader KECH kelgan (>1s) list-loader'ni o'tkazib
+        # yuborardi; shuning uchun to'liq `_settle()` (loader hidden + networkidle)
+        # bilan forma init fetch'i tugashini kutamiz — klik paytida loader chiqmaydi.
+        # Baribir chiqib klikni yutsa (60s timeout), bir marta settle qilib qayta
+        # bosamiz; ikkinchisi ham tushsa xatoni ko'taramiz.
+        button = None
+        for _click_attempt in range(2):
+            self._settle()
+            try:
+                button = self.click_button(button_name, exact=exact)
+                break
+            except PlaywrightTimeoutError:
+                if _click_attempt == 1:
+                    raise
         self.wait_for_loader()
         try:
             # Saqlash muvaffaqiyatli bo'lsa forma yopiladi, tugma yo'qoladi.

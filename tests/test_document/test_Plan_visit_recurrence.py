@@ -225,7 +225,9 @@ def cookie_from_context(ctx, agent_login: str, password: str) -> str:
     ham). Context tashqaridan beriladi — pytest'ning `page` fixture'i (ishlab
     turgan sync Playwright) ichida ham chaqirsa bo'ladi (nested sync_playwright YO'Q)."""
     p = ctx.new_page()
-    p.goto(LOGIN_URL)
+    # Default goto timeout 30s — dev-server sekin javob berganda login sahifasi
+    # yuklanmay 040 broken bo'lardi; loyiha navigatsiya timeout'i (60s) beriladi.
+    p.goto(LOGIN_URL, timeout=60_000)
     p.get_by_role("textbox", name="Логин").fill(agent_login)
     p.get_by_role("textbox", name="Введите пароль").fill(password)
     p.get_by_role("button", name="Войти").click()
@@ -608,8 +610,21 @@ def run_monthly(page: Page, agent: str) -> None:
 
     with allure.step(f"{MONTH_SECTION}: sanalarni tekshirish"):
         horizon = today + timedelta(days=WINDOW_DAYS)
-        group = [d for d in _plan_dates(page)
-                 if d.day == today.day and today <= d <= horizon]
+
+        def _current_group() -> list[date]:
+            return [d for d in _plan_dates(page)
+                    if d.day == today.day and today <= d <= horizon]
+
+        # Plan grid save'дан keyin ASINXRON renderlanadi — bir martalik o'qishда
+        # _plan_dates bo'sh qaytib, bugungi visit "yaratilmadi" bo'lib xato berardi
+        # (plan-dates-async-grid-flaky; _run_week_interval'dagi kabi). Bugungi kun
+        # guruhda paydo bo'lguncha (yoki deadline) qayta o'qiymiz.
+        deadline = time.monotonic() + 15
+        group = _current_group()
+        while today not in group and time.monotonic() < deadline:
+            page.wait_for_timeout(1_000)
+            group = _current_group()
+
         assert today in group, f"{MONTH_SECTION}: bugungi visit yaratilmadi ({group})"
         # keyingi oy shu kuni (31 kunlik oyna chegarasida) — bo'lsa ham xato emas
         ny, nm = (today.year + (today.month == 12), today.month % 12 + 1)

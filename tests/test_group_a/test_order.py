@@ -116,9 +116,15 @@ def run_order(page: Page, code, product_name=None) -> None:
         # to'g'ridan-to'g'ri o'tadi; xavfsizlik uchun bir marta qayta uriniladi.
         error_dialog = page.get_by_role("dialog").filter(has_text="Не указано количество")
         for attempt in range(2):
+            # Save klikni fon list-loader "intercepts pointer events" bilan
+            # to'sib, forma "Заказ (создание)"да qolib ketardi (group_a 217,
+            # 2026-08-27); klikdan OLDIN to'liq settle (loader hidden + networkidle)
+            # qilamiz — 1s-probe wait_for_loader kech kelgan loaderni o'tkazib
+            # yuborardi. Heading kutish ham 8s→15s — sekin order save redirect'iga chidamli.
+            m.settle()
             m.click_button("Сохранить")
             try:
-                m.expect_heading("Заказы", timeout=8_000)
+                m.expect_heading("Заказы", timeout=15_000)
                 break
             except AssertionError:
                 if attempt == 1:
