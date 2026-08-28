@@ -19,6 +19,7 @@ Ichma-ich ham bo'ladi (eng ichkisi ko'rsatiladi):
 Test KETMA-KET ishlaydi (session_page, bitta jarayon), shuning uchun bitta global
 holat yetarli — thread/parallel murakkabligi yo'q.
 """
+import functools
 from contextlib import contextmanager
 
 # Joriy biznes-qadam tavsiflari steki (ichma-ich qadamlar uchun)
@@ -42,6 +43,31 @@ def qa_step(description: str):
         yield
     finally:
         _stack.pop()
+
+
+def qa_action(template: str):
+    """DEKORATOR — BasePage metodini biznes tavsif bilan o'raydi (metod mantig'iga
+    TEGMAYDI). ``template`` — metod argumentlaridan to'ldiriladigan format:
+    ``{0}`` = 1-foydali argument (self'дан keyingi). To'ldirib bo'lmasa (argument
+    kwarg bilan berilса) template o'zi ishlatiladi.
+
+    Namuna:
+        @qa_action("Ro'yxatдан «{0}» ni topish")
+        def grid_row(self, text, ...): ...
+    -> grid_row yiqilса Telegram'да: "↳ Ro'yxatдан «field-group-123» ni topish —
+       element vaqtida topilmadi"
+    """
+    def deco(method):
+        @functools.wraps(method)
+        def wrapper(*args, **kwargs):
+            try:                      # args[0]=self; foydali argumentlar args[1:]
+                desc = template.format(*args[1:], **kwargs)
+            except Exception:
+                desc = template
+            with qa_step(desc):
+                return method(*args, **kwargs)
+        return wrapper
+    return deco
 
 
 def friendly_reason(exc: BaseException | None) -> str:

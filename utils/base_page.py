@@ -5,6 +5,8 @@ import time
 from playwright.sync_api import expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from utils.qa_report import qa_action
+
 
 logger = logging.getLogger(__name__)
 
@@ -385,6 +387,7 @@ class BasePage:
         except PlaywrightTimeoutError:
             option.evaluate("el => el.click()")
 
+    @qa_action("«{0}» ni ro'yxatдан tanlash")
     def select(
         self,
         option_text,
@@ -614,6 +617,7 @@ class BasePage:
         "passive": r"passive|Неактивный|Пассивный",
     }
 
+    @qa_action("Ro'yxatдан «{0}» ni topish")
     def grid_row(self, text, *contains, row_selector=".smt-data-row"):
         """``text`` bo'yicha grid qatorini (``.smt-data-row``) topadi, ko'rinishini va
         (berilgan bo'lsa) ``contains`` dagi har bir matnni o'z ichiga olishini tekshiradi.
@@ -757,6 +761,7 @@ class BasePage:
         if close:
             dialog.get_by_role("button", name="Закрыть").first.click()
 
+    @qa_action("«{0}» qatorini ochish")
     def click_grid_row(self, text, row_selector=".smt-data-row"):
         self._settle()
         row = self.grid_row(text, row_selector=row_selector)
@@ -854,6 +859,7 @@ class BasePage:
             if self.page.get_by_text("Нет результатов", exact=True).count() == 0:
                 return
 
+    @qa_action("Statusni «{0}» ga o'zgartirish")
     def change_status(self, option_text, *, button_name="Изменить статус"):
         """Tanlangan qatorning statusini o'zgartiradi.
 
@@ -1024,6 +1030,7 @@ class BasePage:
                 continue
         return result
 
+    @qa_action("Formani saqlash (Сохранить)")
     def save(self, *, button_name="Сохранить", exact=True):
         """Сохранить bosadi va saqlash haqiqatan amalga oshganini tasdiqlaydi.
 

@@ -24,7 +24,6 @@ from playwright.sync_api import Page, expect
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
-from utils.qa_report import qa_step
 
 MENU = "Группа полей"
 CREATE_HEADING = "Группа полей (Создания)"
@@ -55,9 +54,7 @@ def run_field_group(page: Page, code, name=None, order="50") -> str:
         flow_navigate(page, tab="Модератор", name=MENU)
         m.expect_heading(MENU)
         m.search(name)
-        # qa_step: yiqilса Telegram'ga tushunarsiz lokator o'rniga biznes tavsif chiqadi
-        with qa_step(f"Saqlangan '{name}' ni ro'yxatдан topish (qidiruv natijasidа)"):
-            m.grid_row(name)
+        m.grid_row(name)   # base_page.grid_row endi qa_action bilan — biznes tavsif avtomat
 
     return name
 
