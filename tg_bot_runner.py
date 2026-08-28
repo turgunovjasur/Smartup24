@@ -495,23 +495,24 @@ def _stop_tests(chat_id: str) -> None:
 
 
 def _status(chat_id: str) -> None:
-    # /status — SURATKASH: eski qiymatli xabar chatда qolmasin deb ~25s da o'zini
-    # o'chiradi (foydalanuvchi so'rovi — chalkashlik bo'lmasin). Jonli ko'rish
-    # uchun pin qilingan progress xabari bor.
+    # /status — SURATKASH: eski qiymatli xabar chatда qolmasin deb ~90s da o'zini
+    # o'chiradi. 25s JUDA QISQA edi — foydalanuvchi kechroq qarasa "kelmadi"dek
+    # tuyulardi. 90s: aniq ko'rasiz, keyin o'chadi. Jonli ko'rish uchun progress
+    # xabari bor.
     if _is_running():
         # To'liq jonli progress (foiz, passed/failed, joriy test) conftest yozgan
         # progress faylida — o'shani ko'rsatamiz. Yo'q bo'lsa (run endigina
         # boshlangan yoki eski kodli run) asosiy ma'lumot bilan cheklanamiz.
         info = _read_progress_file()
         if info and info.get("text"):
-            _send_autodelete(f"{info['text']}\n\nTo'xtatish: /stop", chat_id)
+            _send_autodelete(f"{info['text']}\n\nTo'xtatish: /stop", chat_id, ttl=90)
         else:
             _send_autodelete(
                 "\U0001F7E2 <b>Ishlamoqda</b>\n"
                 f"{_run_block(_run_env, _run_target)}\n\n"
                 "(jonli progress hali tayyor emas — bir zumdan keyin /status)\n"
                 "To'xtatish: /stop",
-                chat_id,
+                chat_id, ttl=90,
             )
     else:
         # Lokal run yo'q — BULUT (GitHub CI) run ishlayaptimi tekshiramiz
@@ -522,13 +523,13 @@ def _status(chat_id: str) -> None:
                 f"Holat: <b>{gh.get('status')}</b>  ·  {gh.get('event')}\n"
                 "Bu LOKAL emas — /stop bilan to'xtatib bo'lmaydi (GitHub'да bekor qilinadi).\n"
                 f"{gh.get('html_url', '')}",
-                chat_id,
+                chat_id, ttl=90,
             )
         else:
             _send_autodelete(
                 "⚪️ <b>Bo'sh</b> — test ishlamayapti (lokal ham, bulut ham)\n"
                 "Boshlash: /start_dev (hammasi) yoki bo'lim buyrug'i — /help",
-                chat_id,
+                chat_id, ttl=90,
             )
 
 
