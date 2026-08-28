@@ -370,6 +370,16 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
     if _is_running():
         _flash_busy(chat_id, reply_to)   # buyruqqa aniq JAVOB (parallel imkonsiz)
         return
+    # BULUT (GitHub CI) run ishlayaptimi — ULASHILGAN akkaunt, lokal start ustiga
+    # tushmasin (parallel sessiya xatosi). CI run bulutда, /stop ta'sir qilmaydi.
+    if _github_run_active():
+        _send_autodelete(
+            "🚫 <b>Parallel run imkonsiz</b>\n"
+            "Hozir ☁️ <b>GitHub (bulut) CI run</b> ishlab turibdi — ulashilgan akkaunt.\n"
+            "U tugagach urinib ko'ring (yoki GitHub'да bekor qiling).",
+            chat_id, ttl=12,
+        )
+        return
     if run_env not in ENV_LABELS:
         _send(
             f"❌ Noma'lum muhit: <code>{run_env}</code>\n"
