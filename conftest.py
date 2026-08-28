@@ -13,6 +13,7 @@ from typing import Any, Generator
 from playwright.sync_api import sync_playwright, Browser, Page, expect
 
 from flows.flow_authorization import logout, TEST_ENV, COMPANY_CODE
+from utils.qa_report import current_step_desc, friendly_reason
 
 # .env fayldan Telegram bildirishnoma sozlamalarini o'qiymiz (fayl bo'lmasa jim o'tadi)
 load_dotenv()
@@ -537,6 +538,10 @@ def _persist_progress(text: str | None) -> None:
 _failure_shots: list[tuple[str, bytes]] = []
 _MAX_FAILURE_SHOTS = 5
 
+# Yiqilgan test → BIZNES tilida kontekst: {nodeid: {"step": tavsif, "reason": sabab}}
+# (qa_step context manager to'ldiradi; yakuniy Telegram xabarига chiqadi)
+_failure_ctx: dict[str, dict] = {}
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -769,6 +774,12 @@ def pytest_sessionfinish(session, exitstatus):
             lines.append("<b>Yiqilgan joylar:</b>")
             for rep in fail_reports[:10]:
                 lines.append(f"  ❌ <code>{_short_nodeid(rep.nodeid)}</code>")
+                # BIZNES tilida kontekst (qa_step bo'lса) — tushunarsiz stack o'rniga
+                ctx = _failure_ctx.get(rep.nodeid)
+                if ctx and ctx.get("step"):
+                    lines.append(f"     ↳ {ctx['step']} — <b>{ctx['reason']}</b>")
+                elif ctx and ctx.get("reason"):
+                    lines.append(f"     ↳ {ctx['reason']}")
             if len(fail_reports) > 10:
                 lines.append(f"  … va yana {len(fail_reports) - 10} ta")
 
@@ -788,9 +799,10 @@ def pytest_sessionfinish(session, exitstatus):
         else:
             _send_telegram("\n".join(lines))
 
-        # Yiqilgan testlarning screenshotlarini oxirida yuboramiz (xato ekran holati).
-        for name, png in _failure_shots:
-            _send_telegram_photo(png, f"❌ <code>{name}</code>")
+        # Yiqilgan testlarning screenshotlarini oxirida yuboramiz — caption'да
+        # allaqachon BIZNES tilida tavsif (qa_step) bor.
+        for caption, png in _failure_shots:
+            _send_telegram_photo(png, caption)
 
     # Progress faylini o'chiramiz — run tugadi, bot endi "band-flash" qilmasin.
     _persist_progress(None)
@@ -831,11 +843,18 @@ def _finish_allure_report(session):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Test xato bo'lganda screenshot olib Allure ga qo'shadi."""
+    """Test xato bo'lganда screenshot + BIZNES tilida sabab (qa_step) qayd etadi."""
     outcome = yield
     report = outcome.get_result()
 
     if report.when == "call" and report.failed:
+        # BIZNES tilида kontekst: ayni ishlaган qa_step tavsifi + qisqa sabab
+        # (tushunarsiz lokator/stack o'rniga). Telegram yakuniy xabarига chiqadi.
+        exc = call.excinfo.value if call.excinfo else None
+        _failure_ctx[item.nodeid] = {
+            "step": current_step_desc(),          # masalan "…'category-12343' ni tanlash"
+            "reason": friendly_reason(exc),        # masalan "element vaqtida topilmadi"
+        }
         page = item.funcargs.get("session_page") or item.funcargs.get("page")
         # Page/browser allaqachon yopilgan bo'lishi mumkin (masalan, test browser
         # crash bilan yiqilsa) — bunda hook xatosi INTERNALERROR bo'lib butun
@@ -877,7 +896,15 @@ def pytest_runtest_makereport(item, call):
                 # nisbat cheklovidan o'tmasligi mumkin, viewport toza ko'rinadi.
                 if len(_failure_shots) < _MAX_FAILURE_SHOTS:
                     try:
-                        _failure_shots.append((_short_nodeid(item.nodeid), page.screenshot(timeout=8000)))
+                        # Caption'ga BIZNES tilida tavsif (qa_step) — skrinshot bilan
+                        # birga: "❌ test — ↳ '…' ni tanlash — element topilmadi"
+                        ctx = _failure_ctx.get(item.nodeid, {})
+                        cap = f"❌ <code>{_short_nodeid(item.nodeid)}</code>"
+                        if ctx.get("step"):
+                            cap += f"\n↳ {ctx['step']} — <b>{ctx['reason']}</b>"
+                        elif ctx.get("reason"):
+                            cap += f"\n↳ {ctx['reason']}"
+                        _failure_shots.append((cap, page.screenshot(timeout=8000)))
                     except Exception:
                         pass
             except Exception:
