@@ -236,22 +236,39 @@ def _lock_active() -> int | None:
 _GH_REPO = os.getenv("GITHUB_REPO", "turgunovjasur/Smartup24")
 
 
-def _github_run_active() -> dict | None:
+# GitHub tekshiruvi HTTP so'rov (~1-2s) — /status har bosilганда takrorlansa
+# sekin tuyuladi. Natijani QISQA vaqt keshlaymiz: takroriy /status DARHOL javob
+# beradi (faqat Telegram jo'natish ~0.8s qoladi). CI runlar jadval bilan (2h/12h)
+# ishlagani uchun 60s eskirish xavfsiz; boshlashdan oldingi tekshiruv fresh=True.
+_gh_cache: dict = {"ts": 0.0, "run": None}
+_GH_CACHE_TTL = 60  # soniya
+
+
+def _github_run_active(fresh: bool = False) -> dict | None:
     """GitHub Actions'да hozir ishlab turган (in_progress/queued) CI run bormi.
     /status faqat LOKALни ko'radi — bulut run alohida (boshqa mashina). None yoki
-    run ma'lumoti ({status, html_url, created_at})."""
+    run ma'lumoti ({status, html_url, created_at}). ``fresh=True`` keshni chetlab
+    o'tadi (start oldidan parallel CI xavfsizligi uchun)."""
+    now = time.time()
+    if not fresh and (now - _gh_cache["ts"]) < _GH_CACHE_TTL:
+        return _gh_cache["run"]
+    run = None
     try:
         r = requests.get(
             f"https://api.github.com/repos/{_GH_REPO}/actions/runs?per_page=5",
-            timeout=8,
+            timeout=4,   # 8s JUDA uzoq edi (/status sekin) — 4s yetadi (odatda ~1.6s)
         )
         if r.ok:
-            for run in r.json().get("workflow_runs", []):
-                if run.get("status") in ("in_progress", "queued"):
-                    return run
+            for wr in r.json().get("workflow_runs", []):
+                if wr.get("status") in ("in_progress", "queued"):
+                    run = wr
+                    break
     except Exception as e:
         print(f"[bot] github tekshirish xato: {e}")
-    return None
+        return _gh_cache["run"]  # xato/timeout — oxirgi ma'lum holatni qaytaramiz
+    _gh_cache["ts"] = now
+    _gh_cache["run"] = run
+    return run
 
 
 def _flash_busy(chat_id: str, reply_to: int | None = None) -> None:
@@ -330,6 +347,57 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+# Bot YAGONA-instansiya qulfi (run.lock — TEST runlari uchun; bu esa BOTNING o'zi
+# uchun). Ikkita bot bir vaqtda getUpdates qilса Telegram 409 Conflict beradi va
+# buyruqlar kechikadi/yo'qoladi — Task Scheduler LogonTrigger ba'zан ikkita jarayon
+# qoldirib ketadi, shu himoya ikkinchisini darhol chiqarib yuboradi.
+_BOT_LOCK = os.path.join(PROJECT_DIR, "test-results", "bot.lock")
+
+
+def _acquire_single_instance() -> bool:
+    """Faqat BITTA bot ishlashini kafolatlaydi. Boshqa TIRIK bot bo'lsa False
+    (bu instansiya darhol chiqishi kerak). O_EXCL bilan atomik — ~1 soniyada
+    birga ishga tushган ikki jarayonda ham faqat bittasi True oladi."""
+    try:
+        os.makedirs(os.path.dirname(_BOT_LOCK), exist_ok=True)
+    except Exception:
+        pass
+    for _ in range(2):
+        try:
+            fd = os.open(_BOT_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump({"pid": os.getpid(), "ts": time.time()}, f)
+            return True
+        except FileExistsError:
+            other = None
+            for _r in range(3):          # yangi yozilayotgan bo'lsa o'qishni kutamiz
+                try:
+                    with open(_BOT_LOCK, encoding="utf-8-sig") as f:
+                        other = json.load(f).get("pid")
+                    break
+                except Exception:
+                    time.sleep(0.2)
+            if other is None:            # kimdir hozir yozyapti — ehtiyot uchun chiqamiz
+                return False
+            if other != os.getpid() and _pid_alive(other):
+                return False             # boshqa tirik bot bor
+            try:                          # egasi o'lган (stale) — tozalab qayta urinamiz
+                os.remove(_BOT_LOCK)
+            except Exception:
+                return False
+    return False
+
+
+def _release_single_instance() -> None:
+    """Toza chiqishда bot qulfini olib tashlaydi (crash bo'lса _pid_alive stale'ни qoplaydi)."""
+    try:
+        with open(_BOT_LOCK, encoding="utf-8-sig") as f:
+            if json.load(f).get("pid") == os.getpid():
+                os.remove(_BOT_LOCK)
+    except Exception:
+        pass
+
+
 def _is_running() -> bool:
     """Test jarayoni hozir ishlab turibdimi. Avval xotiradagi _proc, keyin
     marker fayl (bot qayta ishga tushган bo'lса run'ni adopt qiladi)."""
@@ -372,7 +440,8 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
         return
     # BULUT (GitHub CI) run ishlayaptimi — ULASHILGAN akkaunt, lokal start ustiga
     # tushmasin (parallel sessiya xatosi). CI run bulutда, /stop ta'sir qilmaydi.
-    if _github_run_active():
+    # fresh=True — start oldidan kesh EMAS, aniq joriy holat.
+    if _github_run_active(fresh=True):
         _send_autodelete(
             "🚫 <b>Parallel run imkonsiz</b>\n"
             "Hozir ☁️ <b>GitHub (bulut) CI run</b> ishlab turibdi — ulashilgan akkaunt.\n"
@@ -735,10 +804,36 @@ def _handle(text: str, chat_id: str, msg_id: int | None = None) -> None:
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+# Bot LOG fayli — Task Scheduler bot'ni pythonw.exe (KONSOLSIZ) bilan ishga
+# tushiradi, shuning uchun barcha print()/traceback YO'QOLADI (nega sekinlashgani
+# yoki qulaganini keyin ko'rib bo'lmaydi). stdout/stderr'ни shu faylga yo'naltiramiz.
+_BOT_LOG = os.path.join(PROJECT_DIR, "test-results", "bot.log")
+
+
+def _setup_logging() -> None:
+    """print()/traceback ni bot.log fayliga yozadi (pythonw konsolsiz). Fayl 2 MB
+    dan oshsa boshqatdan boshlaydi (cheksiz o'smasin) — vaqt tamg'asi bilan."""
+    try:
+        os.makedirs(os.path.dirname(_BOT_LOG), exist_ok=True)
+        mode = "w" if (os.path.exists(_BOT_LOG) and os.path.getsize(_BOT_LOG) > 2_000_000) else "a"
+        f = open(_BOT_LOG, mode, encoding="utf-8", errors="replace", buffering=1)  # line-buffered
+        sys.stdout = f
+        sys.stderr = f
+        print(f"\n===== [bot] start {time.strftime('%Y-%m-%d %H:%M:%S')} pid={os.getpid()} =====")
+    except Exception:
+        pass  # log ochib bo'lmasa ham bot ishlashda davom etsin
+
+
 def main() -> None:
+    _setup_logging()
     if not BOT_TOKEN or not ALLOWED_CHATS:
         print("XATO: .env da TG_BOT_TOKEN va TG_CHAT_ID (yoki TG_ADMIN_CHAT_ID) bo'lishi shart.")
         sys.exit(1)
+
+    # YAGONA-instansiya: boshqa tirik bot bo'lsa darhol chiqamiz (409 Conflict oldini olish).
+    if not _acquire_single_instance():
+        print("[bot] Boshqa bot instansiyasi allaqachon ishlab turibdi — chiqildi.")
+        sys.exit(0)
 
     print(f"[bot] ishga tushdi. Ruxsat etilgan chat(lar): {ALLOWED_CHATS}")
     print("[bot] Telegram: /start_dev /start_prod /stop /status. To'xtatish: Ctrl+C")
@@ -800,3 +895,16 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\n[bot] to'xtatildi (Ctrl+C).")
+    except Exception:
+        # Fatal qulash — Task Scheduler 1 daqiqadan keyin qayta tiklamasдан oldin
+        # sababни log faylga yozamiz (aks holda pythonw'da butunlay yo'qolardi).
+        import traceback
+        try:
+            with open(_BOT_LOG, "a", encoding="utf-8", errors="replace") as _f:
+                _f.write(f"\n===== [bot] FATAL {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
+                traceback.print_exc(file=_f)
+        except Exception:
+            pass
+        raise
+    finally:
+        _release_single_instance()
