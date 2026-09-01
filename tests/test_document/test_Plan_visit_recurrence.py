@@ -383,7 +383,11 @@ def _deactivate_agent(page: Page, m: BasePage, agent: str) -> None:
     # to'g'ridan-to'g'ri Неактивный (OFF) qilamiz
     m.checkbox(locator="smt-switch", checked=False)
     m.save()
-    m.expect_heading("Пользователи")
+    # Save redirect BARQAROR EMAS (ba'zан dashboard'ga o'tadi — run_create_agent'да
+    # qayd etilgan); expect_heading("Пользователи") shu sabab flaky yiqilardi.
+    # Deaktivatsiya save() bilan tasdiqlandi (forma yopildi) — ro'yxatga ISHONCHLI
+    # qaytamiz (heading assert emas).
+    _goto_person_users(page, m)
 
 
 def verify_visit_completed_web(page: Page, m: BasePage, agent: str, visit_id: str) -> None:

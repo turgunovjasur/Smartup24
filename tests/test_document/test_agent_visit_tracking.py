@@ -254,8 +254,13 @@ def verify_tracking(page: Page, agent: str, expected_visits: int = N_VISITS) -> 
 
     with allure.step(f"Агент '{agent}' tanlab '{expected_visits}' visitni kutish (retry)"):
         found = False
-        for attempt in range(4):
+        # API visit'lari treking agregatsiyasida KECHIKIB ko'rinadi; server YUK
+        # ostida (masalan parallel run) kechikish uzayadi — shu sabab hisoblagich
+        # aynan bu joyда flaky yiqilardi (Telegram run, 2026-08-28). Retry 4→6 va
+        # har qayta urinishдан oldin agregatsiyaga qo'shimcha vaqt (3s) beramiz.
+        for attempt in range(6):
             if attempt:
+                page.wait_for_timeout(3_000)  # agregatsiya yetguncha kutish
                 page.reload()
                 page.wait_for_url(lambda u: "user_locations" in u, timeout=30_000)
                 m.settle()
