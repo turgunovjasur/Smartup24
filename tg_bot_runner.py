@@ -35,6 +35,7 @@ import os
 import sys
 import json
 import time
+import socket
 import signal
 import threading
 import subprocess
@@ -98,6 +99,12 @@ TARGET_LABELS = {
 _proc: subprocess.Popen | None = None
 _run_env: str = DEFAULT_ENV
 _run_target: str = DEFAULT_TARGET
+
+# Oxirgi MUVAFFAQIYATLI start vaqti — uzilishdan keyin Telegram to'plab qo'ygan
+# buyruqlar bir zumda TO'P bo'lib kelganда ketma-ket ikki run ochilishini oldini
+# oladi (bot restart bo'lса _is_running xotirani yo'qotib qolса ham himoya).
+_last_start_ts: float = 0.0
+_START_DEBOUNCE = 15  # soniya
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -240,7 +247,7 @@ _GH_REPO = os.getenv("GITHUB_REPO", "turgunovjasur/Smartup24")
 # sekin tuyuladi. Natijani QISQA vaqt keshlaymiz: takroriy /status DARHOL javob
 # beradi (faqat Telegram jo'natish ~0.8s qoladi). CI runlar jadval bilan (2h/12h)
 # ishlagani uchun 60s eskirish xavfsiz; boshlashdan oldingi tekshiruv fresh=True.
-_gh_cache: dict = {"ts": 0.0, "run": None}
+_gh_cache: dict = {"ts": 0.0, "run": None, "ok": True}
 _GH_CACHE_TTL = 60  # soniya
 
 
@@ -248,7 +255,11 @@ def _github_run_active(fresh: bool = False) -> dict | None:
     """GitHub Actions'да hozir ishlab turган (in_progress/queued) CI run bormi.
     /status faqat LOKALни ko'radi — bulut run alohida (boshqa mashina). None yoki
     run ma'lumoti ({status, html_url, created_at}). ``fresh=True`` keshni chetlab
-    o'tadi (start oldidan parallel CI xavfsizligi uchun)."""
+    o'tadi (start oldidan parallel CI xavfsizligi uchun).
+
+    Tekshiruv MUVAFFAQIYATLI bo'ldimi — `_gh_cache["ok"]` da (fresh chaqiruvdan
+    keyin o'qiladi). GitHub'ga ulanib bo'lmasa (tarmoq uzilishi) `ok=False` —
+    start shunда fail-CLOSED: 'None' (run yo'q) deb noto'g'ri boshlamaymiz."""
     now = time.time()
     if not fresh and (now - _gh_cache["ts"]) < _GH_CACHE_TTL:
         return _gh_cache["run"]
@@ -258,6 +269,7 @@ def _github_run_active(fresh: bool = False) -> dict | None:
             f"https://api.github.com/repos/{_GH_REPO}/actions/runs?per_page=5",
             timeout=4,   # 8s JUDA uzoq edi (/status sekin) — 4s yetadi (odatda ~1.6s)
         )
+        _gh_cache["ok"] = bool(r.ok)   # HTTP muvaffaqiyati (500/403 = tekshirilmadi)
         if r.ok:
             for wr in r.json().get("workflow_runs", []):
                 if wr.get("status") in ("in_progress", "queued"):
@@ -265,10 +277,25 @@ def _github_run_active(fresh: bool = False) -> dict | None:
                     break
     except Exception as e:
         print(f"[bot] github tekshirish xato: {e}")
+        _gh_cache["ok"] = False       # ulanib bo'lmadi — holat NOMA'LUM
         return _gh_cache["run"]  # xato/timeout — oxirgi ma'lum holatni qaytaramiz
     _gh_cache["ts"] = now
     _gh_cache["run"] = run
     return run
+
+
+def _connectivity_ok() -> bool:
+    """Asosiy internet/DNS ulanishi bormi — TEZ tekshiruv (getaddrinfo, HTTP emas).
+    Sep 1 uzilishida aynan DNS yiqilgan ('getaddrinfo failed'): login (test_000) va
+    barcha 38 test behuda ❌ bo'lgan. Run boshlashdan oldin shu qo'riqchi — tarmoq
+    yo'q bo'lsa umuman boshlamaymiz (behuda yiqilish/parallel oldini oladi).
+    Telegram (progress uchun) VA ERP DNS'ini tekshiramiz."""
+    for host in ("api.telegram.org", "app3.greenwhite.uz"):
+        try:
+            socket.getaddrinfo(host, 443)
+        except Exception:
+            return False
+    return True
 
 
 def _flash_busy(chat_id: str, reply_to: int | None = None) -> None:
@@ -434,9 +461,31 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
                  reply_to: int | None = None) -> None:
     """Testlarni yangi subprocess'da ishga tushiradi (``run_env`` muhitida,
     ``target`` bo'limi bilan)."""
-    global _proc, _run_env, _run_target
+    global _proc, _run_env, _run_target, _last_start_ts
     if _is_running():
         _flash_busy(chat_id, reply_to)   # buyruqqa aniq JAVOB (parallel imkonsiz)
+        return
+    # DEBOUNCE: uzilishdan keyingi buyruq to'pi (Telegram yig'ib qo'ygan eski
+    # start'lar) ketma-ket ikki run ochmasin — oxirgi startdan _START_DEBOUNCE
+    # soniya o'tmaган bo'lsa rad etamiz (bot restart bo'lib _is_running xotirani
+    # yo'qotган holatда ham qo'shimcha himoya).
+    now = time.time()
+    if now - _last_start_ts < _START_DEBOUNCE:
+        _send_autodelete(
+            "⏳ <b>Endigina bir start qabul qilindi</b>\n"
+            "Bir necha soniyadan keyin urinib ko'ring (ketma-ket ikki run oldini olindi).",
+            chat_id, ttl=8,
+        )
+        return
+    # TARMOQ QO'RIQCHISI (fail-CLOSED): internet/DNS yo'q bo'lsa umuman boshlamaymiz.
+    # Sep 1 uzilishida DNS yiqilib login (test_000) va barcha test behuda ❌ bo'lgan.
+    if not _connectivity_ok():
+        _send_autodelete(
+            "🚫 <b>Internet/DNS yo'q</b>\n"
+            "Tarmoq ulanmayapti — run boshlanmadi (aks holda login yiqilib barcha "
+            "testlar behuda ❌ bo'lardi). Ulanish tiklangach urinib ko'ring.",
+            chat_id, ttl=12,
+        )
         return
     # BULUT (GitHub CI) run ishlayaptimi — ULASHILGAN akkaunt, lokal start ustiga
     # tushmasin (parallel sessiya xatosi). CI run bulutда, /stop ta'sir qilmaydi.
@@ -446,6 +495,16 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
             "🚫 <b>Parallel run imkonsiz</b>\n"
             "Hozir ☁️ <b>GitHub (bulut) CI run</b> ishlab turibdi — ulashilgan akkaunt.\n"
             "U tugagach urinib ko'ring (yoki GitHub'да bekor qiling).",
+            chat_id, ttl=12,
+        )
+        return
+    # Bulut tekshiruvi ULANOLMADI (ok=False) — holat NOMA'LUM. Fail-CLOSED:
+    # bulutda CI ketayotган bo'lса ulashilgan akkauntда to'qnashuv bo'ladi.
+    if not _gh_cache["ok"]:
+        _send_autodelete(
+            "🚫 <b>Bulut holatini tekshirib bo'lmadi</b>\n"
+            "GitHub'ga ulanib bo'lmadi — bulutда CI run ketayotган bo'lishi mumkin "
+            "(ulashilgan akkaunt). Xavfsizlik uchun rad etildi; birozdan keyin /status.",
             chat_id, ttl=12,
         )
         return
@@ -513,6 +572,7 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
         return
     _run_env = run_env
     _run_target = target
+    _last_start_ts = time.time()   # DEBOUNCE: keyingi to'p-buyruq darrov run ochmasin
     _write_marker(_proc.pid, run_env, target)  # bot qayta ishga tushса adopt qilsin
     # DOIMIY qisqa log qatori (senior yondashuv: chat = audit log, o'chirmaymiz).
     # Jonli progress esa alohida BITTA xabar bo'lib quyida yangilanadi.
@@ -531,7 +591,20 @@ def _stop_tests(chat_id: str) -> None:
     tushган bo'lса ham to'xtata oladi)."""
     global _proc
     if not _is_running():
-        _send("ℹ️ Hozir ishlab turgan test yo'q.", chat_id)
+        # Lokal run yo'q — LEKIN bulutда (GitHub CI) ketayotган bo'lishi mumkin.
+        # /status buni ko'rsatgani holда /stop bare 'test yo'q' desa ZID tuyuladi
+        # (user: status="bulut ishlayapti", stop="test yo'q"). Izchil xabar beramiz.
+        gh = _github_run_active()
+        if gh:
+            _send(
+                "ℹ️ <b>Lokal test yo'q</b> — /stop faqat shu kompyuterдagi run'ni to'xtatadi.\n"
+                "Hozir ☁️ <b>bulutда (GitHub CI) run</b> ketyapti, u boshqa mashinada — "
+                "bu yerдан to'xtatib bo'lmaydi. To'xtatmoqchi bo'lsangiz GitHub'да bekor qiling:\n"
+                f"{gh.get('html_url', '')}",
+                chat_id,
+            )
+        else:
+            _send("ℹ️ Hozir ishlab turgan test yo'q (lokal ham, bulut ham).", chat_id)
         return
     pid = _running_pid()
     try:
