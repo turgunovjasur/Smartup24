@@ -12,7 +12,7 @@ from playwright.sync_api import Page, expect
 _ENVIRONMENTS = {
     # env kaliti: (LOGIN_URL, COMPANY_CODE)
     "prod": ("https://app.smartup24.com/a2/auth/login", "test"),
-    "dev":  ("https://app3.greenwhite.uz/x24/a2/auth/login", "sm24"),
+    "dev":  ("https://app2.greenwhite.uz/x24/a2/auth/login", "sm24"),
 }
 
 TEST_ENV = (os.getenv("TEST_ENV") or "dev").strip().lower()

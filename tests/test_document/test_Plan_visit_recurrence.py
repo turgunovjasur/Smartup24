@@ -57,7 +57,7 @@ from utils.base_page import BasePage
 # flow_authorization.LOGIN_URL dan olinadi — ilgari IKKALASI ham DEV'ga qattiq
 # kodlangan edi, prod'da agent PROD'da yaratilib login DEV'ga borib timeout berardi
 #. BASE_URL = login URL'idagi "/a2/auth/login" → "/b"
-# (prod: app.smartup24.com/b ; dev: app3.greenwhite.uz/x24/b — /x24 prefiks saqlanadi).
+# (prod: app.smartup24.com/b ; dev: app2.greenwhite.uz/x24/b — /x24 prefiks saqlanadi).
 BASE_URL = LOGIN_URL.replace("/a2/auth/login", "/b")
 # Cookie domain filtri ham ENV'ga bog'liq (prod: smartup24.com, dev: greenwhite.uz) —
 # LOGIN_URL host'idan registrable domain (oxirgi 2 label) olinadi. Ilgari

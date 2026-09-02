@@ -290,7 +290,7 @@ def _connectivity_ok() -> bool:
     barcha 38 test behuda ❌ bo'lgan. Run boshlashdan oldin shu qo'riqchi — tarmoq
     yo'q bo'lsa umuman boshlamaymiz (behuda yiqilish/parallel oldini oladi).
     Telegram (progress uchun) VA ERP DNS'ini tekshiramiz."""
-    for host in ("api.telegram.org", "app3.greenwhite.uz"):
+    for host in ("api.telegram.org", "app2.greenwhite.uz"):
         try:
             socket.getaddrinfo(host, 443)
         except Exception:
@@ -707,7 +707,7 @@ START_MSG = (
     "• /document_dev — Document\n"
     "\U0001F534 PROD uchun <b>_prod</b>: /start_prod, /main_prod … (jonli server!)\n\n"
     "\U0001F310 <b>Serverlar:</b>\n"
-    "• DEV — app3.greenwhite.uz/x24 (sm24)\n"
+    "• DEV — app2.greenwhite.uz/x24 (sm24)\n"
     "• PROD — app.smartup24.com (test) \U0001F534 jonli\n\n"
     "⚠️ Bir vaqtda faqat <b>bitta</b> run — test ketayotganda yangi start rad "
     "etiladi (avval /stop).\n\n"
@@ -721,7 +721,7 @@ START_MSG = (
 SERVERS_MSG = (
     "\U0001F310 <b>Serverlar</b>\n\n"
     "\U0001F7E2 <b>DEV</b> (test muhiti)\n"
-    "https://app3.greenwhite.uz/x24\n"
+    "https://app2.greenwhite.uz/x24\n"
     "Kompaniya: <b>sm24</b>\n\n"
     "\U0001F534 <b>PROD</b> (jonli server!)\n"
     "https://app.smartup24.com\n"

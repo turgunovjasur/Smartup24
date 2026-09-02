@@ -5,7 +5,7 @@
 - Framework: pytest + playwright-python (+ allure-pytest report uchun)
 - IKKI muhit — flows/flow_authorization.py boshida ikkala juftlik yozig'liq, keraklisi komentdan ochiladi (URL va COMPANY_CODE DOIM birga almashtiriladi):
   - x24 production: https://app.smartup24.com/a2/auth/login — kompaniya `test`, admin@test / greenwhite
-  - x24 dev: https://app3.greenwhite.uz/x24/a2/auth/login — kompaniya `sm24`, admin@sm24 / greenwhite
+  - x24 dev: https://app2.greenwhite.uz/x24/a2/auth/login — kompaniya `sm24`, admin@sm24 / greenwhite
 - Admin email `admin@{COMPANY_CODE}` dan, user loginlari `<Логин>@{COMPANY_CODE}` dan avtomatik quriladi — faqat shu ikki qator almashtiriladi. DIQQAT: production'da yangi UI `/a2/...` da (prefiks YO'Q), dev'da `/x24/a2/...` da; `app.smartup24.com/login.html` — ESKI biruni UI, testlar u yerda ishlamaydi.
 - UI: yangi Angular `smt-*` komponentlari (eski `b-input`/`biruni` EMAS)
 
