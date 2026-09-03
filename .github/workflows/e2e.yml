@@ -4,8 +4,8 @@ name: E2E (Playwright)
 # ------------
 # Suite ikki jadval bo'yicha, TURLI bo'limlar bilan ishlaydi:
 #   * Har 2 soatda   → setup + group_a               (tez/kritik: basic create + zakaz)
-#   * Har 12 soatda  → regression + main + document  (og'ir to'liq CRUD; Toshkent 08:00 / 20:00)
-# GitHub cron UTC bo'yicha: "0 3,15 * * *" = Toshkent (UTC+5) 08:00 va 20:00.
+#   * Har 12 soatda  → regression + main + document  (og'ir to'liq CRUD; Toshkent 08:12 / 20:12)
+# GitHub cron UTC bo'yicha: "12 3,15 * * *" = Toshkent (UTC+5) 08:12 va 20:12.
 # 12 soatlik run uch bo'limni BITTA pytest chaqiruvida (bitta login zanjiri, bitta
 # Telegram progress xabari) ketma-ket ishlatadi — ulashilgan akkaunt uchun xavfsiz.
 #
@@ -33,9 +33,12 @@ on:
           - setup_groupa            # setup + group_a
           - regression              # regression + main + document
         default: setup_groupa
+  # DIQQAT: daqiqa ATAY :12 (":00" EMAS) — GitHub scheduled run'lar har soatning
+  # :00 daqiqasida eng yuqori yuklamaga tushib KECHIKADI yoki TASHLAB YUBORILADI
+  # (GitHub hujjati). :12 ga siljitish drop'larni kamaytiradi. Soatlar o'zgarmaydi.
   schedule:
-    - cron: "0 */2 * * *"     # har 2 soatda → setup + group_a
-    - cron: "0 3,15 * * *"    # har 12 soatda → regression + main + document (Toshkent 08:00 / 20:00)
+    - cron: "12 */2 * * *"    # har 2 soatda → setup + group_a
+    - cron: "12 3,15 * * *"   # har 12 soatda → regression + main + document (Toshkent 08:12 / 20:12)
 
 concurrency:
   group: e2e-shared-account    # ulashilgan akkaunt — overlapping run YO'Q
@@ -45,7 +48,7 @@ jobs:
   # ── Har 2 soatda: setup + group_a (bitta login, bitta seans) ─────────────────
   setup_groupa:
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 */2 * * *') ||
+      (github.event_name == 'schedule' && github.event.schedule == '12 */2 * * *') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'setup_groupa')
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -81,7 +84,7 @@ jobs:
   # ── Har 12 soatda: regression + main + document (to'liq CRUD, bitta seans) ────
   regression:
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 3,15 * * *') ||
+      (github.event_name == 'schedule' && github.event.schedule == '12 3,15 * * *') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'regression')
     runs-on: ubuntu-latest
     timeout-minutes: 180
