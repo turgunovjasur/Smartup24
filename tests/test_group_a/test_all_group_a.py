@@ -34,7 +34,6 @@ ISHGA TUSHIRISH
     python -m pytest tests/test_group_a/test_all_group_a.py -v
 """
 import allure
-import pytest
 from playwright.sync_api import Page
 
 from flows.flow_authorization import COMPANY_CODE, authorization, logout
@@ -183,18 +182,10 @@ def test_216_ga_product_linking(session_page: Page, code, runner_state) -> None:
     runner_state["ga_product_name"] = product_name
 
 
-# BACKEND BUG (2026-08-28): klient zakazini saqlashda server "Gmap:paid_delivery
-# not found" Ошибка qaytaradi (URL /x24/b/sb/sbd/client/deal+add$save) — dev
-# (sm24) backend'da `paid_delivery` Gmap konfiguratsiyasi yo'q. Bu test kodida
-# HAL BO'LMAYDI; release'да tuzatiladi. Forma to'g'ri to'ldiriladi (screenshot
-# tasdiqlagan), lekin save server-side yiqiladi → forma "Заказ (создание)"да
-# qoladi. Tarixда bu order testlari backend 500 sabab xfail edi (2026-08-26 da
-# backend tuzatilib olingan); backend YANA buzilgani uchun qayta xfail qilindi.
-# Backend tuzalganда bu testlar XPASS bo'ladi → markerlarni olib tashlash SHART.
-@pytest.mark.xfail(
-    reason="backend bug: 'Gmap:paid_delivery not found' klient zakaz save'да (release'да tuzatiladi)",
-    strict=False,
-)
+# Tarixда 'Gmap:paid_delivery not found' backend bug'i (eski sm24/app3 serverда
+# `paid_delivery` Gmap konfiguratsiyasi yo'q edi) sabab xfail edi. Server app2'ga
+# ko'chgach bug tuzaldi — zakaz save muvaffaqiyatli o'tadi (2026-09-02 tasdiqlandi),
+# shuning uchun xfail markeri olib tashlandi; endi bu HAQIQIY yashil test.
 @allure.epic("Клиент")
 @allure.feature("Group A")
 @allure.title("Group A: Заказ — klient foydalanuvchisi nomidan yaratish")
@@ -207,14 +198,8 @@ def test_217_ga_order(session_page: Page, code, runner_state) -> None:
     ga_order(session_page, ga, product_name=runner_state.get("ga_product_name"))
 
 
-# ZANJIR (217 backend bug): status o'zgartirish MANTIG'I sog'lom (qo'lda mavjud
-# zakazda postavshik status almashtira oladi — MCP/qo'lda tasdiqlangan), lekin
-# 217 backend bug sabab zakaz UMUMAN yaratilmaydi → ro'yxat bo'sh ("Нет
-# результатов"), o'zgartirishga zakaz yo'q. 217 tuzalsa bu ham avtomatik ishlaydi.
-@pytest.mark.xfail(
-    reason="217 zanjiri: zakaz backend bug ('Gmap:paid_delivery not found') sabab yaratilmaydi → status o'zgartirishga zakaz yo'q",
-    strict=False,
-)
+# 217 zanjiri: 217 zakaz yaratgach postavshik uning statusini o'zgartiradi. 217
+# backend bug'i app2'da tuzalgach bu ham avtomatik ishlaydi — xfail olib tashlandi.
 @allure.epic("Поставщик")
 @allure.feature("Group A")
 @allure.title("Group A: Статус заказа — postavshik nomidan Новый → Завершен")
