@@ -26,8 +26,10 @@ MAXSUS HOLATLAR
   manba fayllardagi ``test_recurrence_all`` / ``test_agent_visit_tracking`` zanjir
   tanasini AYNAN takrorlaydi (faqat ichki ``authorization`` olib tashlangan —
   seans allaqachon ochiq).
-- **newman (Postman CLI):** ``run_visit_check`` va ``test_040_recurrence_full``
-  mobil visitni newman bilan bajaradi — o'rnatilmagan bo'lsa skip (NEWMAN_YOQ).
+- **Mobil visit API:** ``run_visit_check`` va ``test_040_recurrence_full`` mobil
+  visitni ``utils/base_api.py`` (VisitApi, ``requests``) orqali bajaradi — newman/
+  Postman CLI bog'liqligi YO'Q, shuning uchun DOIM ishlaydi (avvalgi skip olib
+  tashlangan).
 - **route-analysis required_fields:** ilovada majburiy-sana validatsiyasi yo'q
   (bug) — ``run_required_fields`` ichida ``pytest.xfail`` chaqiriladi, shuning
   uchun bu test XFAIL bo'ladi (yiqilish EMAS; hujjatlashtirilgan holat).
@@ -63,7 +65,7 @@ from tests.test_document.test_visit import (
 )
 # --- Планирование визитов (recurrence + mobil visit bridge) ---
 from tests.test_document.test_Plan_visit_recurrence import (
-    NEWMAN_YOQ, _deactivate_agent, confirm_visit_lead, run_create_agent,
+    _deactivate_agent, confirm_visit_lead, run_create_agent,
     run_every_2_weeks, run_every_3_weeks, run_every_4_weeks, run_every_5_weeks,
     run_mobile_visit, run_monthly, run_weekly, verify_visit_completed_web,
 )
@@ -224,7 +226,6 @@ def test_024_route_required_fields(session_page: Page) -> None:
 #     Tartib MUHIM: check avval — visit bajarib lead hosil qiladi, led_shag shunga
 #     tayanadi (manba test_visit_all bilan bir xil).
 # ══════════════════════════════════════════════════════════════════════════════
-@pytest.mark.skipif(NEWMAN_YOQ, reason="newman (Postman CLI) o'rnatilmagan — `npm i -g newman`")
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.title("Визиты: visit bajarilgach Просмотр tablari + lead Подтвержден")
@@ -270,7 +271,6 @@ def test_035_visit_role_criteria(session_page: Page, code: str) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 # IV. ПЛАНИРОВАНИЕ ВИЗИТОВ — recurrence + Postman mobil visit (o'z agenti bilan)
 # ══════════════════════════════════════════════════════════════════════════════
-@pytest.mark.skipif(NEWMAN_YOQ, reason="newman (Postman CLI) o'rnatilmagan — `npm i -g newman`")
 @allure.epic("Документы")
 @allure.feature("Планирование визитов")
 @allure.title("Recurrence: barcha variantlar + Postman mobil visit (bitta agent)")

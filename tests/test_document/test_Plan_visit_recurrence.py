@@ -2,12 +2,13 @@
 
 Avval ikki fayl edi (test_visit_bridge.py + test_visit_recurrence.py) — ikkalasi ham
 visitni tekshirgani uchun 2026-07-29 da BITTA faylga birlashtirildi. Ichida:
-  - EMBEDDED Postman kolleksiyasi (newman bilan yuritiladi) + API helperlari
+  - Mobil visit API: `run_mobile_visit` — `utils/base_api.py` (VisitApi, `requests`)
+    orqali exp_client_list→begin→autosave→end→status C (newman/Postman CLI YO'Q)
   - WEB helperlari: agent yaratish, Визиты/Лиды tekshiruvлари, agent tozalash
   - recurrence CRUD: har variant ALOHIDA run_/test_ juftligi
       run_weekly / run_every_2_weeks / ... / run_every_5_weeks / run_monthly
   - OXIRIDA test_recurrence_all — bitta login + bitta agent bilan HAMMASI:
-      6 recurrence varianti + Postman mobil visit (begin→autosave→end→C) +
+      6 recurrence varianti + mobil visit (begin→autosave→end→C) +
       web'da "Завершен"+Просмотр + lead "Подтвержден" + agent Неактивный.
 
 Server rejalarni "Дата начала"dan ~1 OY (31 kun) oynada yaratadi (MCP 2026-07-28
@@ -29,278 +30,24 @@ kunini oladi (N=1→bugun, N=2→bugun+1, ...): 5/2/1/1/0 (5-hafta sanasi +32 �
 oynadan tashqarida qoladi).
 
 API tomonda: base_url=/x24/b; session=agent JSESSIONID cookie
-(HttpOnly); visit_user_id=Планы URL'idan; visit_person_id=exp_client_list avtomatik
-(person_id STRING → "to be a number" testi soxta fail, KNOWN_QUIRKS'da e'tiborsiz).
+(HttpOnly); visit_user_id=Планы URL'idan; visit_person_id=exp_client_list avtomatik.
 Mobil visit faqat BUGUNGI rejaga ishlaydi (weekly/monthly beradi; har 2/3/4/5
 hafta birinchi visiti kelajakda — exp_client_list ko'rmaydi).
-Talab (faqat newman'li testlarga): `npm i -g newman`.
 """
-import copy
-import json
-import os
 import random
 import re
-import shutil
-import subprocess
 import time
 from datetime import date, timedelta
 
 import allure
-import pytest
 from playwright.sync_api import Page, expect
 
-from flows.flow_authorization import authorization, COMPANY_CODE, LOGIN_URL
+from flows.flow_authorization import authorization, COMPANY_CODE
 from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
+from utils.base_api import VisitApi, login_cookie
 
-# Agent login (cookie_from_context) va API backend (BASE_URL) muhitga qarab
-# flow_authorization.LOGIN_URL dan olinadi — ilgari IKKALASI ham DEV'ga qattiq
-# kodlangan edi, prod'da agent PROD'da yaratilib login DEV'ga borib timeout berardi
-#. BASE_URL = login URL'idagi "/a2/auth/login" → "/b"
-# (prod: app.smartup24.com/b ; dev: app2.greenwhite.uz/x24/b — /x24 prefiks saqlanadi).
-BASE_URL = LOGIN_URL.replace("/a2/auth/login", "/b")
-# Cookie domain filtri ham ENV'ga bog'liq (prod: smartup24.com, dev: greenwhite.uz) —
-# LOGIN_URL host'idan registrable domain (oxirgi 2 label) olinadi. Ilgari
-# "greenwhite.uz" qattiq kodlangan edi → prod cookie'lari (smartup24.com) filtrlanib
-# chiqib ketib, cookie BO'SH qolar edi.
-COOKIE_DOMAIN = ".".join(LOGIN_URL.split("//", 1)[1].split("/", 1)[0].split(".")[-2:])
 MENU = "Планирование визитов"
-# Jonli cookie'li — test-results/ (gitignored) ga yoziladi, repo'ga tushmaydi
-REPORT = os.path.join("test-results", "newman_visit.json")
-FILLED_COLLECTION = os.path.join("test-results", "visit_collection_filled.json")
-
-NEWMAN_YOQ = shutil.which("newman") is None and shutil.which("newman.cmd") is None
-
-# Kolleksiyaning o'zidagi ma'lum nuqson: exp_client_list testi person_id RAQAM
-# bo'lishini kutadi, server STRING ("7193") qaytaradi — oqimga ta'siri yo'q.
-KNOWN_QUIRKS = {"captured a person_id for the scenario folder"}
-
-# --- pre-request: har so'rovga session Cookie header'ini biriktiradi ---
-_PREREQUEST = [
-    "const headerName = pm.collectionVariables.get('session_header_name');",
-    "const headerValue = pm.collectionVariables.get('session_header_value');",
-    "if (headerName && headerValue) { pm.request.headers.upsert({ key: headerName, value: headerValue }); }",
-    "pm.request.headers.upsert({ key: 'Content-Type', value: 'application/json' });",
-]
-
-
-def _req(name, body, test_exec):
-    """Postman request item yasaydi (POST + raw JSON body + test skript)."""
-    is_export = '"code": "c:exp' in body or '"code":"c:exp' in body
-    route = "export" if is_export else "import"
-    return {
-        "name": name,
-        "request": {
-            "method": "POST",
-            "header": [],
-            "body": {"mode": "raw", "raw": body, "options": {"raw": {"language": "json"}}},
-            "url": f"{{{{base_url}}}}/sb/external:{route}",
-        },
-        "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": test_exec}}],
-    }
-
-
-# --- EMBEDDED kolleksiya (faqat kerakli so'rovlar; asl body/testlari) ---
-COLLECTION = {
-    "info": {
-        "name": "Smartup24 — Mobile Visit API (Sbe_Moderator)",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    },
-    "variable": [
-        {"key": "base_url", "value": "https://REPLACE_WITH_YOUR_TEST_HOST"},
-        {"key": "session_header_name", "value": "Cookie"},
-        {"key": "session_header_value", "value": "REPLACE_WITH_REAL_SESSION_VALUE"},
-        {"key": "visit_person_id", "value": ""},
-        {"key": "visit_user_id", "value": ""},
-        {"key": "visit_id", "value": ""},
-        # Reference maydonlar — exp_client_list javobidan olinadi (default: bo'sh/null)
-        {"key": "legal_form_id", "value": "null"},
-        {"key": "step_ids", "value": "[]"},
-    ],
-    "event": [{"listen": "prerequest", "script": {"type": "text/javascript", "exec": _PREREQUEST}}],
-    "item": [
-        {
-            "name": "2. Client Search & Info (EXPORT)",
-            "item": [
-                _req(
-                    "Client list (today's plan/search) — c:exp_client_list",
-                    '[\n  {\n    "code": "c:exp_client_list",\n    "filter": {\n      "search_value": "",\n      "region_ids": [],\n      "lob_group_ids": [],\n      "sort_by": "A",\n      "row_start": 1,\n      "rows_count": 50\n    }\n  }\n]',
-                    [
-                        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                        "const body = pm.response.json();",
-                        "pm.test('tape ok', () => body.forEach(r => pm.expect(r.status, r.error_text).to.eql('S')));",
-                        "const d = body[0] && body[0].data;",
-                        "const clients = d && d.clients;",
-                        "if (clients && clients.length) {",
-                        "    const c = clients[0];",
-                        "    pm.collectionVariables.set('visit_person_id', c.person_id);",
-                        "    pm.collectionVariables.set('legal_form_id', (c.legal_form && c.legal_form.form_id) ? c.legal_form.form_id : 'null');",
-                        "    pm.collectionVariables.set('step_ids', '[]');  // prod visit_steps step_id'lari sbmv_steps FK'ida yo'q (ORA-20999) — step MAJBURIY emas, bo'sh yuboramiz",
-                        "    pm.test('captured a person_id for the scenario folder', () => pm.expect(c.person_id).to.be.a('number'));",
-                        "}",
-                    ],
-                ),
-                _req(
-                    "Client info — c:exp_client_info",
-                    '[\n  {\n    "code": "c:exp_client_info",\n    "filter": {\n      "person_id": {{visit_person_id}},\n      "user_id": {{visit_user_id}}\n    }\n  }\n]',
-                    [
-                        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                        "pm.test('tape ok', () => { const b = pm.response.json(); b.forEach(r => pm.expect(r.status, r.error_text).to.eql('S')); });",
-                    ],
-                ),
-            ],
-        },
-        {
-            "name": "5. Scenario: full visit flow (chained auto-test)",
-            "item": [
-                _req(
-                    "Step 1 — begin visit",
-                    '{\n  "code": "c:imp_visit_begin",\n  "data": {\n    "person_id": {{visit_person_id}},\n    "user_id": {{visit_user_id}},\n    "begin_latlng": "41.311081,69.240562"\n  }\n}',
-                    [
-                        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                        "const body = pm.response.json();",
-                        "pm.test('visit began', () => pm.expect(body.status, body.error_text).to.eql('S'));",
-                        "if (body.status === 'S') { pm.collectionVariables.set('visit_id', body.data.visit_id); }",
-                    ],
-                ),
-                _req(
-                    "Step 2 — autosave draft mid-visit",
-                    '{"code":"c:imp_temporary_visit_save","data":{"person_id":{{visit_person_id}},'
-                    '"user_id":{{visit_user_id}},"visit_id":{{visit_id}},"data":{"leads":{'
-                    '"legal_form_id":{{legal_form_id}},"name":"Avtotest Dokon","short_name":"AvtoDkn",'
-                    '"latlng":"41.311081,69.240562","phone_number":"+998901112233",'
-                    '"address":"Toshkent sh., Shayxontohur t.","area":"50","regions":[],'
-                    '"lob_product_groups":[],"category_product_groups":[]},"fields":[],"photos":[],'
-                    '"visit_audios":[],"quiz_results":[]}}}',
-                    [
-                        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                        "const body = pm.response.json();",
-                        "pm.test('draft saved', () => pm.expect(body.status, body.error_text).to.eql('S'));",
-                        "pm.test('same visit_id echoed back', () => pm.expect(String(body.data.visit_id)).to.eql(pm.collectionVariables.get('visit_id')));",
-                    ],
-                ),
-                _req(
-                    "Step 3 — end visit (completed, no reason)",
-                    '{"code":"c:imp_visit_end","data":{"person_id":{{visit_person_id}},'
-                    '"visit_id":{{visit_id}},"end_latlng":"41.312500,69.241800","data":{'
-                    '"reason_id":null,"leads":{"legal_form_id":{{legal_form_id}},'
-                    '"name":"Avtotest Dokon","short_name":"AvtoDkn","latlng":"41.312500,69.241800",'
-                    '"phone_number":"+998901112233","address":"Toshkent sh., Shayxontohur t.",'
-                    '"area":"50","regions":[],"lob_product_groups":[],"category_product_groups":[]},'
-                    '"fields":[],"photos":[],"visit_photos":[],"visit_audios":[],'
-                    '"step_ids":{{step_ids}},"quiz_results":[]}}}',
-                    [
-                        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                        "const body = pm.response.json();",
-                        "pm.test('visit ended', () => pm.expect(body.status, body.error_text).to.eql('S'));",
-                    ],
-                ),
-                _req(
-                    "Step 4 — verify visit_status = C",
-                    '[\n  {\n    "code": "c:exp_client_info",\n    "filter": {\n      "person_id": {{visit_person_id}},\n      "user_id": {{visit_user_id}}\n    }\n  }\n]',
-                    [
-                        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                        "const body = pm.response.json();",
-                        "pm.test('tape ok', () => body.forEach(r => pm.expect(r.status, r.error_text).to.eql('S')));",
-                        "pm.test('visit is completed (status C)', () => {",
-                        "    const data = body[0].data;",
-                        "    pm.expect(String(data.visit_id)).to.eql(pm.collectionVariables.get('visit_id'));",
-                        "    pm.expect(data.visit_status).to.eql('C');",
-                        "});",
-                    ],
-                ),
-            ],
-        },
-    ],
-}
-
-
-# ======================================================================================
-# API helperlari — agent cookie, kolleksiyani to'ldirish, newman, natija
-# ======================================================================================
-
-def cookie_from_context(ctx, agent_login: str, password: str) -> str:
-    """Berilgan Playwright context'ida AGENT sifatida login qilib greenwhite.uz
-    cookie'larini "k=v; ..." ko'rinishida qaytaradi (JSESSIONID — HttpOnly bo'lsa
-    ham). Context tashqaridan beriladi — pytest'ning `page` fixture'i (ishlab
-    turgan sync Playwright) ichida ham chaqirsa bo'ladi (nested sync_playwright YO'Q)."""
-    p = ctx.new_page()
-    # Default goto timeout 30s — dev-server sekin javob berganda login sahifasi
-    # yuklanmay 040 broken bo'lardi; loyiha navigatsiya timeout'i (60s) beriladi.
-    p.goto(LOGIN_URL, timeout=60_000)
-    p.get_by_role("textbox", name="Логин").fill(agent_login)
-    p.get_by_role("textbox", name="Введите пароль").fill(password)
-    p.get_by_role("button", name="Войти").click()
-    p.wait_for_url(lambda u: "/auth/login" not in u, timeout=60_000)
-    p.wait_for_timeout(1_500)
-    cookies = ctx.cookies()
-    p.close()
-    return "; ".join(f"{c['name']}={c['value']}" for c in cookies if COOKIE_DOMAIN in c["domain"])
-
-
-def fill_collection(cookie: str, user_id: str) -> str:
-    """EMBEDDED kolleksiyani haqiqiy qiymatlar bilan to'ldirib vaqtinchalik JSON'ga
-    yozadi va yo'lini qaytaradi. Cookie kolleksiya `variable` blokiga yoziladi
-    (pre-request skript `pm.collectionVariables.get` o'qiydi — environment EMAS)."""
-    col = copy.deepcopy(COLLECTION)
-    overrides = {
-        "base_url": BASE_URL,
-        "session_header_name": "Cookie",
-        "session_header_value": cookie,
-        "visit_user_id": str(user_id),
-    }
-    for v in col["variable"]:
-        if v["key"] in overrides:
-            v["value"] = overrides[v["key"]]
-    os.makedirs("test-results", exist_ok=True)
-    with open(FILLED_COLLECTION, "w", encoding="utf-8") as f:
-        json.dump(col, f, ensure_ascii=False, indent=2)
-    return FILLED_COLLECTION
-
-
-def run_newman(collection_path: str) -> subprocess.CompletedProcess:
-    os.makedirs("test-results", exist_ok=True)
-    cmd = (
-        f'newman run "{collection_path}" '
-        f'--reporters cli,json --reporter-json-export "{REPORT}"'
-    )
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8")
-
-
-def summarize(report_path: str) -> dict:
-    """Newman JSON hisobotidan xulosa. bridge_ok: KNOWN_QUIRKS'dan tashqari xato
-    yo'q VA visit status=C ga yetgan."""
-    with open(report_path, encoding="utf-8") as f:
-        rep = json.load(f)
-    steps, real_failures, visit_completed, visit_id = [], [], False, None
-    for e in rep["run"]["executions"]:
-        assertions = e.get("assertions", [])
-        failed = [a["assertion"] for a in assertions if a.get("error")]
-        real = [a for a in failed if a not in KNOWN_QUIRKS]
-        real_failures.extend(real)
-        if "visit is completed (status C)" in [a["assertion"] for a in assertions if not a.get("error")]:
-            visit_completed = True
-        # visit_id — Step 3 (end) so'rov body'sidagi resolvлаган {{visit_id}} dan
-        if "end visit" in e["item"]["name"]:
-            mm = re.search(r'"visit_id":(\d+)', e.get("request", {}).get("body", {}).get("raw", ""))
-            if mm:
-                visit_id = mm.group(1)
-        steps.append({
-            "step": e["item"]["name"],
-            "http": e.get("response", {}).get("code"),
-            "failed": failed,
-            "ok": not real,
-        })
-    stats = rep["run"]["stats"]["assertions"]
-    return {
-        "steps": steps,
-        "assertions_total": stats["total"],
-        "assertions_failed": stats["failed"],
-        "real_failures": real_failures,
-        "visit_completed_status_C": visit_completed,
-        "visit_id": visit_id,
-        "bridge_ok": not real_failures and visit_completed,
-    }
 
 
 # ======================================================================================
@@ -643,8 +390,9 @@ def run_monthly(page: Page, agent: str) -> None:
 
 
 def run_mobile_visit(page: Page, agent: str) -> dict:
-    """Agent sifatida cookie olib Postman (newman) scenariosini yurgizadi:
-    exp_client_list → begin → autosave → end → status C, xulosani qaytaradi.
+    """Agent sifatida cookie olib mobil visit API scenariosini bajaradi (requests,
+    ``VisitApi``): exp_client_list → begin → autosave → end → exp_client_info (status
+    'C'). ``{"visit_id", "visit_completed_status_C"}`` xulosasini qaytaradi.
 
     Faqat BUGUNGI rejasi bor agent uchun ishlaydi (weekly/monthly bugunni beradi;
     har 2/3/4/5 hafta birinchi visiti kelajakda — exp_client_list ko'rmaydi).
@@ -655,22 +403,25 @@ def run_mobile_visit(page: Page, agent: str) -> dict:
     with allure.step(f"API: agent sifatida login ({agent_login}) va cookie olish"):
         agent_ctx = page.context.browser.new_context()
         try:
-            cookie = cookie_from_context(agent_ctx, agent_login, "1")
+            cookie = login_cookie(agent_ctx, agent_login, "1")
         finally:
             agent_ctx.close()
-        assert "JSESSIONID" in cookie, f"session cookie olinmadi: {cookie[:80]}"
 
-    with allure.step("API: newman — exp_client_list + begin → autosave → end → status C"):
-        run_newman(fill_collection(cookie, user_id))
-        summary = summarize(REPORT)
-        allure.attach(str(summary), name="newman_summary",
+    with allure.step("API: exp_client_list → begin → autosave → end → status C"):
+        api = VisitApi(cookie)
+        clients, _ = api.client_list()
+        assert clients, "bugungi rejada chana topilmadi (exp_client_list bo'sh)"
+        c = clients[0]
+        person_id = VisitApi.person_id(c)
+        visit_id = api.run_visit(person_id, user_id, VisitApi.legal_form_id(c))
+        data = api.client_info(person_id, user_id)
+        assert str(data.get("visit_id")) == visit_id and data.get("visit_status") == "C", (
+            f"Visit 'C' (yakunlangan) holatiga yetmadi: "
+            f"visit_id={data.get('visit_id')} status={data.get('visit_status')}"
+        )
+        summary = {"visit_id": visit_id, "visit_completed_status_C": True}
+        allure.attach(str(summary), name="visit_api_summary",
                       attachment_type=allure.attachment_type.TEXT)
-        assert summary["visit_completed_status_C"], (
-            f"Visit 'C' (yakunlangan) holatiga yetmadi: {summary}"
-        )
-        assert not summary["real_failures"], (
-            f"Newman'da haqiqiy xatolar bor: {summary['real_failures']}"
-        )
     return summary
 
 

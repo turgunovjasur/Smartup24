@@ -56,7 +56,6 @@ from playwright.sync_api import Page, expect
 from flows.flow_authorization import authorization
 from utils.base_page import BasePage
 from tests.test_document.test_Plan_visit_recurrence import (
-    NEWMAN_YOQ,
     _deactivate_agent,
     _goto_visits,
     run_create_agent,
@@ -418,7 +417,6 @@ def run_visit_form_default(page: Page) -> None:
 # test_* — har biri alohida (o'z login'i bilan), oxirida zanjir
 # ======================================================================================
 
-@pytest.mark.skipif(NEWMAN_YOQ, reason="newman (Postman CLI) o'rnatilmagan — `npm i -g newman`")
 @allure.epic("Документы")
 @allure.feature("Визиты")
 @allure.story("Визит tekshiruvi")
