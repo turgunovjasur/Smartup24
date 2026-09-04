@@ -784,6 +784,7 @@ class BasePage:
         self._settle()
         return row
 
+    @qa_action("«{0}» bo'yicha qidirish")
     def search(self, text):
         """List formadagi qidiruv (``searchbox "Поиск..."``) ga yozib Enter bosadi.
 

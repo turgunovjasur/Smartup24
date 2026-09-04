@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import shutil
@@ -611,9 +612,24 @@ def _progress_bar(pct: int, width: int = 14) -> str:
     return f"{'█' * filled}{'░' * (width - filled)}  {pct}%"
 
 
+def _decode_escapes(s: str) -> str:
+    """pytest parametrli test ID'sidagi ASCII-escape (``\\u041e``) ni haqiqiy
+    belgига o'giradi — Telegram xabarida kirillcha O'QISHLI chiqsin.
+
+    pytest parametrli ID'larда (masalan ``test_023[Отчёт по торговым точкам]``)
+    lotin bo'lmagan belgilarni default holда ``\\uXXXX`` ga escape qiladi — xabar
+    ``test_023[\\u041e\\u0442...]`` ko'rinishida uzun va tushunarsiz bo'lardi.
+    Faqat ``\\uXXXX`` naqshini almashtiramiz (butun stringni ``unicode_escape``
+    bilan dekod qilish boshqa ``\\`` larni buzishi mumkin)."""
+    if "\\u" not in s:
+        return s
+    return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), s)
+
+
 def _short_nodeid(nodeid: str) -> str:
-    """``tests/x.py::test_010_region`` → ``test_010_region`` (test nomi)."""
-    return nodeid.split("::")[-1] if nodeid else nodeid
+    """``tests/x.py::test_010_region`` → ``test_010_region`` (test nomi).
+    Kirillcha parametrli ID escape qilinган bo'lsa o'qishli belgiга qaytaradi."""
+    return _decode_escapes(nodeid.split("::")[-1]) if nodeid else nodeid
 
 
 def _render_progress(current_name: str | None = None) -> str:
@@ -662,18 +678,20 @@ def pytest_collection_finish(session):
     _progress["suite"] = _suite_label(session.items)
     _progress["current"] = ""
     _progress["start_ts"] = time.time()
-    # "Test boshlandi" — ALOHIDA yangi xabar (foydalanuvchi so'rovi). Progress
-    # xabari undan keyin alohida yuboriladi va jonli yangilanadi.
+    # BITTA xabar oqimi (foydalanuvchi so'rovi 2026-09-04): "Test boshlandi"
+    # xabarini yuboramiz va uning O'ZINI keyinchalik progress bar → yakuniy
+    # natijага TAHRIRLAYMIZ (uch alohida xabar EMAS — chat shovqini kamayadi).
+    # msg_id shu banner'niki; birinchi test boshlanganда (logstart) u progress
+    # barга, sessiya oxirida esa yakuniy holatга tahrirlanadi.
     env_emoji = "\U0001F534" if TEST_ENV == "prod" else "\U0001F7E2"  # 🔴 prod / 🟢 dev
-    _send_telegram(
+    start_text = (
         "\U0001F680 <b>Test boshlandi</b>\n"
         f"{env_emoji} {TEST_ENV.upper()} ({COMPANY_CODE})   "
         f"\U0001F4E6 <b>{_progress['suite']}</b>\n"
         f"\U0001F4CA {_progress['total']} test   \U0001F5A5 {HOST_LABEL}"
     )
-    text = _render_progress()
-    _progress["msg_id"] = _send_telegram(text)
-    _persist_progress(text)  # bot o'qishi uchun (band-flash)
+    _progress["msg_id"] = _send_telegram(start_text)
+    _persist_progress(start_text)  # bot o'qishi uchun (band-flash)
     # Pin QILMAYMIZ (senior): o'tkinchi progress'ни qadash professional emas —
     # pin/unpin tizim shovqini + bezovta. Xabar shunchaki oxirgi bo'lib turadi.
 
