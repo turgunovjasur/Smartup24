@@ -937,11 +937,24 @@ class BasePage:
         pane = self.page.locator(".cdk-overlay-container .cdk-overlay-pane")
         if pane.count() == 0:
             return
-        try:
-            self.page.locator(HEADING).last.click(timeout=2_000)
-            pane.first.wait_for(state="hidden", timeout=timeout)
-        except Exception:  # pragma: no cover - diagnostika uchun
-            logger.warning("cdk-overlay pane %s ms ichida yopilmadi", timeout)
+        # Backdrop'siz pane (Роли multi-select): tashqi klik yopadi. BITTA urinish
+        # kam edi — heading kliki intercept bo'lsa yoki pane kech yopilsa jim
+        # warning bilan o'tib ketardi, pane ochiq qolib keyingi amal (Сохранить)
+        # uning ustiga tushib "<html> intercepts pointer events" → tugma DOM'dan
+        # detach → 60s timeout berardi (group_a supplier_user, 2026-09-07: Роли
+        # tanlangach save flaky yiqilardi). Pane HAQIQATAN yo'qolguncha bir necha
+        # marta yopishga urinamiz; heading kliki o'tmasa Escape bilan.
+        for _ in range(3):
+            try:
+                self.page.locator(HEADING).last.click(timeout=2_000)
+            except Exception:
+                self.page.keyboard.press("Escape")
+            try:
+                pane.first.wait_for(state="hidden", timeout=2_000)
+                return
+            except Exception:
+                continue
+        logger.warning("cdk-overlay pane %s ms ichida yopilmadi", timeout)
 
     def _settle(self, timeout=10_000):
         """Sahifa transition tugashini kutadi.
