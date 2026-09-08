@@ -83,11 +83,11 @@ pytest all              # 5 bo'lim ketma-ket
 pytest setup -v         # bayroqlar bilan birga ishlaydi
 ```
 
-> Mexanizm: [`pytest_group_aliases.py`](pytest_group_aliases.py) plagini
-> (`pytest.ini` → `-p` bilan yuklanadi) argument tanish guruh nomi bo'lsa va
-> haqiqiy fayl BO'LMASA uni mos runner fayl(lar)iga almashtiradi. Standart
-> `pytest <path>` / `-k` / `-m` ishlashi buzilmaydi. Yangi guruh qo'shish —
-> shu fayldagi `GROUP_ALIASES` lug'atiga bitta qator.
+> Mexanizm: [`conftest.py`](conftest.py) `pytest_configure` — argument tanish
+> guruh nomi bo'lsa va haqiqiy fayl BO'LMASA uni mos runner fayl(lar)iga
+> almashtiradi. Standart `pytest <path>` / `-k` / `-m` ishlashi buzilmaydi.
+> `python -m pytest` ham, bare `pytest` ham ishlaydi. Yangi guruh qo'shish —
+> `conftest.py` dagi `GROUP_ALIASES` lug'atiga bitta qator.
 
 ### To'liq yo'l bilan (ekvivalent)
 

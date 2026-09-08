@@ -77,9 +77,67 @@ DEFAULT_TIMEOUT    = 60_000    # click, fill, expect va boshqa locator amallari 
 NAVIGATION_TIMEOUT = 60_000    # page.goto, wait_for_load_state (ms)
 
 # ----------------------------------------------------------------------------------------------------------------------
+# QISQA GURUH NOMLARI — `pytest setup`, `pytest visit`, `pytest all` ...
+# ----------------------------------------------------------------------------------------------------------------------
+# Har guruh mos runner fayl(lar)iga xaritalanadi. DIQQAT: buni `-p` plagin bilan
+# qilib bo'lmaydi — bare `pytest` (console-script) joriy papkani sys.path'ga
+# QO'SHMAYDI, shuning uchun `-p modul` importi yiqiladi (faqat `python -m pytest`
+# ishlardi). conftest.py esa bare `pytest`da ham DOIM yuklanadi — shu sabab
+# almashtirishni `pytest_configure`da (collection'dan oldin) qilamiz: argument
+# tanish guruh nomi bo'lsa VA haqiqiy fayl/papka BO'LMASA runner yo'l(lar)iga
+# almashtiriladi. Standart `pytest <path>` / `-k` / `-m` / bayroqlar buzilmaydi.
+_SETUP      = "tests/test_setup/test_all_setup.py"
+_GROUP_A    = "tests/test_group_a/test_all_group_a.py"
+_REGRESSION = "tests/test_regression/test_all_regression.py"
+_MAIN       = "tests/test_main/test_all_main.py"
+_DOCUMENT   = "tests/test_document/test_all_document_runner.py"
+_VISIT = [
+    "tests/test_document/test_visit.py",
+    "tests/test_document/test_Plan_visit_recurrence.py",
+    "tests/test_document/test_agent_visit_tracking.py",
+    "tests/test_document/test_route_analysis.py",
+]
+GROUP_ALIASES = {
+    "setup":         [_SETUP],
+    "group_a":       [_GROUP_A],
+    "groupa":        [_GROUP_A],
+    "regression":    [_REGRESSION],
+    "reg":           [_REGRESSION],
+    "main":          [_MAIN],
+    "document":      [_DOCUMENT],
+    "doc":           [_DOCUMENT],
+    "visit":         list(_VISIT),
+    "setup_groupa":  [_SETUP, _GROUP_A],
+    "all":           [_SETUP, _GROUP_A, _REGRESSION, _MAIN, _DOCUMENT],
+}
+
+
+def _expand_group_aliases(items):
+    """Ro'yxatdagi tanish guruh nomlarini runner yo'llariga yoyadi (tartib saqlanadi)."""
+    out = []
+    for arg in items:
+        mapped = GROUP_ALIASES.get(str(arg).lower())
+        if mapped and not os.path.exists(arg):
+            out.extend(mapped)
+        else:
+            out.append(arg)
+    return out
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 
 def pytest_configure(config):
     """Allure hisoboti uchun environment, categories, executor va history tayyorlaydi."""
+    # Qisqa guruh nomlarini (`pytest setup`) collection'dan OLDIN runner yo'liga
+    # almashtiramiz — positional argumentlar `config.args` va `option.file_or_dir`
+    # da turadi (versiyaga qarab biri ishlatiladi, ikkalasini ham yangilaymiz).
+    try:
+        if getattr(config.option, "file_or_dir", None):
+            config.option.file_or_dir = _expand_group_aliases(config.option.file_or_dir)
+        if getattr(config, "args", None):
+            config.args = _expand_group_aliases(list(config.args))
+    except Exception as e:
+        print(f"[group-aliases] almashtirishда xato (davom etadi): {e}")
     # Windows konsol/redirekt stdout default cp1252 — yiqilган testning Cyrillic
     # sabab matni (grid_row/save/select diagnostikasi, «Ошибка»/«Нет результатов»)
     # yoki "•" pytest traceback'ida yozilganда UnicodeEncodeError berib BUTUN
