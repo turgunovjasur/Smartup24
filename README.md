@@ -68,6 +68,29 @@ python -m pytest tests/test_setup/test_all_setup.py -v
 Suite **bo'limlarga** bo'lingan; har bo'lim o'z runner faylida, bitta login (seans)
 bilan ketma-ket ishlaydi. Turli jadvalda ishlashi uchun ajratilgan.
 
+### Qisqa buyruqlar (tavsiya etiladi)
+Guruhni qisqa nom bilan ishga tushiring — to'liq yo'l yozish shart emas:
+
+```bash
+pytest setup            # setup bo'limi (справочник create)
+pytest group_a          # Поставщик/Клиент → buyurtma oqimi  (yoki: groupa)
+pytest regression       # to'liq CRUD regressiya            (yoki: reg)
+pytest main             # "Главное" bo'limi
+pytest document         # hujjat moduli                     (yoki: doc)
+pytest visit            # vizit/marshrut testlari
+pytest setup_groupa     # setup + group_a
+pytest all              # 5 bo'lim ketma-ket
+pytest setup -v         # bayroqlar bilan birga ishlaydi
+```
+
+> Mexanizm: [`pytest_group_aliases.py`](pytest_group_aliases.py) plagini
+> (`pytest.ini` → `-p` bilan yuklanadi) argument tanish guruh nomi bo'lsa va
+> haqiqiy fayl BO'LMASA uni mos runner fayl(lar)iga almashtiradi. Standart
+> `pytest <path>` / `-k` / `-m` ishlashi buzilmaydi. Yangi guruh qo'shish —
+> shu fayldagi `GROUP_ALIASES` lug'atiga bitta qator.
+
+### To'liq yo'l bilan (ekvivalent)
+
 ```bash
 # Bo'lim runnerlari
 python -m pytest tests/test_setup/test_all_setup.py -v              # справочник create (asos)
