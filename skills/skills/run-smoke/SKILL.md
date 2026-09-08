@@ -45,7 +45,7 @@ Allure attachmentда ham). Faqat HAQIQIY xato bo'lsa yiqiladi. Bu test mustaqil
 -x                # birinchi xatoda to'xtash
 ```
 
-### Allure hisobot ko'rish:
+### Allure hisobot ko'rish (Allure 3, npm — `npm install -g allure`):
 ```bash
 allure serve test-results/allure-results
 ```

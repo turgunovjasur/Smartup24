@@ -847,8 +847,13 @@ def _finish_allure_report(session):
         print(f"\n[Allure] CLI topilmadi. Qo'lda ishlatish: allure serve {ALLURE_RESULTS_DIR}")
         return
     try:
+        # Allure 3 (npm) CLI: `--clean` flagi YO'Q, `-o` o'rniga `--output`.
+        # Eski Allure 2 `--clean` report papkasini oldin tozalardi — endi shuni
+        # o'zimiz qilamiz (aks holda eski report fayllari aralashib qoladi).
+        if os.path.exists(ALLURE_REPORT_DIR):
+            shutil.rmtree(ALLURE_REPORT_DIR)
         subprocess.run(
-            [allure_bin, "generate", "--clean", ALLURE_RESULTS_DIR, "-o", ALLURE_REPORT_DIR],
+            [allure_bin, "generate", ALLURE_RESULTS_DIR, "--output", ALLURE_REPORT_DIR],
             check=True,
             timeout=120,
         )

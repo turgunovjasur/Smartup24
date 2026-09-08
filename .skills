@@ -105,8 +105,13 @@ python -m pytest tests/test_regression/test_all_regression.py -v  # regression (
 python -m pytest tests/test_main/test_all_main.py -v              # main ("Главное")
 python -m pytest tests/test_document/test_all_document_runner.py -v  # document
 python -m pytest tests/test_regression/test_region.py -v          # bitta modul (debug)
-allure serve test-results/allure-results                          # report
+allure serve test-results/allure-results                          # report (Allure 3, npm)
 ```
+Report vositasi — **Allure 3** (CLI npm orqali: `npm install -g allure`; paket nomi
+`allure`, ESKI `allure-commandline` EMAS). Adapter o'sha `allure-pytest` (o'zgarmadi),
+`--alluredir` flaglari ham o'sha. Buyruqlar: `allure serve <results>` (xom natijadan
+to'g'ridan-to'g'ri) yoki `allure generate <results> --output <dir>` + `allure open <dir>`.
+DIQQAT: Allure 2 dagi `--clean` flagi Allure 3'da YO'Q; `-o` o'rniga `--output`.
 "HAMMASI" (bitta login) — 5 faylni bitta chaqiruvda ketma-ket ber (tartib saqlanadi):
 ```bash
 python -m pytest tests/test_setup/test_all_setup.py tests/test_group_a/test_all_group_a.py \
