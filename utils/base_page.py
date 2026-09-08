@@ -5,7 +5,7 @@ import time
 from playwright.sync_api import expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from utils.qa_report import qa_action
+from utils.qa_report import qa_action, visible_error_dialog_text
 
 
 logger = logging.getLogger(__name__)
@@ -365,10 +365,10 @@ class BasePage:
                 candidate.click()
                 return
             if time.monotonic() >= deadline:
-                # Hech qaysi konteynerда topilmadi — diagnostika uchun asosiy locator
-                # bo'yicha aniq assertion xatosi beramiz.
-                option = li_option
-                break
+                # Hech qaysi konteynerда topilmadi — ochilган dropdown/menu'даги
+                # MAVJUD variantlarni sanab, aniq sabab beramiz (rol/select
+                # yiqilishlari "«...» yo'q, mavjud: ..." bilan darrov ajralsin).
+                raise AssertionError(self._option_miss_message(option_text))
             self.page.wait_for_timeout(100)
 
         expect(option).to_be_visible(timeout=timeout)
@@ -386,6 +386,31 @@ class BasePage:
             option.click(timeout=15_000)
         except PlaywrightTimeoutError:
             option.evaluate("el => el.click()")
+
+    def _option_miss_message(self, option_text) -> str:
+        """`_click_option` variantni topolmaganда ochilган dropdown/menu'даги MAVJUD
+        variantlarni sanab beradi — «Админ (Поставщик)» yo'q, mavjud: ... ."""
+        names: list[str] = []
+        try:
+            items = self.page.locator(
+                ".cdk-overlay-container smt-select-dropdown li, "
+                ".cdk-overlay-container [role=option], "
+                ".cdk-overlay-container [role=menuitem], "
+                ".cdk-overlay-container [role=menuitemcheckbox], "
+                ".cdk-overlay-container [role=treeitem]"
+            )
+            for i in range(min(items.count(), 15)):
+                t = " ".join((items.nth(i).inner_text() or "").split())
+                if t and t not in names:
+                    names.append(t)
+        except Exception:
+            pass
+        avail = ", ".join(f'"{n}"' for n in names) if names else "(dropdown bo'sh yoki ochilmagan)"
+        msg = f'Select varianti «{option_text}» dropdownда topilmadi. Mavjud variantlar: {avail}'
+        err = visible_error_dialog_text(self.page)
+        if err:
+            msg += f"\n  • OCHIQ Ошибка dialogi: {err}"
+        return msg
 
     @qa_action("«{0}» ni ro'yxatдан tanlash")
     def select(
@@ -705,11 +730,55 @@ class BasePage:
                 if _try_find():
                     break
 
-        expect(row).to_be_visible(timeout=3_000)
+        try:
+            expect(row).to_be_visible(timeout=3_000)
+        except AssertionError:
+            # Generic "element topilmadi" o'rniga HOLATni yig'ib aniq sabab beramiz
+            # (supplier search / client zapros kabi yiqilishlar bir qarashda ajralsin).
+            raise AssertionError(self._grid_miss_message(text, row_selector)) from None
         for value in contains:
             synonyms = self._STATUS_SYNONYMS.get(value)
             expect(row).to_contain_text(re.compile(synonyms) if synonyms else value)
         return row
+
+    def _grid_miss_message(self, text, row_selector) -> str:
+        """`grid_row` qatorni topolmaganda holatni yig'ib tushunarli sabab quradi:
+        NECHTA qator bor, searchbox'да NIMA yozilgan, "Нет результатов" chiqdimi,
+        qaysi sahifa, ochiq Ошибка dialogi bormi."""
+        try:
+            total = self.page.locator(row_selector).count()
+        except Exception:
+            total = "?"
+        try:
+            sb = self.page.get_by_role("searchbox", name="Поиск").first
+            sb_val = (sb.input_value() or "").strip() if sb.count() else ""
+        except Exception:
+            sb_val = ""
+        try:
+            empty = self.page.get_by_text(re.compile(r"Нет результатов|Ничего не найдено")).first
+            empty_seen = bool(empty.count()) and empty.is_visible()
+        except Exception:
+            empty_seen = False
+        try:
+            heading = self.current_heading_text() or "?"
+        except Exception:
+            heading = "?"
+        empty_txt = "KO'RINDI" if empty_seen else "yo'q"
+        parts = [
+            f'"{text}" qatori grid\'da topilmadi',
+            f"jami qator: {total}",
+            f'searchbox = "{sb_val}"',
+            f'empty-state ("Нет результатов"): {empty_txt}',
+            f"sahifa: {heading}",
+        ]
+        err = visible_error_dialog_text(self.page)
+        if err:
+            parts.append(f"OCHIQ Ошибка dialogi: {err}")
+        parts.append(
+            "ehtimoliy sabab: yozuv yaratilmagan / qidiruv nom bo'yicha "
+            "filtrlamaydi / server indeks kechikdi"
+        )
+        return "\n  • ".join(parts)
 
     def _grid_row_selected(self, row) -> bool:
         """Qator tanlanganligini bildiruvchi belgilar: yonida action panel
@@ -1091,7 +1160,21 @@ class BasePage:
         # async re-init bilan RESET bo'lib, bo'sh formada save validatsiya jim
         # bloklagan — save so'rovi umuman yuborilmagan). Bu yerda aniq xato beramiz;
         # chaqiruvchi (masalan run_region) buni ushlab qayta yaratishi mumkin.
-        expect(button).to_be_hidden(timeout=10_000)
+        try:
+            expect(button).to_be_hidden(timeout=10_000)
+        except AssertionError:
+            # Forma yopilmadi = saqlanmadi. ASL sababни aniq ko'rsatamiz: backend
+            # «Ошибка» dialogi (dup_val_on_index / precision / 500) chiqqan bo'lsa
+            # uni, aks holda majburiy-maydon/overlay ehtimolini yozamiz — "element
+            # topilmadi" bo'lib 2 qadam keyin yiqilmasin.
+            err = visible_error_dialog_text(self.page)
+            if err:
+                raise AssertionError(f"Saqlash bajarilmadi — server xatosi: {err}") from None
+            raise AssertionError(
+                "Saqlash bajarilmadi — «Сохранить» bosildi, lekin forma yopilmadi "
+                "(yozuv saqlanmadi). Ошибка dialogi ko'rinmadi; ehtimol majburiy "
+                "maydon jim bloklagan yoki overlay klikni to'sган."
+            ) from None
 
     def save_and_expect_heading(self, expected_heading, *, button_name="Сохранить", exact=True, timeout=60_000):
         """Сохранить bosadi va aktiv forma sarlavhasida kutilgan heading ochilishini tekshiradi."""

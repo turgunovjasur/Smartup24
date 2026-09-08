@@ -70,18 +70,43 @@ def qa_action(template: str):
     return deco
 
 
-def friendly_reason(exc: BaseException | None) -> str:
-    """Xato turini biznes tilига o'giradi (lokator/stack o'rniga qisqa sabab)."""
+def visible_error_dialog_text(page) -> str | None:
+    """Ko'rinib turган backend «Ошибка» dialogi matnini qaytaradi (yo'q bo'lsa None).
+
+    Save/navigatsiya KUTILMAGANDA yiqilганда asl server sababi (``dup_val_on_index``,
+    ``paid_delivery not found``, ``number precision too large`` ...) ko'pincha
+    dialogда turadi, lekin test buni bilmay 2 qadam keyin "element topilmadi" bilan
+    yiqiladi. Shu matnni ushlab, generic timeout o'rniga ASL sababни ko'rsatamiz."""
+    try:
+        dialog = page.get_by_role("dialog").filter(has_text="Ошибка").first
+        if dialog.count() and dialog.is_visible():
+            return " ".join((dialog.inner_text() or "").split())[:300]
+    except Exception:
+        pass
+    return None
+
+
+def friendly_reason(exc: BaseException | None, page=None) -> str:
+    """Xato turini biznes tilига o'giradi (lokator/stack o'rniga qisqa sabab).
+
+    ``page`` berilса, ko'rinib turган backend «Ошибка» dialogi ASL sabab sifatida
+    ustun qo'yiladi — timeout/detach kabi hosila simptomlar o'rniga (masalan
+    dublikat/precision/backend 500 xatolari to'g'ridan-to'g'ri ko'rinadi)."""
+    if page is not None:
+        err = visible_error_dialog_text(page)
+        if err:
+            return f"server xatosi: {err}"
     if exc is None:
         return "noma'lum xato"
     name = type(exc).__name__
     text = str(exc)
+    if name == "AssertionError":
+        # Boyitilган (grid_row/save/_click_option) yoki expect(...) xatosi — birinchi
+        # qatori tushunarli sarlavha bo'ladi, shuni qoldiramiz.
+        first = text.strip().splitlines()[0] if text.strip() else ""
+        return first[:160] if first else "tekshiruv o'tmadi"
     if "Timeout" in name or "timeout" in text.lower():
         return "element vaqtida topilmadi / ko'rinmadi (kutish tugadi)"
-    if name == "AssertionError":
-        # Ko'pincha expect(...) — qisqa matn qoldiramiz
-        first = text.strip().splitlines()[0] if text.strip() else ""
-        return f"tekshiruv o'tmadi{(' — ' + first[:120]) if first else ''}"
     if "Strict" in name:
         return "bir nechta mos element topildi (aniq emas)"
     return f"{name}: {text.splitlines()[0][:120] if text else ''}".strip()

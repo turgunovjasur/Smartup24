@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import json
 import time
 import shutil
@@ -79,6 +80,15 @@ NAVIGATION_TIMEOUT = 60_000    # page.goto, wait_for_load_state (ms)
 
 def pytest_configure(config):
     """Allure hisoboti uchun environment, categories, executor va history tayyorlaydi."""
+    # Windows konsol/redirekt stdout default cp1252 — yiqilган testning Cyrillic
+    # sabab matni (grid_row/save/select diagnostikasi, «Ошибка»/«Нет результатов»)
+    # yoki "•" pytest traceback'ida yozilganда UnicodeEncodeError berib BUTUN
+    # chiqishni buzmasligi uchun stdout/stderr'ni utf-8'ga o'tkazamiz (o'tmasa jim).
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:
+            pass
     expect.set_options(timeout=DEFAULT_TIMEOUT)
     os.makedirs(ALLURE_RESULTS_DIR, exist_ok=True)
 
@@ -830,22 +840,27 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 def _finish_allure_report(session):
-    """Allure hisobot yaratadi va brauzerda ochadi."""
+    """Allure hisobot papkasini yaratadi; interaktiv (lokal) runda brauzerda ham ochadi.
+
+    Bot/CI (HEADLESS yoki NO_ALLURE_SERVE) da hisobot GENERATSIYA qilinaveradi
+    (statik `test-results/allure-report/` — keyin qo'lda `allure open` bilan ko'riladi),
+    faqat `allure open` web-serveri OCHILMAYDI — u fon/CI jarayonini tugamay osib
+    qo'yardi. Shunday qilib Telegram/bot runidan keyin ham tayyor hisobot qoladi.
+    """
     # --collect-only da session.items TO'LADI, lekin test ishlamaydi — hisobot
-    # yaratmaymiz (aks holda collection ham allure generate/open qilib yuboradi)
+    # yaratmaymiz (aks holda collection ham allure generate qilib yuboradi)
     if not session.items or session.config.option.collectonly:
-        return
-    # CI/headless yoki fon rejimida hisobotni avtomatik OCHMAYMIZ — `allure open`
-    # web-serveri osilib qolib, background/CI runni tugamagan holda ushlab turadi.
-    # Natijalar baribir yoziladi; qo'lda `allure serve test-results/allure-results`.
-    if os.getenv("HEADLESS") == "1" or os.getenv("NO_ALLURE_SERVE") == "1":
         return
     import subprocess
     import shutil
     allure_bin = shutil.which("allure") or shutil.which("allure.cmd")
     if not allure_bin:
+        # CI'da (ubuntu) allure CLI o'rnatilmagan bo'lishi mumkin — normal, eslatib o'tamiz.
         print(f"\n[Allure] CLI topilmadi. Qo'lda ishlatish: allure serve {ALLURE_RESULTS_DIR}")
         return
+    # HEADLESS/NO_ALLURE_SERVE — brauzerni avtomatik OCHMAYMIZ (fon runni osmasin),
+    # lekin hisobotni baribir generatsiya qilamiz.
+    open_browser = not (os.getenv("HEADLESS") == "1" or os.getenv("NO_ALLURE_SERVE") == "1")
     try:
         # Allure 3 (npm) CLI: `--clean` flagi YO'Q, `-o` o'rniga `--output`.
         # Eski Allure 2 `--clean` report papkasini oldin tozalardi — endi shuni
@@ -857,7 +872,11 @@ def _finish_allure_report(session):
             check=True,
             timeout=120,
         )
-        subprocess.Popen([allure_bin, "open", ALLURE_REPORT_DIR])
+        if open_browser:
+            subprocess.Popen([allure_bin, "open", ALLURE_REPORT_DIR])
+        else:
+            print(f"\n[Allure] Hisobot tayyor: {ALLURE_REPORT_DIR}\n"
+                  f"          Ko'rish: allure open {ALLURE_REPORT_DIR}")
     except Exception as e:
         print(f"\n[Allure] Hisobot yaratishda xato: {e}")
 
@@ -874,11 +893,13 @@ def pytest_runtest_makereport(item, call):
         # BIZNES tilида kontekst: ayni ishlaган qa_step tavsifi + qisqa sabab
         # (tushunarsiz lokator/stack o'rniga). Telegram yakuniy xabarига chiqadi.
         exc = call.excinfo.value if call.excinfo else None
+        page = item.funcargs.get("session_page") or item.funcargs.get("page")
         _failure_ctx[item.nodeid] = {
             "step": current_step_desc(),          # masalan "…'category-12343' ni tanlash"
-            "reason": friendly_reason(exc),        # masalan "element vaqtida topilmadi"
+            # page berilса — ko'rinib turган backend «Ошибка» dialogi ASL sabab
+            # sifatida raw timeout/detach o'rniga ustun qo'yiladi.
+            "reason": friendly_reason(exc, page),
         }
-        page = item.funcargs.get("session_page") or item.funcargs.get("page")
         # Page/browser allaqachon yopilgan bo'lishi mumkin (masalan, test browser
         # crash bilan yiqilsa) — bunda hook xatosi INTERNALERROR bo'lib butun
         # sessiyani to'xtatib qo'yadi. Shu sabab himoya bilan o'raymiz.
