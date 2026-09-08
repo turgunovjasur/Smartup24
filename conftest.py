@@ -138,31 +138,66 @@ def pytest_sessionstart(session):
         return
     if session.config.option.collectonly:
         return
-    other = None
     try:
         os.makedirs(os.path.dirname(_RUN_LOCK), exist_ok=True)
-        if os.path.exists(_RUN_LOCK):
+    except Exception:
+        pass
+    # ATOMIK qulf (os.O_EXCL) — faqat BITTA jarayon qulf faylini yarata oladi.
+    # Oldingi "os.path.exists() TEKSHIR, keyin YOZ" ketma-ketligi NOATOMIK edi:
+    # bir vaqtda (~1s ichida) boshlangan ikki run ikkovi ham "qulf yo'q" deb ko'rib
+    # PARALLEL ketardi (2026-09-08: ikki test_manufacturer runi birga yurgan bug).
+    # O_EXCL bu poyga oynasini yopadi: yaratishning o'zi atomik qulflash.
+    other = None
+    payload = json.dumps({"pid": os.getpid(), "ts": time.time(), "host": HOST_LABEL}).encode("utf-8")
+    for _attempt in range(5):
+        try:
+            fd = os.open(_RUN_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             try:
-                with open(_RUN_LOCK, encoding="utf-8-sig") as f:
-                    d = json.load(f)
-            except Exception:
-                d = {}
+                os.write(fd, payload)              # PID'ni DARHOL yozamiz (bo'sh oynani qisqartirish)
+            finally:
+                os.close(fd)
+            other = None
+            break                                  # qulf BIZDA — davom etamiz
+        except FileExistsError:
+            # Kimdir ushlab turibdi. DIQQAT: yaratuvchi faylni yaratib, PID'ni yozguncha
+            # (mikrosoniya) fayl BO'SH bo'lishi mumkin — bo'shni ko'rib darrov "eskirgan"
+            # deb O'CHIRMAYMIZ, aks holda yutqazgan run qulfni o'g'irlab parallel ketadi
+            # (2026-09-08 poygasi shu edi). PID paydo bo'lguncha ~1s qayta o'qiymiz.
+            d = {}
+            for _r in range(40):                   # ~1s: 40 x 25ms
+                try:
+                    with open(_RUN_LOCK, encoding="utf-8-sig") as f:
+                        d = json.load(f)
+                except FileNotFoundError:
+                    d = {}
+                    break                          # yaratuvchi o'zi olib tashladi — qayta urinamiz
+                except Exception:
+                    d = {}                         # hali bo'sh / yozilyapti
+                if d.get("pid"):
+                    break
+                time.sleep(0.025)
             o = d.get("pid")
             if o and o != os.getpid() and _lock_pid_alive(o):
-                other = (o, d.get("host", "?"))
-    except Exception as e:
-        print(f"[run-lock] tekshirishda xato (davom etadi): {e}")
+                other = (o, d.get("host", "?"))    # TIRIK run bor — rad etamiz
+                break
+            # PID yo'q yoki O'LIK — eskirgan/buzuq qulf; olib tashlab qayta urinamiz
+            # (O_EXCL keyingi urinishда yana kim yutsa — o'sha egallaydi).
+            try:
+                os.remove(_RUN_LOCK)
+            except FileNotFoundError:
+                pass                               # kimdir ulgurdi — keyingi urinishda ko'ramiz
+            except Exception as e:
+                print(f"[run-lock] eski qulfni olib tashlashda xato: {e}")
+                break
+        except Exception as e:
+            print(f"[run-lock] yozishda xato (davom etadi): {e}")
+            break
     if other:
         pid, host = other
         msg = (f"Boshqa test run allaqachon ishlayapti (PID {pid}, {host}) — "
                "ulashilgan akkaunt, parallel run mumkin emas. Avval uni tugating (yoki /stop).")
         _send_telegram(f"\U0001F6AB <b>Run rad etildi</b>\n{msg}")
         pytest.exit(msg, returncode=2)   # sessiyani darhol to'xtatadi (try'дан TASHQARIDA)
-    try:  # qulf bo'sh yoki eskirgan (PID o'lgan) — o'zimiznikini yozamiz
-        with open(_RUN_LOCK, "w", encoding="utf-8") as f:
-            json.dump({"pid": os.getpid(), "ts": time.time(), "host": HOST_LABEL}, f)
-    except Exception as e:
-        print(f"[run-lock] yozishda xato: {e}")
 
 
 def _release_run_lock() -> None:
@@ -839,6 +874,47 @@ def pytest_sessionfinish(session, exitstatus):
     _finish_allure_report(session)
 
 
+def _find_chrome():
+    """Google Chrome bajariladigan faylini topadi (topilmasa None)."""
+    candidates = [
+        shutil.which("chrome"),
+        os.path.join(os.environ.get("ProgramFiles", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
+    ]
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def _open_report_in_browser(allure_bin):
+    """Hisobotni brauzerda ochadi.
+
+    `allure open` OS STANDART brauzerini ochadi — bu mashinada u Edge bo'lib qolgan
+    (Windows default reg = Chrome bo'lsa-da, allure ichidagi node `open` Edge'ni ochyapti).
+    Shuning uchun statik report'ni O'ZIMIZ bo'sh portda uzatib, aniq CHROME'da ochamiz.
+    Chrome topilmasa `allure open`ga (standart brauzer) qaytamiz.
+    """
+    import subprocess
+    import socket
+    chrome = _find_chrome()
+    if not chrome:
+        subprocess.Popen([allure_bin, "open", ALLURE_REPORT_DIR])   # fallback: standart brauzer
+        return
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)            # bo'sh port olamiz
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    subprocess.Popen(
+        [sys.executable, "-m", "http.server", str(port), "--directory", ALLURE_REPORT_DIR],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    time.sleep(1)                                                   # server ko'tarilishini kutamiz
+    subprocess.Popen([chrome, f"http://127.0.0.1:{port}/"])
+    print(f"\n[Allure] Hisobot Chrome'da ochildi: http://127.0.0.1:{port}/")
+
+
 def _finish_allure_report(session):
     """Allure hisobot papkasini yaratadi; interaktiv (lokal) runda brauzerda ham ochadi.
 
@@ -873,7 +949,7 @@ def _finish_allure_report(session):
             timeout=120,
         )
         if open_browser:
-            subprocess.Popen([allure_bin, "open", ALLURE_REPORT_DIR])
+            _open_report_in_browser(allure_bin)
         else:
             print(f"\n[Allure] Hisobot tayyor: {ALLURE_REPORT_DIR}\n"
                   f"          Ko'rish: allure open {ALLURE_REPORT_DIR}")
