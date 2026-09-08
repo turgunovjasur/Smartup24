@@ -97,18 +97,14 @@ _VISIT = [
     "tests/test_document/test_agent_visit_tracking.py",
     "tests/test_document/test_route_analysis.py",
 ]
+# Bitta narsa = bitta nom (chalkashmasin): 5 bo'lim aniq nomi + visit.
 GROUP_ALIASES = {
-    "setup":         [_SETUP],
-    "group_a":       [_GROUP_A],
-    "groupa":        [_GROUP_A],
-    "regression":    [_REGRESSION],
-    "reg":           [_REGRESSION],
-    "main":          [_MAIN],
-    "document":      [_DOCUMENT],
-    "doc":           [_DOCUMENT],
-    "visit":         list(_VISIT),
-    "setup_groupa":  [_SETUP, _GROUP_A],
-    "all":           [_SETUP, _GROUP_A, _REGRESSION, _MAIN, _DOCUMENT],
+    "setup":       [_SETUP],
+    "group_a":     [_GROUP_A],
+    "regression":  [_REGRESSION],
+    "main":        [_MAIN],
+    "document":    [_DOCUMENT],
+    "visit":       list(_VISIT),
 }
 
 

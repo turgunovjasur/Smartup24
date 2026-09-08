@@ -73,13 +73,11 @@ Guruhni qisqa nom bilan ishga tushiring — to'liq yo'l yozish shart emas:
 
 ```bash
 pytest setup            # setup bo'limi (справочник create)
-pytest group_a          # Поставщик/Клиент → buyurtma oqimi  (yoki: groupa)
-pytest regression       # to'liq CRUD regressiya            (yoki: reg)
+pytest group_a          # Поставщик/Клиент → buyurtma oqimi
+pytest regression       # to'liq CRUD regressiya
 pytest main             # "Главное" bo'limi
-pytest document         # hujjat moduli                     (yoki: doc)
+pytest document         # hujjat moduli
 pytest visit            # vizit/marshrut testlari
-pytest setup_groupa     # setup + group_a
-pytest all              # 5 bo'lim ketma-ket
 pytest setup -v         # bayroqlar bilan birga ishlaydi
 ```
 
