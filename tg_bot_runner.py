@@ -545,10 +545,9 @@ def _start_tests(chat_id: str, run_env: str = DEFAULT_ENV, target: str = DEFAULT
     # Bot runlari HEADLESS — foydalanuvchi Telegram orqali kuzatadi, brauzer
     # ko'rinishi shart emas; headless ~30-40% TEZROQ (render yo'q) va CI'da
     # allaqachon sinalgan. (Lokal terminal runlarida brauzer ko'rinadi — o'zgармaydi.)
+    # HEADLESS=1 o'zi yetarli: conftest yashirin rejimда allure brauzerini ham
+    # OCHMAYDI (osilib qolmasin). Natijalar baribir yoziladi, hisobot generatsiya bo'ladi.
     env["HEADLESS"] = "1"
-    # Bot fon rejimida ishlagani uchun allure brauzerini OCHMAYMIZ (osilib qolmasin) —
-    # conftest _finish_allure_report shu env'ni tekshiradi. Natijalar baribir yoziladi.
-    env["NO_ALLURE_SERVE"] = "1"
 
     # CREATE_NEW_PROCESS_GROUP: daraxtni (pytest + brauzerlar) taskkill /T bilan
     # o'chirish uchun. CREATE_NO_WINDOW: python.exe konsol oynasi chiqmasin

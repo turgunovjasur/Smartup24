@@ -16,6 +16,27 @@ xato chiqsa **skrinshot + tushunarli sabab + Allure trace** bilan xabar qiladi.
 
 ---
 
+## 📖 Mundarija
+
+Yangi qo'shilgan bo'lsangiz — **1 → 2 → 3** ketma-ketligini o'qing (o'rnatib,
+muhitni tanlab, birinchi testni yugurting). Qolganlariga kerak bo'lganda qaytasiz.
+
+| # | Bo'lim | Bu yerda nima bor |
+|---|--------|-------------------|
+| 1 | [O'rnatish](#1-ornatish) | venv, paketlar, Playwright brauzeri, Allure CLI |
+| 2 | [Muhit (dev / prod)](#2-muhit-dev--prod) | `TEST_ENV` bilan dev/prod tanlash, URL/login jadvali |
+| 3 | [Testlarni ishga tushirish](#3-testlarni-ishga-tushirish) | qisqa buyruqlar (`pytest setup`), Allure hisobot, kod varianti |
+| 4 | [Loyiha tuzilmasi](#4-loyiha-tuzilmasi) | qaysi fayl nima qiladi (conftest, flows, utils, tests) |
+| 5 | [Test qanday yoziladi](#5-test-qanday-yoziladi-konvensiya) | `run_`/`test_` konvensiya, namuna, `BasePage` metodlari |
+| 6 | [Xato bo'lganda — diagnostika](#6-xato-bolganda--diagnostika) | test yiqilganда nima chiqadi, sababni qanday o'qish |
+| 7 | [Telegram bot va CI](#7-telegram-bot-va-ci) | masofadan run boshqarish, jadvalli (cron) run |
+| 8 | [Ma'lumotlarni tozalash](#8-malumotlarni-tozalash) | test yozgan yozuvlarni bulk o'chirish |
+| 9 | [Muhim eslatmalar](#9-muhim-eslatmalar) | run.lock, sessiya qulfi, selektor qoidalari, `.skills` |
+
+> Chuqurroq bilim (UI patternlar, DOM tafsilotlari, tarix) — [`.skills`](.skills) faylida.
+
+---
+
 ## 1. O'rnatish
 
 ```bash
@@ -141,17 +162,33 @@ utils/
   qa_report.py             — biznes tilidagi xato hisoboti (qa_step / friendly_reason)
 
 tests/
-  test_setup/              — справочник create namunalari + test_all_setup.py runner
-  test_group_a/            — Поставщик/Клиент, userlar, hamkorlik, buyurtma + runner
-  test_regression/         — to'liq CRUD (create/edit/view/delete/status/duplicate) + runner
+  test_setup/              — har forma BASIC CREATE (smoke) + test_all_setup.py runner
+  test_group_a/            — Поставщик/Клиент → buyurtma E2E biznes OQIMI + runner
+  test_regression/         — modul boshiga TO'LIQ CRUD (chuqur tekshiruv) + runner
   test_main/               — "Главное" bo'limi (Организации, Роли …) + runner
-  test_document/           — hujjat/vizit moduli + runner
+  test_document/           — hujjat/vizit moduli (+ mobil API) + runner
 
 scripts/cleanup_test_data.py — test ma'lumotlarini bulk tozalash (o'chmasa deaktivatsiya)
 tg_bot_runner.py             — Telegram bot: masofadan run start/stop
 .github/workflows/e2e.yml    — jadvalli (cron) CI run
 .skills                      — CHUQUR bilim bazasi: UI patternlar, DOM tafsilotlari, tarix
 ```
+
+### Bo'limlar (test guruhlari) nima qiladi
+
+Har bo'lim boshqa **maqsad** va **chuqurlik**ka ega — shuning uchun turli jadvalda ishlaydi:
+
+| Bo'lim | Nechta test | Nima qiladi | Chuqurlik |
+|--------|:-----------:|-------------|-----------|
+| **setup** | 1 login + 22 create | Barcha справочnik/formalarni birma-bir ochib, bitta yozuv **yaratadi** va ro'yxatda ko'rinishini tekshiradi (Производитель, Отрасль, Категория, Регион, Продукт, Поставщик, Клиент, Валюта, Опросник … + 6 sub-nav). | **Smoke** — "formalar umuman ochiladi va saqlaydimi" |
+| **group_a** | 15 | Bitta **uchidan-uchiga biznes oqim**: kerakli ma'lumotnomalarni o'zi yaratadi → Поставщик + Клиент → ularning **foydalanuvchilari** → Сотрудничество (hamkorlik so'rovi + tasdiq) → Товар yaratish → Товарni **biriktirish + narx** → klient user nomidan **Заказ** → postavshik user nomidan **status**ni `Новый → Завершен` gacha aylantirish. Bosqichlar orasida **rol almashadi**. | **E2E oqim** — real foydalanuvchi ssenariysi |
+| **regression** | 26 (13 modul) | Har modul uchun **to'liq CRUD**: create / minimal / view / edit / status / delete / duplicate (dublikat xatosi, majburiy maydon, i18n status …). | **Chuqur** — chekka holatlar + negativ |
+| **main** | 38 | "Главное" bo'limi: Организации, Роли, Пользователи, Объявления, Клиенты OAuth2, Шаблоны отчетов, Перевод строки таблицы, Настройка. | To'liq CRUD |
+| **document** | 21 | Hujjat/vizit moduli: Визиты, Планирование визитов (takrorlanuvchi reja), Группа полей, Анализ маршрутов (xlsx yuklab olish), + **mobil vizit API** (web reja → API vizit → status). | To'liq CRUD + API |
+
+> **Qisqasi:** `setup` — "hamma forma tirikmi?" (tez, tez-tez); `group_a` — "asosiy biznes
+> oqimi buzilmadimi?" (tez, kritik); `regression` — "hech joyda chekka holat sinmadimi?"
+> (sekin, kamdan-kam). Shuning uchun CI'da setup+group_a har 2 soatda, regression har 12 soatda.
 
 ---
 

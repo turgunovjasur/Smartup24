@@ -20,8 +20,13 @@ if TEST_ENV not in _ENVIRONMENTS:
     TEST_ENV = "dev"
 LOGIN_URL, COMPANY_CODE = _ENVIRONMENTS[TEST_ENV]
 
+# Parol MAXFIY — GitHub'ga tushmasligi uchun koddan chiqarildi: .env dagi
+# TEST_PASSWORD dan o'qiladi (fayl .gitignore'da). Berilmasa default "greenwhite"
+# (ishni buzmaslik uchun). authorization(password=...) bilan aniq berilsa, u ustun.
+TEST_PASSWORD = os.getenv("TEST_PASSWORD", "greenwhite")
 
-def authorization(page: Page, email=None, password="greenwhite") -> None:
+
+def authorization(page: Page, email=None, password=None) -> None:
     """Smartup24 ga login qiladi va ilova ochilishini kutadi.
 
     Login tugaganini **rolga/sahifaga bog'liq bo'lmagan** universal signal bilan
@@ -30,6 +35,8 @@ def authorization(page: Page, email=None, password="greenwhite") -> None:
     tugmasini kutmaymiz — u faqat ma'lum rol/bo'limlarda bo'ladi."""
     if email is None:
         email = f"admin@{COMPANY_CODE}"
+    if password is None:
+        password = TEST_PASSWORD
     page.goto(LOGIN_URL)
     page.get_by_role("textbox", name="Логин").fill(email)
     page.get_by_role("textbox", name="Введите пароль").fill(password)

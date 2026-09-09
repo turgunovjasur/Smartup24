@@ -121,6 +121,29 @@ def _expand_group_aliases(items):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
+# CLI BAYROQLAR — brauzer ko'rinishi va report ochilishi (CLI > .env > default)
+# ----------------------------------------------------------------------------------------------------------------------
+def pytest_addoption(parser):
+    """Terminaldan boshqarish uchun tugma-bayroqlar. Tri-holat (True/False/None):
+    berilmasa None qoladi va .env/default ga o'tiladi (qarang _headless_for/_open_report_for).
+
+        pytest setup --show-browser        # brauzerni ko'rsat (env HEADLESS=1 ni ham bosadi)
+        pytest setup --hide-browser        # brauzerni yashir (fon/CI)
+        pytest setup --open-report         # yakunда Allure'ni brauzerda och
+        pytest setup --no-open-report      # report yaratiladi, brauzer ochilmaydi
+    """
+    g = parser.getgroup("smartup24", "Smartup24 E2E tugmalari")
+    g.addoption("--show-browser", dest="show_browser", action="store_const", const=True,
+                default=None, help="Brauzerni ko'rsat (headless=False). .env HEADLESS'ni bosadi.")
+    g.addoption("--hide-browser", dest="show_browser", action="store_const", const=False,
+                help="Brauzerni yashir (headless).")
+    g.addoption("--open-report", dest="open_report", action="store_const", const=True,
+                default=None, help="Yakunда Allure hisobotini brauzerda och.")
+    g.addoption("--no-open-report", dest="open_report", action="store_const", const=False,
+                help="Hisobot yaratiladi, lekin brauzer ochilmaydi.")
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 
 def pytest_configure(config):
     """Allure hisoboti uchun environment, categories, executor va history tayyorlaydi."""
@@ -404,13 +427,31 @@ def _auto_recover_chunk_error(page_obj: Page) -> None:
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-# CI/headless: HEADLESS=1 env var bilan brauzer ko'rinmasdan ishlaydi
-# (default — ko'rinadigan brauzer, lokal xatti-harakat o'zgarmaydi).
-_HEADLESS = os.getenv("HEADLESS") == "1"
+# Brauzer ko'rinishi va report ochilishi — TUGMA (maxfiy emas). Boshqaruv tartibi:
+# Brauzer ko'rinishi va report ochilishi — bitta manba (HEADLESS) + CLI override.
+# Boshqaruv tartibi: CLI bayroq > .env HEADLESS > default.
+#   • Odam uchun (intuitiv):  pytest ... --show-browser / --hide-browser / --open-report / --no-open-report
+#   • CI/bot uchun (standart):  HEADLESS=1  (brauzerni yashiradi; report ham ochilmaydi)
+# Default: brauzer KO'RINADI, report OCHILADI. Report ko'rinishga bog'liq —
+# yashirin (CI/bot) rejimда report popup ochilmaydi, alohida NO_ALLURE_SERVE kerak emas.
+def _headless_for(config) -> bool:
+    """Brauzer yashirin (headless) ishlasinmi? CLI > HEADLESS > default(False=ko'rinadi)."""
+    show = config.getoption("show_browser", None)   # True/False/None (berilmagan)
+    if show is not None:
+        return not show                              # --show-browser -> ko'rsat, --hide-browser -> yashir
+    return os.getenv("HEADLESS") == "1"              # HEADLESS=1 -> yashir; aks holda ko'rinadi
+
+
+def _open_report_for(config) -> bool:
+    """Allure brauzerда ochilsinmi? CLI > (brauzer ko'rinishiga bog'liq) > default(ochiladi)."""
+    val = config.getoption("open_report", None)     # True/False/None
+    if val is not None:
+        return val
+    return not _headless_for(config)                 # yashirin (CI/bot) -> ochma; ko'rinsa -> och
 
 
 @pytest.fixture
-def browser():
+def browser(request):
     """Bitta browser instance, to'liq ekranda ochiladi.
 
     ``--window-size=1920,1080`` — MUHIM: ``--start-maximized`` Playwright
@@ -423,7 +464,7 @@ def browser():
     deterministik hal qiladi."""
     with sync_playwright() as p:
         browser_obj = p.chromium.launch(
-            headless=_HEADLESS,
+            headless=_headless_for(request.config),
             args=["--start-maximized", "--window-size=1920,1080"],
         )
         yield browser_obj
@@ -432,14 +473,14 @@ def browser():
 # ----------------------------------------------------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def session_browser():
+def session_browser(request):
     """Butun sessiya uchun bitta browser (test_smoke_runner uchun).
 
     ``--window-size=1920,1080`` sababi uchun ``browser`` fixture izohiga qarang
     (past viewport'da dropdown varianti ekrandan chiqib ketadi)."""
     with sync_playwright() as p:
         browser_obj = p.chromium.launch(
-            headless=_HEADLESS,
+            headless=_headless_for(request.config),
             args=["--start-maximized", "--window-size=1920,1080"],
         )
         yield browser_obj
@@ -972,8 +1013,8 @@ def _open_report_in_browser(allure_bin):
 def _finish_allure_report(session):
     """Allure hisobot papkasini yaratadi; interaktiv (lokal) runda brauzerda ham ochadi.
 
-    Bot/CI (HEADLESS yoki NO_ALLURE_SERVE) da hisobot GENERATSIYA qilinaveradi
-    (statik `test-results/allure-report/` — keyin qo'lda `allure open` bilan ko'riladi),
+    Bot/CI (HEADLESS=1) da hisobot GENERATSIYA qilinaveradi (statik
+    `test-results/allure-report/` — keyin qo'lda `allure open` bilan ko'riladi),
     faqat `allure open` web-serveri OCHILMAYDI — u fon/CI jarayonini tugamay osib
     qo'yardi. Shunday qilib Telegram/bot runidan keyin ham tayyor hisobot qoladi.
     """
@@ -988,9 +1029,9 @@ def _finish_allure_report(session):
         # CI'da (ubuntu) allure CLI o'rnatilmagan bo'lishi mumkin — normal, eslatib o'tamiz.
         print(f"\n[Allure] CLI topilmadi. Qo'lda ishlatish: allure serve {ALLURE_RESULTS_DIR}")
         return
-    # HEADLESS/NO_ALLURE_SERVE — brauzerni avtomatik OCHMAYMIZ (fon runni osmasin),
-    # lekin hisobotni baribir generatsiya qilamiz.
-    open_browser = not (os.getenv("HEADLESS") == "1" or os.getenv("NO_ALLURE_SERVE") == "1")
+    # Brauzer ochish: CLI (--open-report/--no-open-report) > brauzer ko'rinishi
+    # (HEADLESS) > default(ochiladi). Ochilmasa ham hisobot generatsiya qilinadi.
+    open_browser = _open_report_for(session.config)
     try:
         # Allure 3 (npm) CLI: `--clean` flagi YO'Q, `-o` o'rniga `--output`.
         # Eski Allure 2 `--clean` report papkasini oldin tozalardi — endi shuni
