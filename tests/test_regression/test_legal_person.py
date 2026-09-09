@@ -295,7 +295,8 @@ def test_legal_person_status(page: Page, code) -> None:
 def run_legal_person_duplicate(page: Page, code) -> None:
     """Bir xil nom va ИНН bilan qayta yaratishга urinish xatolik berishini
     tekshiradi (person modulda ИНН bo'yicha unikal indeks — "Ошибка" dialogi,
-    matnida "dup_val_on_index" va tin; MCP tasdiqlangan 2026-07-05)."""
+    matnida "ИНН {tin} уже принадлежит {nom}"; server 2026-09 da xom
+    "dup_val_on_index" o'rniga shu tushunarli matnni qaytaradi)."""
     m = BasePage(page)
     name = f"lp-dup-{code}"
 
@@ -312,7 +313,7 @@ def run_legal_person_duplicate(page: Page, code) -> None:
         m.click_button("Сохранить")
 
     with allure.step("Ошибка dialogi chiqishini tekshirish (ИНН dublikat)"):
-        m.expect_error_dialog("Ошибка", "dup_val_on_index", data["tin"])
+        m.expect_error_dialog("Ошибка", "уже принадлежит", data["tin"])
 
     with allure.step("Dialogni yopish — forma ochiq qoladi, yozuv saqlanmagan"):
         m.expect_heading("Юр. Лицо (Создания)")

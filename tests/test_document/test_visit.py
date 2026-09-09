@@ -192,14 +192,15 @@ def run_visit_check(page: Page) -> None:
         m.click_button("Результаты анализа")
         m.click_button("Go back")
 
-    with allure.step("Лиды (visit ichidan): lead Просмотр (Дополнительные поля / История)"):
+    with allure.step("Лиды (visit ichidan): lead Просмотр (Основная информация / История)"):
         _open_visit_row(page, m, agent, visit_id)
         m.click_button("Лиды")
         m.expect_heading("Лиды")
         m.click_grid_row(agent)
         m.click_button("Просмотр")
         m.expect_heading("Просмотр лида")
-        m.click_button("Дополнительные поля")
+        # Lead Просмотр bo'limlari 2026-08 da o'zgardi: "Дополнительные поля" → "Основная информация"
+        m.click_button("Основная информация")
         m.click_button("История")
         m.click_button("Go back")
 
@@ -224,11 +225,12 @@ def run_visit_leads(page: Page) -> None:
         _goto_visit_section(page, m, "Лиды")
         m.expect_heading("Лиды")
 
-    with allure.step("Lead Просмотр: Дополнительные поля / История"):
+    with allure.step("Lead Просмотр: Основная информация / История"):
         m.click_grid_row("agent-")
         m.click_button("Просмотр")
         m.expect_heading("Просмотр лида")
-        m.click_button("Дополнительные поля")
+        # Lead Просмотр bo'limlari 2026-08 da o'zgardi: "Дополнительные поля" → "Основная информация"
+        m.click_button("Основная информация")
         m.click_button("История")
         m.click_button("Go back")
         m.expect_heading("Лиды")
@@ -250,8 +252,10 @@ def run_visit_reason(page: Page, code: str) -> None:
     with allure.step(f"Создать: {name}"):
         m.open_create()
         m.expect_heading("Причина (Создание)")
-        # "Название *" inputi smtid'siz/label'siz — id="null"
-        page.locator("#null").fill(name)
+        # "Название *" inputi smtid'siz/label'siz — id="null". Runner'да (session_page)
+        # oldingi formalardan qolgan YASHIRIN #null'lar bo'lishi mumkin (strict-mode 3 element
+        # xatosi) — :visible bilan faqat joriy ochiq formaning inputini olamiz.
+        page.locator("#null:visible").fill(name)
         m.save()
         m.expect_heading("Причины")
 
@@ -260,7 +264,7 @@ def run_visit_reason(page: Page, code: str) -> None:
         m.click_grid_row(name)
         m.click_button("Изменить")
         m.expect_heading("Причина (Редактирование)")
-        page.locator("#null").fill(edited)
+        page.locator("#null:visible").fill(edited)
         m.save()
         m.expect_heading("Причины")
 
@@ -269,7 +273,7 @@ def run_visit_reason(page: Page, code: str) -> None:
         m.click_grid_row(edited)
         m.click_button("Изменить")
         m.expect_heading("Причина (Редактирование)")
-        expect(page.locator("#null")).to_have_value(edited)
+        expect(page.locator("#null:visible")).to_have_value(edited)
         m.click_button("Go back")
         m.expect_heading("Причины")
 
