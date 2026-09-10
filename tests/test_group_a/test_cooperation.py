@@ -29,40 +29,44 @@ def run_cooperation(page: Page, code) -> None:
         m.click_button("Просмотреть")
         m.expect_heading("Поставщик (Просмотр)")
 
-    with allure.step("Запросы на сотрудничество → Клиент → Рекомендованные клиенты"):
-        m.click_button("Запросы на сотрудничество")
-        # Navbar'da ham "Клиент" bor, view ichida esa smt-tab-button[role=button]
-        # ham matnga mos keladi — shu sabab CSS `button` tag bilan aniqlanadi
+    with allure.step("Поставщик view → 'Клиент' bo'limi"):
+        # Рекомендованные клиенты "Клиент" BO'LIMI ichida (eski UI'да "Запросы на
+        # сотрудничество" ichida edi — 2026-09-10 MCP bilan tekshirildi, endi alohida
+        # "Клиент" bo'limi). Navbar'да ham "Клиент" bor, shu sabab #main-content scope.
         page.locator("#main-content button").filter(has_text=re.compile(r"^Клиент$")).first.click()
+        m.settle()
 
-    with allure.step(f"'{client_name}' ga hamkorlik so'rovi yuborish"):
-        # DIQQAT: bu tab'da qidiruv ISHLATILMAYDI — backend recommended_clients
-        # so'rovida yo'q client_code ustuni bo'yicha filtr yuboradi va 500 qaytadi.
-        # Ro'yxat baribir kichik: faqat shu run'ning Region/Отрасль'iga mos klientlar.
-        #
-        # POYGA: "Клиент" bosilgach grid avval "Мои клиенты"
-        # ma'lumotini (client_list:supplier_clients) yuklaydi. Shu so'rov tugamasidan
-        # "Рекомендованные клиенты" bosilsa grid ESKI ustunlar (has_active_deal,
-        # client_code) bilan so'rov yuboradi — backend "FAZO_QUERY: Field not found
-        # [has_active_deal]" bilan 500 qaytaradi va ro'yxat "Нет результатов" qoladi.
-        # Tez toggle qilish DAVOLAMAYDI: supplier_clients so'rovi umuman ketmay,
-        # ustun holati yangilanmaydi (2026-07-10 run trace'ida 4 urinishning
-        # hammasi eski ustunlar bilan 500). Shuning uchun har tab bosishdan OLDIN
-        # _settle (loader + networkidle) bilan joriy grid so'rovi tugashi kutiladi
-        # — inson tezligida MCP bilan tasdiqlangan, hammasi 200.
+    with allure.step(f"Рекомендованные клиенты → '{client_name}' ga hamkorlik so'rovi"):
+        # "Рекомендованные клиенты" grid backend so'rovi SEKIN/beqaror — klient qatori
+        # bir necha soniyadан keyin chiqadi (MCP 2026-09-10: inson tezligiда chiqadi,
+        # tez avtomat run'да ulgurmaydi). Shuning uchun: tabni bir marta bosib _settle
+        # bilan so'rov tugashini kutamiz, keyin qatorni SABR bilan (katta timeout)
+        # kutamiz. Tez toggle QILMAYMIZ — u so'rovni reset qilib ro'yxatni bo'shatadi;
+        # topilmasagina bir marta Мои клиенты↔Рекомендованные toggle bilan qayta urinamiz.
         row = page.locator(".smt-data-row").filter(has_text=client_name).first
-        for _ in range(3):
+        m.click_button("Рекомендованные клиенты")
+        m.settle()
+        try:
+            expect(row).to_be_visible(timeout=20_000)
+        except AssertionError:
+            m.click_button("Мои клиенты")
             m.settle()
             m.click_button("Рекомендованные клиенты")
+            m.settle()
+            expect(row).to_be_visible(timeout=20_000)
+
+        # Qatorni TO'G'RIDAN-TO'G'RI bosamiz (click_grid_row ichki _settle bilan
+        # so'rovni qayta yuborib ro'yxatni bo'shatishi mumkin). Action panelда
+        # "Отправить запрос на сотрудничество" chiqadi (qator following-sibling'i).
+        send_btn = page.get_by_role("button", name="Отправить запрос на сотрудничество").first
+        for _ in range(6):
+            row.click(position={"x": 120, "y": 12})
             try:
-                expect(row).to_be_visible(timeout=5_000)
+                expect(send_btn).to_be_visible(timeout=3_000)
                 break
             except AssertionError:
-                m.click_button("Мои клиенты")
-        else:
-            expect(row).to_be_visible(timeout=3_000)
-        m.click_grid_row(client_name)
-        m.click_button("Отправить запрос на сотрудничество")
+                continue
+        send_btn.click()
         m.confirm("да")
 
     with allure.step("Навигация: Модератор → Клиенты"):
