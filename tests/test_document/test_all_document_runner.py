@@ -55,8 +55,8 @@ from tests.test_document.test_field_group import (
 )
 # --- Анализ маршрутов (hisobot yuklab olish) ---
 from tests.test_document.test_route_analysis import (
-    REPORT_TYPES, run_download_success, run_plan_values, run_report_type,
-    run_required_fields, run_structure,
+    REPORT_TYPES, run_download_success, run_history_download, run_history_structure,
+    run_plan_values, run_report_type, run_required_fields, run_structure,
 )
 # --- Визиты ---
 from tests.test_document.test_visit import (
@@ -219,6 +219,20 @@ def test_024_route_required_fields(session_page: Page) -> None:
     # run_required_fields ichida pytest.xfail chaqiriladi (ilova majburiy sanani
     # tekshirmaydi) — bu test XFAIL bo'ladi, yiqilish emas.
     run_required_fields(session_page)
+
+
+@allure.epic("Документы")
+@allure.feature("Анализ маршрутов")
+@allure.title("Анализ маршрутов: История — ustunlar va 'Завершенный' hisobot ko'rinadi")
+def test_025_route_history_structure(session_page: Page) -> None:
+    run_history_structure(session_page)
+
+
+@allure.epic("Документы")
+@allure.feature("Анализ маршрутов")
+@allure.title("Анализ маршрутов: История — tayyor hisobotni qayta yuklab olish (.xlsx)")
+def test_026_route_history_download(session_page: Page, tmp_path) -> None:
+    run_history_download(session_page, str(tmp_path))
 
 
 # ══════════════════════════════════════════════════════════════════════════════

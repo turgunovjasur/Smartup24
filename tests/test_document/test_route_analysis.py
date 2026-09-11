@@ -23,7 +23,7 @@ from datetime import date, timedelta
 import allure
 import openpyxl
 import pytest
-from playwright.sync_api import Page, TimeoutError as PWTimeout
+from playwright.sync_api import Page, TimeoutError as PWTimeout, expect
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -270,6 +270,77 @@ def run_required_fields(page: Page) -> None:
         pass  # kutilgan: majburiy maydonlar bo'sh — yuklanmadi
 
 
+# ── История tab (tayyor hisobotlar ro'yxati) ──────────────────────────────────
+# Sahifa sarlavhasi "Конструктор отчетов по визитам"; ikki tab: "Параметры"
+# (hisobot generatsiyasi — yuqoridagi run_*lar) va "История" (oldin generatsiya
+# qilingan hisobotlar ro'yxati). "Параметры"da Сформировать bosilganda har hisobot
+# История'ga "Завершенный" statusда yoziladi va qaytadan yuklab olsa bo'ladi
+# (MCP tasdiqlangan 2026-09-11). Bu tab ilgari faqat async fallback'да ishlatilardi,
+# alohida testи yo'q edi — quyida qamraladi.
+HISTORY_COLUMNS = [
+    "Название отчета", "Название файла", "Размер файла",
+    "Дата создания", "Статус", "Сообщение ошибки",
+]
+
+
+def _open_history(page: Page, m: BasePage) -> None:
+    """Анализ маршрутов formasini ochib "История" tab'iga o'tadi (heading "История")."""
+    _open_route_form(page, m)
+    m.click_button("История")
+    m.settle()
+    expect(page.get_by_role("heading", name="История").first).to_be_visible()
+
+
+def run_history_structure(page: Page) -> None:
+    """"История" tab kutilgan ustunlar bilan ochiladi va kamida bitta "Завершенный"
+    (tayyor) hisobot yozuvi ko'rinadi."""
+    m = BasePage(page)
+    _open_history(page, m)
+    for col in HISTORY_COLUMNS:
+        expect(page.get_by_text(col, exact=True).first).to_be_visible()
+    expect(page.locator(".smt-data-row").first).to_be_visible()
+    expect(page.locator(".smt-data-row").filter(has_text="Завершенный").first).to_be_visible()
+    allure.attach(", ".join(HISTORY_COLUMNS), name="history_columns",
+                  attachment_type=allure.attachment_type.TEXT)
+
+
+def run_history_download(page: Page, dest_dir: str) -> str:
+    """"История"даги tayyor ("Завершенный") hisobot qatorини tanlab, action panel'даги
+    "Скачать" orqali qaytadan yuklab olinadi — fayl .xlsx va openpyxl ocha oladi."""
+    m = BasePage(page)
+    _open_history(page, m)
+    os.makedirs(dest_dir, exist_ok=True)
+
+    row = page.locator(".smt-data-row").filter(has_text="Завершенный").first
+    expect(row).to_be_visible()
+    # Qatorni tanlab action panel ("Скачать") chiqishini kutamiz — bir bosishда panel
+    # ochilmasa qayta bosamiz (click_grid_row toggle himoyasi bilan bir xil g'oya).
+    dl_btn = page.get_by_role("button", name="Скачать").first
+    for _ in range(6):
+        row.click(position={"x": 120, "y": 12})
+        try:
+            expect(dl_btn).to_be_visible(timeout=3_000)
+            break
+        except AssertionError:
+            continue
+    with page.expect_download(timeout=30_000) as dl_info:
+        dl_btn.click()
+    download = dl_info.value
+    path = os.path.join(dest_dir, download.suggested_filename)
+    download.save_as(path)
+    assert path.endswith(".xlsx"), f".xlsx emas: {path}"
+    assert os.path.getsize(path) > 0, f"Yuklangan fayl bo'sh: {path}"
+    # Haqiqiy xlsx ekanini tasdiqlaymiz — openpyxl ocha olishi kerak
+    wb = openpyxl.load_workbook(path, read_only=True)
+    try:
+        assert wb.sheetnames, "xlsx'да sheet yo'q"
+    finally:
+        wb.close()
+    allure.attach(f"{os.path.basename(path)} ({os.path.getsize(path)} bayt)",
+                  name="downloaded_from_history", attachment_type=allure.attachment_type.TEXT)
+    return path
+
+
 # ======================================================================================
 # test_* — har biri alohida (o'z login'i bilan)
 # ======================================================================================
@@ -319,3 +390,23 @@ def test_plan_values_reflected(page: Page, tmp_path) -> None:
     "plan per activation"/"plan per deal" ustunlarida aks etadi."""
     authorization(page)
     run_plan_values(page, str(tmp_path))
+
+
+@allure.epic("Документы")
+@allure.feature("Анализ маршрутов")
+@allure.story("История")
+@allure.title("История: ustunlar va kamida bitta 'Завершенный' hisobot ko'rinadi")
+def test_history_structure(page: Page) -> None:
+    """"История" tab kutilgan ustunlar bilan ochiladi, tayyor yozuv(lar) mavjud."""
+    authorization(page)
+    run_history_structure(page)
+
+
+@allure.epic("Документы")
+@allure.feature("Анализ маршрутов")
+@allure.story("История")
+@allure.title("История: tayyor hisobotni qayta yuklab olish (.xlsx)")
+def test_history_download(page: Page, tmp_path) -> None:
+    """"История"даги "Завершенный" yozuvни Скачать → haqiqiy .xlsx yuklanadi."""
+    authorization(page)
+    run_history_download(page, str(tmp_path))
