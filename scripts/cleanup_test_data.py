@@ -86,7 +86,7 @@ TARGETS = [
     dict(tab="Модератор", menu="Юридическое лицо",
          sublink="Организационно-правовые формы", prefixes=["MCHJ-"], show_all=True),
     # ── Yangi modullar ──
-    dict(tab="Модератор", menu="Группа полей", prefixes=["field-group-", "fg-"], show_all=True),
+    # (Группа полей moduli UI'dan olib tashlandi — 2026-09-11, "Полевой отчет" hisoboti bilan almashdi)
     # Валюта: Название bo'yicha qidiruv flow_menu bilan yoqiladi
     dict(tab="Модератор", menu="Валюты", prefixes=["val-", "so`m", "tiyin"], show_all=True, flow_menu=True),
     # Agentlar/userlar — ko'pi visit/filialга bog'langan → o'chmaydi, Неактивный (best-effort)

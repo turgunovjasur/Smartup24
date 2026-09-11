@@ -234,12 +234,16 @@ def test_product_delete(page: Page, code) -> None:
 
 
 def run_product_status(page: Page, code) -> None:
-    """Status ikki yo'nalishda tekshiriladi ("Изменить статус" menyusi —
-    supplier'dagi kabi, variantlar Пассивный/Приостоновлено):
+    """Status ikki yo'nalishda RO'YXAT-FILTRI xatti-harakati orqali tekshiriladi.
 
-    1) Aktiv yaratilgan produkt Пассивный qilinadi — default ro'yxatdan
-       yo'qoladi, "Показать все"da "Пассивный" ko'rinadi.
-    2) Пассивный holatda yaratilgan produkt Активный qilinadi."""
+    DIQQAT: product ro'yxatida "Статус" USTUNI endi YO'Q (2026-09-11 UI o'zgarishi) —
+    shuning uchun status so'zini (Пассивный/Активный) qator MATNIDAN o'qib bo'lmaydi.
+    Holat ro'yxatda KO'RINISH/YO'QOLISH bilan isbotlanadi (bu — statusning haqiqiy
+    ta'siri, ustun matnidan ishonchliroq):
+    1) Aktiv yaratilgan produkt Пассивный qilinadi — default ro'yxatdan YO'QOLADI
+       (= passiv), "Показать все"da QAYTA ko'rinadi.
+    2) Пассивный yaratilgan produkt Активный qilinadi — default ro'yxatda
+       (show_all'siz) KO'RINADI (= aktiv; passiv bo'lsa yashirin qolardi)."""
     m = BasePage(page)
     active_name = f"product-stat-a-{code}"
     passive_name = f"product-stat-p-{code}"
@@ -250,13 +254,13 @@ def run_product_status(page: Page, code) -> None:
         m.click_grid_row(active_name)
         m.change_status("Пассивный")
 
-    with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish"):
+    with allure.step("1) Default ro'yxatda ko'rinmasligini tekshirish (= passiv)"):
         m.search(active_name)
         m.expect_no_row(active_name)
 
-    with allure.step("1) Показать все filtrida 'Пассивный' bo'lib ko'rinishi"):
+    with allure.step("1) 'Показать все' filtrida qayta ko'rinishi (passiv qator)"):
         m.show_all()
-        m.grid_row(active_name, "Пассивный")
+        m.grid_row(active_name)
 
     run_product_basic(page, code, name=passive_name, status="Пассивный")
 
@@ -264,9 +268,9 @@ def run_product_status(page: Page, code) -> None:
         m.click_grid_row(passive_name)
         m.change_status("Активный")
 
-    with allure.step("2) Ro'yxatda 'Активный' bo'lib ko'rinishini tekshirish"):
+    with allure.step("2) Default ro'yxatda (show_all'siz) ko'rinishi (= aktiv)"):
         m.search(passive_name)
-        m.grid_row(passive_name, "Активный")
+        m.grid_row(passive_name)
 
 
 @allure.epic("Модератор")

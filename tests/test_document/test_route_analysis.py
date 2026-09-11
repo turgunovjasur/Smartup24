@@ -246,6 +246,12 @@ def run_report_type(page: Page, dest_dir: str, report_type: str) -> None:
     m = BasePage(page)
     _open_route_form(page, m)
     _select_report_type(page, report_type)
+    # "Тип отчёта" o'zgartirilganда forma QAYTA render bo'ladi (maydon/tugmalar
+    # almashadi). To'liq suite yukida bu asinxron kechikadi va keyingi amal "not
+    # visible" bilan FLAKY yiqilardi (2026-09-11) — settle + "Сформировать" qayta
+    # ko'rinishini kutib barqarorlashtiramiz.
+    m.settle()
+    page.get_by_role("button", name="Сформировать").first.wait_for(state="visible", timeout=15_000)
     _fill_dates_if_present(page, m, *_default_dates())
     path = _generate_download(page, m, dest_dir)
     assert path.endswith(".xlsx") and os.path.getsize(path) > 0

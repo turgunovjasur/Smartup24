@@ -47,12 +47,6 @@ from playwright.sync_api import Page
 from flows.flow_authorization import authorization
 from utils.base_page import BasePage
 
-# --- Группа полей (CRUD + negativ) ---
-from tests.test_document.test_field_group import (
-    run_field_group, run_field_group_delete, run_field_group_duplicate,
-    run_field_group_edit, run_field_group_required, run_field_group_status,
-    run_field_group_subtypes,
-)
 # --- Анализ маршрутов (hisobot yuklab olish) ---
 from tests.test_document.test_route_analysis import (
     REPORT_TYPES, run_download_success, run_history_download, run_history_structure,
@@ -128,58 +122,6 @@ def test_000_login_admin(session_page: Page) -> None:
     """Butun runner uchun YAGONA login. Keyingi barcha testlar shu ochiq
     session_page seansidan foydalanadi — qayta login qilinmaydi."""
     authorization(session_page)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# I. ГРУППА ПОЛЕЙ — to'liq CRUD + negativ
-# ══════════════════════════════════════════════════════════════════════════════
-@allure.epic("Документы")
-@allure.feature("Группа полей")
-@allure.title("Группа полей: Создание")
-def test_010_field_group_create(session_page: Page, code) -> None:
-    run_field_group(session_page, code)
-
-
-@allure.epic("Документы")
-@allure.feature("Группа полей")
-@allure.title("Группа полей: Редактирование")
-def test_011_field_group_edit(session_page: Page, code) -> None:
-    run_field_group_edit(session_page, code)
-
-
-@allure.epic("Документы")
-@allure.feature("Группа полей")
-@allure.title("Группа полей: Статус — Неактивный/Активный")
-def test_012_field_group_status(session_page: Page, code) -> None:
-    run_field_group_status(session_page, code)
-
-
-@allure.epic("Документы")
-@allure.feature("Группа полей")
-@allure.title("Группа полей: Подтипы — Поле qo'shish")
-def test_013_field_group_subtypes(session_page: Page, code) -> None:
-    run_field_group_subtypes(session_page, code)
-
-
-@allure.epic("Документы")
-@allure.feature("Группа полей")
-@allure.title("Группа полей: Удаление")
-def test_014_field_group_delete(session_page: Page, code) -> None:
-    run_field_group_delete(session_page, code)
-
-
-@allure.epic("Документы")
-@allure.feature("Группа полей")
-@allure.title("Группа полей: Негатив — majburiy 'Название' bo'sh")
-def test_015_field_group_required(session_page: Page, code) -> None:
-    run_field_group_required(session_page, code)
-
-
-@allure.epic("Документы")
-@allure.feature("Группа полей")
-@allure.title("Группа полей: Дубликат — nom bilan xatolik")
-def test_016_field_group_duplicate(session_page: Page, code) -> None:
-    run_field_group_duplicate(session_page, code)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

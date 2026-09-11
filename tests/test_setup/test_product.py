@@ -54,11 +54,15 @@ def run_product(page: Page, code, name=None, status=None) -> dict:
         flow_navigate(page, tab="Модератор", name="Товары")
         m.expect_heading("Товары")
         m.search(name)
+        # Product ro'yxatida "Статус" USTUNI endi YO'Q (2026-09-11 UI o'zgarishi) —
+        # status so'zini (Пассивный/Активный) qator matnidan tekshirib bo'lmaydi.
+        # Aktiv yozuv default ro'yxatda ko'rinadi; passiv yozuv YASHIRIN, faqat
+        # "Показать все" bilan chiqadi — mavjudligining o'zi yaratilganini isbotlaydi.
         if status in (None, "Активный"):
             m.grid_row(name)
         else:
             m.show_all()
-            m.grid_row(name, status)
+            m.grid_row(name)
 
     return {"name": name, "kod": kod}
 

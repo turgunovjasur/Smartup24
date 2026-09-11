@@ -377,6 +377,11 @@ def run_oprosniki_attach(page: Page, code) -> None:
         # chiqadi (SANA emas, server UI-holatiga bog'liq flip) — ikkalasini ham qabul
         # qilamiz, aks holda test beqaror yiqiladi.
         m.click_button(re.compile(r"^(?:Доступные|Неприкреплённые)$"))
+        # Biriktirilmagan savollar ro'yxati dev bazada yillar davomida YIG'ILIB ketgan
+        # (har run yangi vaprost-* yaratadi, biriktirilmasa qolаveradi) va virtual-scroll/
+        # sahifalashsiz — kerakli savol ko'rinmay qoladi (grid_row topolmaydi, 2026-09-11
+        # MCP). Avval QIDIRIB ro'yxatni bitta savolga toraytiramiz, keyin tanlaymiz.
+        m.search(question)
         row = m.grid_row(question)
         row.locator("[role=checkbox]").first.click()
         # UI tugma nomi ilova versiyalari orasida almashadi: "Прикрепить 1" (qavssiz,
