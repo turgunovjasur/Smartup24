@@ -58,6 +58,8 @@ from tests.test_document.test_route_analysis import (
     REPORT_TYPES, run_download_success, run_history_download, run_history_structure,
     run_plan_values, run_report_type, run_required_fields, run_structure,
 )
+# --- Конструктор отчетов по визитам (pivot builder — ochilish smoke) ---
+from tests.test_document.test_visit_report_builder import run_builder_opens
 # --- Визиты ---
 from tests.test_document.test_visit import (
     run_visit_criteria_roundtrip, run_visit_functions_roundtrip,
@@ -306,3 +308,13 @@ def test_050_agent_visit_tracking(session_page: Page) -> None:
     rol=Агент yangi user → haftalik reja (5 chana) → API orqali N_VISITS visit →
     Отслеживание xaritasida bajarilgan visitlar soni → agentni Неактивный."""
     _agent_tracking(session_page)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VI. КОНСТРУКТОР ОТЧЕТОВ ПО ВИЗИТАМ — ochilish smoke (hisobot qurish flaky, kiritilmadi)
+# ══════════════════════════════════════════════════════════════════════════════
+@allure.epic("Документы")
+@allure.feature("Конструктор отчетов по визитам")
+@allure.title("Builder: forma ochiladi (bo'limlar + eksport tugmalari)")
+def test_060_builder_opens(session_page: Page) -> None:
+    run_builder_opens(session_page)
