@@ -160,10 +160,10 @@ def confirm_visit_lead(page: Page, m: BasePage, agent: str, visit_id: str) -> No
     m.settle()
     m.click_button("Лиды")
     m.expect_heading("Лиды")
-    # Lead qatorida Пользователь=agent (plain matn, BUTTON emas) — click_grid_row xavfsiz
+    # Lead qatorida Пользователь=agent (plain matn, BUTTON emas) — click_grid_row xavfsiz.
+    # Lead statusi 2026-09 da "Изменить статус" menyusiga o'tdi — change_status ishlatiladi.
     m.click_grid_row(agent)
-    m.click_button("Подтвержден")
-    m.confirm("да")  # "Изменить на Подтвержден?" cdk-overlay dialogi
+    m.change_status("Подтвержден")  # menyu → "Подтвержден" → "Изменить на Подтвержден?" да
     m.grid_row(agent, "Подтвержден")
 
 

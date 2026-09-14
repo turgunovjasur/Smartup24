@@ -205,9 +205,10 @@ def run_visit_check(page: Page) -> None:
         m.click_button("Go back")
 
     with allure.step("Lead: Новый → Подтвержден"):
+        # Lead statusi 2026-09 da to'g'ridan-to'g'ri toggle tugmadan "Изменить
+        # статус" menyusiga o'tdi (order statusi kabi) — change_status ishlatiladi.
         m.click_grid_row(agent)
-        m.click_button("Подтвержден")
-        m.confirm("да")
+        m.change_status("Подтвержден")
         m.grid_row(agent, "Подтвержден")
 
     with allure.step(f"Tozalash: '{agent}' agentini Неактивный qilish"):
