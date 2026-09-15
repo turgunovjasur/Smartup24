@@ -1042,10 +1042,25 @@ class BasePage:
 
     def click_link(self, name, *, exact=True):
         """List forma ichidagi sub-nav bo'limiga (link, masalan "Производители") o'tadi
-        va kontent to'liq almashishini kutadi."""
+        va kontent to'liq almashishini kutadi.
+
+        Bosishдан OLDIN _settle qilinadi: katta ro'yxatlar (masalan Товары —
+        ~13k qator) global page-loaderni uzoq ushlaydi va u pointer'ni to'sib,
+        link.click() 60s timeout beradi ("intercepts pointer events" → raw
+        TimeoutError, "element topilmadi" bo'lib ko'rinadi). Ayniqsa login'dan
+        keyingi BIRINCHI (sovuq) navigatsiyada + sekin CI VM'da flaky edi
+        (test_010 manufacturer → cascade test_014 product, 2026-09-15). Loader
+        klikни baribir tutsa (yana chiqsa), bir marta qayta settle qilib bosamiz."""
         link = self.page.get_by_role("link", name=name, exact=exact).first
-        expect(link).to_be_visible()
-        link.click()
+        for _click_attempt in range(2):
+            self._settle()
+            expect(link).to_be_visible()
+            try:
+                link.click(timeout=15_000)
+                break
+            except PlaywrightTimeoutError:
+                if _click_attempt == 1:
+                    raise
         self._settle()
         return link
 
