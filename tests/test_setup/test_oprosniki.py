@@ -40,7 +40,12 @@ def run_oprosniki(page: Page, code, name=None) -> None:
         m.input(label="Конец", value=OPROS_END)
 
     with allure.step("Сохранить va ro'yxatga qaytish"):
-        m.save_and_expect_heading("Опросники")
+        # Saqlangач redirect BARQAROR EMAS (2026-09 deploy'дан keyin ba'zан
+        # dashboard'ga qaytaradi — heading None) — save_and_expect_heading o'rniga
+        # save qilib, ro'yxatga O'ZIMIZ kiramiz (boshqa setup testlaridagi pattern).
+        m.save()
+        flow_navigate(page, tab="Модератор", name="Опросники")
+        m.expect_heading("Опросники")
 
     with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
         m.search(name)

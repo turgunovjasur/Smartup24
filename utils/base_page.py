@@ -140,9 +140,14 @@ class BasePage:
         "Название": ("Название", "table.name"),
         "Юр. лица название": ("Юр. лица название", "Название"),
         # Продукт formasida "Краткое название" → "Альтернативное название" (2026-09
-        # deploy). Юр.Лицо formasida "Краткое название" O'ZGARMAGAN — ikkalasini ham
+        # deploy). Юр.Лицо formasida "Краткое название" O'ZGARМАGAN — ikkalasini ham
         # qabul qilamiz (product va supplier/client bir xil label argument ishlatadi).
         "Краткое название": ("Краткое название", "Альтернативное название"),
+        # Sana maydonlari 2026-09 deploy'да ba'zi formalarda o'zgardi: bonusда
+        # "Начало"→"Дата начало", oprosniki/bonusда "Конец"→"Дата окончания". Konkursда
+        # "Начало"/"Конец" O'ZGARMAGAN — ikkala variantni ham qabul qilamiz.
+        "Начало": ("Начало", "Дата начало"),
+        "Конец": ("Конец", "Дата окончания"),
     }
 
     def _label_pattern(self, label):
