@@ -139,6 +139,10 @@ class BasePage:
         "Код": ("Код", "Код сервера"),
         "Название": ("Название", "table.name"),
         "Юр. лица название": ("Юр. лица название", "Название"),
+        # Продукт formasida "Краткое название" → "Альтернативное название" (2026-09
+        # deploy). Юр.Лицо formasida "Краткое название" O'ZGARMAGAN — ikkalasini ham
+        # qabul qilamiz (product va supplier/client bir xil label argument ishlatadi).
+        "Краткое название": ("Краткое название", "Альтернативное название"),
     }
 
     def _label_pattern(self, label):
