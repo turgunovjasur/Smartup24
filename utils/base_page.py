@@ -129,10 +129,16 @@ class BasePage:
     # OAuth2 (biruni/kauth) formasi PROD'da i18n kalitni tarjima qilmay xom ko'rsatadi:
     # "Название"→"table.name" (2026-08-10). Ikkala variantni ham qabul qilamiz — i18n
     # tuzalsa "Название"ga qaytadi. Boshqa formalarda "table.name" yo'q, ta'sir qilmaydi.
+    # Юр. Лицо (Поставщик/Клиент/Юр.лицо) formasi 2026-09 da asosiy nom maydonini
+    # "Юр. лица название" dan "Название" ga o'zgartirdi. Supplier/client/legal_person
+    # run_* lari label="Юр. лица название" ishlatadi — IKKALA variantni ham qabul
+    # qilamiz (markaziy, 9 joyni tegmasdan; server eski nomga qaytsa ham ishlaydi).
+    # "Название" anchored'da faqat asosiy maydonga mos ("Краткое название" MOS EMAS).
     _LABEL_SYNONYMS = {
         "Примечания": ("Примечания", "Примечание"),
         "Код": ("Код", "Код сервера"),
         "Название": ("Название", "table.name"),
+        "Юр. лица название": ("Юр. лица название", "Название"),
     }
 
     def _label_pattern(self, label):
@@ -337,6 +343,17 @@ class BasePage:
         li_option = dropdown.locator("li").filter(has_text=pattern, has_not_text=action_items).first
         text_option = dropdown.get_by_text(option_text, exact=exact).filter(has_not_text=action_items).first
         overlay = self.page.locator(".cdk-overlay-container")
+        # smt-tree-select: treeitem'ning accessible NAME'i ishonchsiz — 2026-09 deploy'i
+        # unga "Свернуть"/"Развернуть" tugma matnini va nomni TAKROR qo'shdi (masalan
+        # "Свернуть … Region-X Region-X"), shuning uchun get_by_role(treeitem, name=exact)
+        # mos kelmay qoladi. Leaf'ning KO'RINADIGAN matni esa toza — tree panelда matn
+        # bo'yicha (exact) topamiz. (MCP tasdiqlangan 2026-09-16.)
+        tree_text_option = (
+            self.page.locator(self._TREE_PANEL)
+            .get_by_text(option_text, exact=exact)
+            .filter(has_not_text=action_items)
+            .first
+        )
         role_options = [
             overlay.get_by_role(role, name=option_text, exact=exact).filter(has_not_text=action_items).first
             for role in ("menuitemcheckbox", "menuitem", "option", "treeitem")
@@ -350,6 +367,16 @@ class BasePage:
             if text_option.count() > 0:
                 option = text_option
                 break
+            # Tree panel (treeitem name buzuq) — matn bo'yicha topilsa, backdrop'ni
+            # o'chirib haqiqiy klik yuboramiz (menu bilan bir xil himoya).
+            if tree_text_option.count() > 0:
+                expect(tree_text_option).to_be_visible(timeout=timeout)
+                self.page.evaluate(
+                    "() => document.querySelectorAll('.cdk-overlay-backdrop')"
+                    ".forEach(b => { b.style.pointerEvents = 'none'; })"
+                )
+                tree_text_option.click()
+                return
             # smt-select-dropdown topilmasa — ko'p variantli menu (menuitemcheckbox/
             # menuitem) yoki tree panel (treeitem). Menu transparent cdk-overlay-backdrop
             # bilan ochilib oddiy klikni "intercepts pointer events" bilan to'sadi
