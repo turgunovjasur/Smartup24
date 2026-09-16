@@ -59,7 +59,7 @@ def run_konkurs_basic(page: Page, code, name=None) -> dict:
 
 def run_konkurs_full(page: Page, code, region=None) -> None:
     """Конкурс formasining BARCHA to'ldiriladigan maydonlari bilan yaratish:
-    Название, Количество победителей, Примечания, Статус radio (Черновик),
+    Название, Количество победителей, Описание, Статус radio (Черновик),
     Регион, Начало/Конец, Примечание о призе, Тип конкурса radio (Количество).
 
     "Характеристики"/"Характеристики клиента" selectlari to'ldirilmaydi —
@@ -80,7 +80,9 @@ def run_konkurs_full(page: Page, code, region=None) -> None:
     with allure.step(f"Форма: barcha maydonlar ({name}, Регион = {region})"):
         m.input(label="Название", value=name)
         m.input(label="Количество победителей", value=5)
-        m.input(label="Примечания", value=f"Avto-test konkurs izohi {code}")
+        # Umumiy izoh maydoni "Примечания" → "Описание" ga o'zgargan (forma
+        # yangilandi 2026-09; "Примечание о призе" alohida, pastda to'ldiriladi).
+        m.input(label="Описание", value=f"Avto-test konkurs izohi {code}")
         m.radio("Черновик", label="Статус")
         m.select(region, label="Регион")
         # Lokal dinamik sanalar (konkurs view'da tekshirilmaydi) — start bugun, end +30 kun
