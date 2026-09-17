@@ -65,7 +65,9 @@ def run_product_full(page: Page, code) -> None:
         # "Код" smtid orqali (ikkinchi create formada label "Код сервера" ga aralashadi)
         m.input(smtid="code", value=f"code-{name}")
         m.input(label="Артикул код", value=f"art-{code}")
-        m.input(label="Штрих-код", value=f"{random.randint(10**12, 10**13 - 1)}")
+        # Label "Штрих-код" → "Штрих-коды" ga o'zgargan (2026-09 deploy); smtid
+        # barqaror — smtid="barcode" ishlatamiz.
+        m.input(smtid="barcode", value=f"{random.randint(10**12, 10**13 - 1)}")
         m.input(label="ИКПУ", value=f"{random.randint(10**10, 10**11 - 1)}")
         m.input(label="ГТИН", value=f"{random.randint(10**12, 10**13 - 1)}")
 

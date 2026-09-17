@@ -151,6 +151,9 @@ class BasePage:
         # Продукт "measure" (tarjimasiz i18n kaliti) 2026-09 deploy'да "Единица
         # измерения" ga tarjima qilindi — ikkalasini ham qabul qilamiz.
         "measure": ("measure", "Единица измерения"),
+        # Konkurs sovg'a-izoh maydoni i18n flip: "Примечание о призе" ↔ "Примечание
+        # к призу" (2026-09 deploy; server i18n almashib turadi — flaky sabab).
+        "Примечание о призе": ("Примечание о призе", "Примечание к призу"),
     }
 
     def _label_pattern(self, label):
