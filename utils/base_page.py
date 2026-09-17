@@ -588,9 +588,20 @@ class BasePage:
         root=None,
     ):
         """``smt-radio-group`` dan berilgan variant (masalan "Активный") ni tanlaydi."""
+        option_pat = re.compile(rf"^\s*{re.escape(option_text)}\s*$")
         group = self._control("smt-radio-group", label=label, smtid=smtid, index=index, root=root)
-        expect(group).to_be_visible()
-        option = group.locator("label[smt-radio]").filter(has_text=option_text).first
+        option = group.locator("label[smt-radio]").filter(has_text=option_pat).first
+        try:
+            expect(option).to_be_visible(timeout=8_000)
+        except (AssertionError, PlaywrightTimeoutError):
+            # Guruh LABEL'i i18n/render race'да ba'zан render bo'lmaydi (radiogroup
+            # o'zi barqaror) — masalan "Тип Юр. лица" 2026-09 deploy'да group_a
+            # seansида yo'qolib, label orqali topilmasdi. Bunda radio OPTIONNI
+            # to'g'ridan-to'g'ri (matn bo'yicha) topamiz; #main-content scope navbar
+            # tugmalaridан ajratadi (Поставщик/Клиент navbarда ham bor).
+            scope = root if root is not None else self.page.locator("#main-content")
+            option = scope.locator("smt-radio-group label[smt-radio]").filter(has_text=option_pat).first
+            expect(option).to_be_visible(timeout=30_000)
         # checkbox() dagi kabi: oldingi amaldan qolgan shaffof backdrop klikni
         # to'sib qo'ymasligi uchun avval yopamiz (2026-07-17).
         self._close_overlay()
