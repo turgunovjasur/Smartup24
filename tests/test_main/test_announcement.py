@@ -24,7 +24,7 @@ Dublikat Титул RUXSAT etilgan (ro'yxatda bir xil nomli yozuvlar bor) — du
 xato testi yo'q.
 """
 import allure
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -49,7 +49,7 @@ def run_announcement(page: Page, code, name=None) -> dict:
         m.expect_heading("Объявление (создание)")
 
     with allure.step(f"Форма: Титул = {name}, Описание = {description}"):
-        m.input(label="Титул", value=name)
+        m.input(smtid="title", value=name)
         m.input(label="Описание", value=description)
 
     with allure.step("Сохранить va ro'yxatda 'Черновик' bo'lib ko'rinishini tekshirish"):
@@ -97,7 +97,7 @@ def run_announcement_full(page: Page, code) -> None:
         m.expect_heading("Объявление (создание)")
 
     with allure.step(f"Форма (to'liq): Титул + Отрасли + Описание"):
-        m.input(label="Титул", value=name)
+        m.input(smtid="title", value=name)
         # Отрасли multi-select menyusi tanlangach OCHIQ qoladi (Escape ham,
         # heading klik ham yopmaydi — MCP tasdiqlangan 2026-07-24), faqat boshqa
         # input'ga HAQIQIY klik yopadi. Shuning uchun Отрасли'dan keyin darhol
@@ -139,8 +139,10 @@ def run_announcement_view(page: Page, code) -> None:
         m.click_button("Просмотр")
         m.expect_heading("Объявление (просмотр)")
 
-    with allure.step("View'da Титул qiymati to'g'ri ko'rinishini tekshirish"):
-        m.input(label="Титул", expect_value=name)
+    with allure.step("View'da sarlavha qiymati to'g'ri ko'rinishini tekshirish"):
+        # Просмотр (readonly) rejimida sarlavha smt-input[smtid=title] EMAS —
+        # qiymat sahifada matn sifatida ko'rinadi; nom ko'rinishini tasdiqlaymiz.
+        expect(page.locator("#main-content").get_by_text(name, exact=False).first).to_be_visible()
 
     with allure.step("Ro'yxatga qaytish"):
         # View read-only forma; navbar orqali ro'yxatga qaytamiz
@@ -177,7 +179,7 @@ def run_announcement_edit(page: Page, code) -> None:
         m.expect_heading("Объявление (изменение)")
 
     with allure.step(f"Tahrirlash: Титул {old_name} → {new_name}"):
-        m.input(label="Титул", value=new_name)
+        m.input(smtid="title", value=new_name)
 
     with allure.step("Сохранить va ro'yxatga qaytish"):
         m.save()
