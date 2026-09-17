@@ -146,7 +146,7 @@ class BasePage:
         # Sana maydonlari 2026-09 deploy'да ba'zi formalarda o'zgardi: bonusда
         # "Начало"→"Дата начало", oprosniki/bonusда "Конец"→"Дата окончания". Konkursда
         # "Начало"/"Конец" O'ZGARMAGAN — ikkala variantni ham qabul qilamiz.
-        "Начало": ("Начало", "Дата начало"),
+        "Начало": ("Начало", "Дата начало", "Дата начала"),
         "Конец": ("Конец", "Дата окончания"),
         # Продукт "measure" (tarjimasiz i18n kaliti) 2026-09 deploy'да "Единица
         # измерения" ga tarjima qilindi — ikkalasini ham qabul qilamiz.
@@ -154,6 +154,8 @@ class BasePage:
         # Konkurs sovg'a-izoh maydoni i18n flip: "Примечание о призе" ↔ "Примечание
         # к призу" (2026-09 deploy; server i18n almashib turadi — flaky sabab).
         "Примечание о призе": ("Примечание о призе", "Примечание к призу"),
+        # Vizit kriteriy-требование "Правила" → "Правила для анализа" (2026-09 deploy).
+        "Правила": ("Правила", "Правила для анализа"),
     }
 
     def _label_pattern(self, label):

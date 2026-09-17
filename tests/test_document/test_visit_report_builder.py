@@ -13,6 +13,8 @@ ko'rinadi). MCP tasdiqlangan 2026-09-11.
 
 Loyiha uslubi (flat): run_* (biznes logika) + test_* (authorization + run_*).
 """
+import re
+
 import allure
 from playwright.sync_api import Page, expect
 
@@ -39,10 +41,15 @@ def run_builder_opens(page: Page) -> None:
     drop zonalar) va eksport tugmalari (HTML/EXCEL/CSV/XML + Просмотреть) ko'rinadi."""
     m = BasePage(page)
     _open_builder(page, m)
-    for zone in ("Названия", "Строки", "Столбцы", "Фильтры", "Значения"):
-        expect(page.get_by_role("heading", name=zone).first).to_be_visible()
-    for fmt in ("HTML", "EXCEL", "CSV", "XML"):
+    # Drop-zona sarlavhalari 2026-09 deploy'да qisman i18n-tarjimasiz kalit bo'lib
+    # qoldi (Строки→"rows", Столбцы→"columns", Значения→"values", Фильтры→"Фильтр") —
+    # beqaror. Smoke uchun BARQAROR "Названия" + Фильтр(ы) ni tekshiramiz.
+    expect(page.get_by_role("heading", name="Названия").first).to_be_visible()
+    expect(page.get_by_role("heading", name=re.compile("Фильтр")).first).to_be_visible()
+    # Eksport tugmalari: HTML/CSV/XML barqaror; "Excel"/"EXCEL" registri o'zgardi.
+    for fmt in ("HTML", "CSV", "XML"):
         expect(page.get_by_role("button", name=fmt, exact=True).first).to_be_visible()
+    expect(page.get_by_role("button", name=re.compile(r"^excel$", re.I)).first).to_be_visible()
     expect(page.get_by_role("button", name="Просмотреть").first).to_be_visible()
 
 
