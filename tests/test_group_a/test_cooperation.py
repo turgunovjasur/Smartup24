@@ -33,7 +33,8 @@ def run_cooperation(page: Page, code) -> None:
         # Рекомендованные клиенты "Клиент" BO'LIMI ichida (eski UI'да "Запросы на
         # сотрудничество" ichida edi — 2026-09-10 MCP bilan tekshirildi, endi alohida
         # "Клиент" bo'limi). Navbar'да ham "Клиент" bor, shu sabab #main-content scope.
-        page.locator("#main-content button").filter(has_text=re.compile(r"^Клиент$")).first.click()
+        # Bo'lim nomi 2026-09 deploy'да "Клиент" → "Клиенты" ga o'zgardi.
+        page.locator("#main-content button").filter(has_text=re.compile(r"^Клиенты$")).first.click()
         m.settle()
 
     with allure.step(f"Рекомендованные клиенты → '{client_name}' ga hamkorlik so'rovi"):
