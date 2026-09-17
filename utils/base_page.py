@@ -148,6 +148,9 @@ class BasePage:
         # "Начало"/"Конец" O'ZGARMAGAN — ikkala variantni ham qabul qilamiz.
         "Начало": ("Начало", "Дата начало"),
         "Конец": ("Конец", "Дата окончания"),
+        # Продукт "measure" (tarjimasiz i18n kaliti) 2026-09 deploy'да "Единица
+        # измерения" ga tarjima qilindi — ikkalasini ham qabul qilamiz.
+        "measure": ("measure", "Единица измерения"),
     }
 
     def _label_pattern(self, label):
