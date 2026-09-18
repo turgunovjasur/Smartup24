@@ -9,8 +9,16 @@ from utils.base_page import BasePage
 
 
 def _set_qty(page: Page, value: str = "2", *, attempts: int = 5) -> None:
-    """Товары qatorining Кол-во (3-katagi: 0=Название,1=Цена,2=Кол-во) ni yozadi
-    va qiymat TURG'UN bo'lguncha kutadi.
+    """Товары qatorining Кол-во (miqdor) katagiga ``value`` yozadi va qiymat
+    TURG'UN bo'lguncha kutadi.
+
+    KATAK INDEKSI: qator DATA-katagi (``smt-cell-content``) endi FAQAT tahrirlanadigan
+    ustunlarni beradi — [0=Название, 1=**Кол-во**, 2=Кол-во в кейсе] (narx "Цена
+    товара" tahrirlanmaydi, alohida katak EMAS). Shuning uchun Кол-во = **nth(1)**.
+    Ilgari narx katagi bo'lgani uchun nth(2) edi; 2026-09-18 da UI ustunlari surildi
+    (MCP'да "Общее кол-во" xulosasi idx1'ga bog'lanishi tasdiqlandi) — nth(2)
+    "Кол-во в кейсе"ga yozib, haqiqiy Кол-во 0 qolib order Общая сумма=0, aksiya
+    bonusi ishlamas edi (test_211_order_bonus izchil yiqilardi).
 
     Tovar tanlangач qator modeli serverdan KECHIKIB qayta yuklanib miqdorni 0 ga
     qaytarishi mumkin. Oldin fixed 1200ms uyqu bilan
@@ -21,7 +29,7 @@ def _set_qty(page: Page, value: str = "2", *, attempts: int = 5) -> None:
     toza o'tsa fixed uyquni kutmasdan erta qaytamiz. Bu sehrli sonni reset
     oynasini to'liq qoplaydigan event-reaktiv kutishga almashtiradi."""
     row = page.locator(".smt-data-row").first
-    qty = row.locator("smt-cell-content").nth(2).locator("input").first
+    qty = row.locator("smt-cell-content").nth(1).locator("input").first
     for _ in range(attempts):
         qty.click()
         qty.fill(value)
