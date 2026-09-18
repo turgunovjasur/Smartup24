@@ -5,9 +5,9 @@ MODUL HAQIDA (MCP bilan real DOM'da tasdiqlangan 2026-09-14/15)
 Aksiya supplier'ning Просмотр formasidagi "Акция" bo'limidan boshqariladi
 (``supplier_view`` → "Акция" tugma → ro'yxat + "Создать"). Forma 2 qadamli sehrgar:
 
-**1-qadam «Основное»** (majburiy: Название, Дата начала, Конец, Характеристики
-клиента ≥1):
-  - ``Название`` (smt-input), ``Дата начала`` / ``Конец`` (smt-date-picker)
+**1-qadam «Основное»** (majburiy: Название, Дата начало, Дата окончания,
+Характеристики клиента ≥1):
+  - ``Название`` (smt-input), ``Дата начало`` / ``Дата окончания`` (smt-date-picker)
   - ``Тип акции`` (smt-select): ``Количество`` / ``Сумма`` / ``Смешанный``
   - ``Бонусы за заказ`` (smt-select): ``Множественный`` / ``Один``
   - ``Характеристики клиента`` — grid, MAJBURIY ("Подтип по умолчанию" default)
@@ -165,8 +165,10 @@ def _fill_step1(page: Page, m: BasePage, *, name: str, akciya_type: str, char: s
     end = (datetime.now() + timedelta(days=365)).strftime("%d.%m.%Y")
 
     m.input(label="Название", value=name)
-    m.input(label="Дата начала", value=start)
-    m.input(label="Конец", value=end)
+    # Sana label'lari 2026-09-18 da o'zgardi: "Дата начала"→"Дата начало",
+    # "Конец"→"Дата окончания" (MCP'да Saber OOO Акция создание formasida tasdiqlangan).
+    m.input(label="Дата начало", value=start)
+    m.input(label="Дата окончания", value=end)
     m.select(akciya_type, label="Тип акции")
 
     with allure.step(f"Характеристики клиента: {char}"):
