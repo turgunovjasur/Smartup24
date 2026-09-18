@@ -140,9 +140,9 @@ def run_announcement_view(page: Page, code) -> None:
         m.expect_heading("Объявление (просмотр)")
 
     with allure.step("View'da sarlavha qiymati to'g'ri ko'rinishini tekshirish"):
-        # Просмотр (readonly) rejimida sarlavha smt-input[smtid=title] EMAS —
-        # qiymat sahifada matn sifatida ko'rinadi; nom ko'rinishini tasdiqlaymiz.
-        expect(page.locator("#main-content").get_by_text(name, exact=False).first).to_be_visible()
+        # Просмотр (readonly): sarlavha readonly smt-input[smtid=av_main_title] value'sида
+        # (matn tugun EMAS — get_by_text topmaydi). smtid orqali qiymatni o'qiymiz.
+        m.input(smtid="av_main_title", expect_value=name)
 
     with allure.step("Ro'yxatga qaytish"):
         # View read-only forma; navbar orqali ro'yxatga qaytamiz
