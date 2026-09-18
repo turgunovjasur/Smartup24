@@ -1,10 +1,14 @@
-"""Smartup24 formalari ochilish smoke testi.
+"""Smartup24 formalari ochilish smoke testi (FAQAT Модератор oynasi).
 
-Maqsad: har bir navbar bo'limini (Модератор / Поставщик / Клиент menyusidagi
-formalar) ketma-ket ochib, forma to'g'ri yuklanganini (aktiv sarlavha paydo
-bo'lishi) va ochilishda xato chiqmasligini tekshirish. Bitta forma yiqilsa ham
-to'xtamaydi — keyingisini ochadi va oxirida qaysi formalar ochilgani/xato
-bergani haqida to'liq hisobot beradi (konsolga + Allure attachmentga).
+Maqsad: **Модератор** menyusidagi barcha formalarni ketma-ket ochib, forma
+to'g'ri yuklanganini (aktiv sarlavha paydo bo'lishi) va ochilishda xato
+chiqmasligini tekshirish. Bitta forma yiqilsa ham to'xtamaydi — keyingisini
+ochadi va oxirida qaysi formalar ochilgani/xato bergani haqida to'liq hisobot
+beradi (konsolga + Allure attachmentga).
+
+DIQQAT: test faqat Модератор bo'limini qamraydi. Поставщик/Клиент tab'lari admin
+sifatida ochilganda sessiya-qulf overlay'i navbar'ni to'sib flaky timeout beradi
+(2026-09-18 tekshiruvi) — u bo'limlar o'z rollari bilan alohida testlarda ochiladi.
 
 Bu test MUSTAQIL — mavjud testlarga (test_all va h.k.) aralashmaydi.
 Formalar ro'yxati MCP bilan real menyudan aniqlangan.
@@ -19,11 +23,13 @@ from flows.flow_authorization import authorization
 from utils.base_page import BasePage, HEADING
 
 
-# (tab, menyu nomi) — navbar menyusidagi barcha bo'limlar
+# Модератор menyusidagi barcha formalar (Главное / Продажи / Справочники / Документы)
 MODERATOR_FORMS = [
-    # Главное
-    "Организации", "Роли", "Пользователи", "Шаблоны отчетов", "Объявления",
-    "Настройка", "Клиенты OAuth2 сервера для компании", "Перевод строки таблицы",
+    # Главное ("Настройки шаблонов" 2026-09-18 da qo'shildi — Шаблоны отчетов bilan bir
+    # listitem ichidagi ALOHIDA forma, "(создание)" create emas; MCP'da tasdiqlangan,
+    # setting+add sahifasini ochadi, sarlavha "Настройки шаблонов")
+    "Организации", "Роли", "Пользователи", "Шаблоны отчетов", "Настройки шаблонов",
+    "Объявления", "Настройка", "Клиенты OAuth2 сервера для компании", "Перевод строки таблицы",
     # Продажи
     "Заказы", "Возвраты", "Дашборд по продажам", "Конструктор отчетов по продажам", "Воронка заказов",
     # Справочники
@@ -34,25 +40,7 @@ MODERATOR_FORMS = [
     "Планирование визитов", "Визиты", "Анализ маршрутов", "Отслеживание пользователей", "Полевой отчет",
 ]
 
-SUPPLIER_FORMS = [
-    # Главное
-    "Запросы", "Рейтинги и отзывы", "Пользователи", "Бонусы", "Настройки",
-    # Справочники
-    "Клиенты", "Характеристика клиента", "Товары", "Портфели", "Склады", "Тип цены", "Акции", "Скидки",
-]
-
-CLIENT_FORMS = [
-    # Главное
-    "Запросы", "Рейтинги и отзывы", "Пользователи", "Настройки",
-    # Справочник
-    "Поставщики", "Шаблоны документооборота", "Начисления бонусов", "Бонусный кошелек",
-]
-
-ALL_FORMS = (
-    [("Модератор", name) for name in MODERATOR_FORMS]
-    + [("Поставщик", name) for name in SUPPLIER_FORMS]
-    + [("Клиент", name) for name in CLIENT_FORMS]
-)
+ALL_FORMS = [("Модератор", name) for name in MODERATOR_FORMS]
 
 
 def _norm(text):
@@ -125,7 +113,7 @@ def _open_form(page: Page, tab: str, name: str, timeout=12_000):
     return {"status": "OK", "heading": heading, "note": note}
 
 
-@allure.title("Smartup24 — barcha formalar ochilish smoke testi")
+@allure.title("Smartup24 — Модератор formalari ochilish smoke testi")
 def test_forms_smoke(page: Page) -> None:
     authorization(page)
 
