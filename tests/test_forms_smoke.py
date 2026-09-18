@@ -1,10 +1,15 @@
 """Smartup24 formalari ochilish smoke testi (FAQAT Модератор oynasi).
 
-Maqsad: **Модератор** menyusidagi barcha formalarni ketma-ket ochib, forma
-to'g'ri yuklanganini (aktiv sarlavha paydo bo'lishi) va ochilishda xato
-chiqmasligini tekshirish. Bitta forma yiqilsa ham to'xtamaydi — keyingisini
-ochadi va oxirida qaysi formalar ochilgani/xato bergani haqida to'liq hisobot
-beradi (konsolga + Allure attachmentga).
+Maqsad: **Модератор** menyusidagi HAR BIR formani ochib, forma to'g'ri
+yuklanganini (aktiv sarlavha paydo bo'lishi) va ochilishda xato chiqmasligini
+tekshirish. Har forma ALOHIDA test (pytest parametrize) — Allure/pytest'da 33 ta
+test bo'lib ko'rinadi, qaysi forma yiqilsa aniq bilinadi.
+
+DIZAYN (setup/main runnerlari bilan bir xil): **bitta seans / bitta login**.
+Barcha testlar session-scope ``session_page`` fixture'ini oladi — butun fayl
+uchun YAGONA browser+context+page. ``test_000_login`` bir marta admin bilan
+kiradi, keyingi ``test_form_*`` testlari o'sha seansni ishlatadi (33 marta qayta
+login QILINMAYDI — sekin bo'lardi va parallel-seans limitiga urardi).
 
 DIQQAT: test faqat Модератор bo'limini qamraydi. Поставщик/Клиент tab'lari admin
 sifatida ochilganda sessiya-qulf overlay'i navbar'ni to'sib flaky timeout beradi
@@ -14,9 +19,9 @@ Bu test MUSTAQIL — mavjud testlarga (test_all va h.k.) aralashmaydi.
 Formalar ro'yxati MCP bilan real menyudan aniqlangan.
 """
 import re
-import sys
 
 import allure
+import pytest
 from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization
@@ -40,7 +45,7 @@ MODERATOR_FORMS = [
     "Планирование визитов", "Визиты", "Анализ маршрутов", "Отслеживание пользователей", "Полевой отчет",
 ]
 
-ALL_FORMS = [("Модератор", name) for name in MODERATOR_FORMS]
+TAB = "Модератор"
 
 
 def _norm(text):
@@ -113,55 +118,27 @@ def _open_form(page: Page, tab: str, name: str, timeout=12_000):
     return {"status": "OK", "heading": heading, "note": note}
 
 
-@allure.title("Smartup24 — Модератор formalari ochilish smoke testi")
-def test_forms_smoke(page: Page) -> None:
-    authorization(page)
+@allure.title("Login (admin)")
+def test_000_login(session_page: Page) -> None:
+    """Bir marta admin bilan kiradi — keyingi test_form_* testlari shu seansdan
+    foydalanadi, qayta login qilinmaydi."""
+    authorization(session_page)
 
-    results = []
-    for tab, name in ALL_FORMS:
-        with allure.step(f"[{tab}] {name}"):
-            try:
-                res = _open_form(page, tab, name)
-            except Exception as exc:  # forma yiqilsa ham to'xtamaymiz
-                res = {"status": "FAIL", "heading": "", "note": f"kutilmagan xato: {exc}"[:140]}
-            res.update(tab=tab, name=name)
-            results.append(res)
 
-    # --- Hisobot ---
-    ok = [r for r in results if r["status"] == "OK"]
-    no_access = [r for r in results if r["status"] == "NO_ACCESS"]
-    failed = [r for r in results if r["status"] == "FAIL"]
-    marks = {"OK": "✓", "NO_ACCESS": "•", "FAIL": "✗"}
+@allure.title("[Модератор] {name}")
+@pytest.mark.parametrize("name", MODERATOR_FORMS, ids=MODERATOR_FORMS)
+def test_form_opens(session_page: Page, name: str) -> None:
+    """Модератор menyusidagi bitta formani ochadi va sarlavha paydo bo'lishini
+    tekshiradi. Har forma alohida test — yiqilsa faqat o'zi qizil bo'ladi."""
+    res = _open_form(session_page, TAB, name)
 
-    lines = [
-        f"Formalar ochilish natijasi: {len(ok)} OK, {len(no_access)} ruxsat yo'q, "
-        f"{len(failed)} xato ({len(results)} tadan)",
-        "",
-    ]
-    for r in results:
-        row = f"{marks[r['status']]} [{r['tab']}] {r['name']} -> {r['heading'] or '—'}"
-        if r["note"]:
-            row += f"  ({r['note']})"
-        lines.append(row)
-    report = "\n".join(lines)
-
-    # Windows konsoli (cp1252) ✓/✗/• belgilarini chop eta olmaydi — UnicodeEncodeError
-    # testni yiqitmasligi uchun xavfsiz chop etamiz (UTF-8 konsol/Allure'da belgilar saqlanadi).
-    try:
-        print("\n" + report)
-    except UnicodeEncodeError:
-        enc = (sys.stdout.encoding or "ascii")
-        print("\n" + report.encode(enc, errors="replace").decode(enc))
-    try:
-        allure.attach(report, name="Formalar ochilish hisoboti", attachment_type=allure.attachment_type.TEXT)
-    except Exception:
-        pass
-
-    # Test faqat HAQIQIY xato (ochilmagan/xato bergan forma) bo'lsa yiqiladi.
-    # "Ruxsat yo'q" (NO_ACCESS) — forma bug'i emas, joriy rol cheklovi, shuning uchun
-    # hisobotда ko'rsatiladi lekin testni yiqitmaydi.
-    assert not failed, (
-        f"{len(failed)} ta forma ochilmadi/xato berdi:\n"
-        + "\n".join(f"- [{r['tab']}] {r['name']}: {r['note']}" for r in failed)
-        + f"\n\nTo'liq hisobot:\n{report}"
+    heading = res.get("heading") or "—"
+    allure.attach(
+        f"[{TAB}] {name} -> {heading}" + (f"  ({res['note']})" if res["note"] else ""),
+        name="natija",
+        attachment_type=allure.attachment_type.TEXT,
     )
+
+    if res["status"] == "NO_ACCESS":
+        pytest.skip(f"[{TAB}] {name}: {res['note']}")
+    assert res["status"] == "OK", f"[{TAB}] {name}: {res['note']}"
