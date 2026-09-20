@@ -33,9 +33,10 @@ def _set_qty(page: Page, value: str = "2", *, attempts: int = 5) -> None:
     for _ in range(attempts):
         qty.click()
         qty.fill(value)
-        # Turg'unlik oynasi: ~1.5s (6 × 250ms). Drift aniqlansa darhol qayta yozamiz.
+        qty.press("Tab")  # blur → Angular model'ini darhol commit qiladi (change event)
+        # Turg'unlik oynasi: ~2s (8 × 250ms). Drift aniqlansa darhol qayta yozamiz.
         stable = True
-        for _ in range(6):
+        for _ in range(8):
             page.wait_for_timeout(250)
             if (qty.input_value() or "").strip() != value:
                 stable = False
@@ -55,6 +56,13 @@ def _fill_step2_and_advance(page: Page, m: BasePage, product_name: str, value: s
     qayta urinamiz."""
     row = page.locator(".smt-data-row").first
     m.select(product_name, root=row)
+    # QTY-RESET RACE ILDIZI: tovar tanlangач qator modeli (narx/price) serverdan
+    # KECHIKIB yuklanadi va yangi model qty'ni 0 ga QAYTARADI. Agar qty'ni model
+    # yuklanishidan OLDIN yozsak, kech kelgan reload uni 0 qiladi → order Общая
+    # сумма=0 (test_211 aksiya bonusi ishlamaydi). Shuning uchun avval model
+    # settle bo'lishini kutamiz (loader+networkidle), keyingina qty yoziladi.
+    m.settle()
+    page.wait_for_timeout(1_000)  # narx/model yuklanib bo'lishiga qo'shimcha oyna
     error_dialog = page.get_by_role("dialog").filter(has_text="Не указано количество")
     tip_oplaty = page.get_by_text("Тип оплаты").first
     for _ in range(4):
