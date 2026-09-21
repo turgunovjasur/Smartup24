@@ -32,7 +32,7 @@ Aksiya supplier'ning Просмотр formasidagi "Акция" bo'limidan boshqa
 **Zakaz bonusi**: klient tovarni Мин.значение dan ko'p (masalan 2) buyurtма qilгач,
 order Просмотр (Модератор → Продажи → Заказы → Просмотреть) sahifasidagi ALOHIDA
 "Акция" tab'ida bonus tovar Кол-во=1 bilan chiqadi — draft (Черновик) holatidayoq.
-Акция grid qatori: ``smt-cell-content`` → [Название, Кол-во(nth 1), Вес, Литр].
+Акция grid qatori: to'g'ridan-to'g'ri ``<div>`` kataklar → [Название, Кол-во(nth 1), Вес, Литр].
 
 DIQQAT: bonus tovar qidiruvi supplier'ga BIRIKTIRILGAN (В наличие + narxli) tovarni
 ko'rsatadi — aksiya ``run_product_linking`` DAN KEYIN yaratiladi.
@@ -331,6 +331,21 @@ def run_promotion_status(page: Page, *, supplier_name: str, name: str) -> None:
         m.grid_row(name, "Активный")
 
 
+def run_promotion_deactivate(page: Page, *, supplier_name: str, name: str) -> None:
+    """Aksiyani FAQAT deaktivatsiya qiladi (Активный → Неактивный, toggle + confirm).
+    Case 4 (Неактивный aksiya → bonus yo'q) uchun: deaktivatsiyadан keyin zakaz
+    urilsa bonus qo'llanmasligini tekshirish maqsadida."""
+    m = BasePage(page)
+    _open_supplier_akciya(page, m, supplier_name)
+    _select_akciya_row(page, m, name)
+    _row_action(page, "Неактивный").click()
+    m.confirm("да")
+    m.settle()
+    with allure.step(f"'{name}' Неактивный statusга o'tganini tekshirish"):
+        _open_supplier_akciya(page, m, supplier_name)
+        m.grid_row(name, "Неактивный")
+
+
 def run_promotion_duplicate(page: Page, code, *, supplier_name: str, bonus_product: str,
                             name: str, case: str = "qty_free",
                             char: str = "Подтип по умолчанию") -> None:
@@ -404,10 +419,51 @@ def verify_order_bonus(page: Page, *, bonus_product: str, client_name: str,
     with allure.step(f"'Акция' tab: bonus '{bonus_product}' Кол-во={expected_qty}"):
         m.click_button("Акция")
         m.settle()
-        # Акция grid qatori: [Название продукта, Кол-во, Вес нетто, Литр]
+        # Акция grid qatori: to'g'ridan-to'g'ri <div> kataklar (smt-cell-content EMAS —
+        # 2026-09-18 UI'да bu grid oddiy div kataklardan iborat, MCP tasdiqlangan):
+        # [Название продукта(0), Кол-во(1), Вес нетто(2), Литр(3)].
         bonus_row = m.grid_row(bonus_product)
-        qty_cell = bonus_row.locator("smt-cell-content").nth(1)
+        qty_cell = bonus_row.locator("xpath=./div").nth(1)
         expect(qty_cell).to_have_text(re.compile(rf"^\s*{re.escape(expected_qty)}\s*$"))
+
+
+def verify_no_order_bonus(page: Page, *, bonus_product: str, client_name: str) -> None:
+    """NEGATIV: ``client_name`` ning ENG YANGI Черновик zakazini ochib, order
+    Просмотр "Акция" tab'ida aksiya bonusi qo'llanMAGANini tasdiqlaydi — trigger
+    sharti bajarilmagan (masalan buyurtma miqdori Мин.значение dan KAM). Bonus tovar
+    qatori "Акция" tab'ida BO'LMASLIGI kerak (Кол-во=0 ⇒ min=2 aksiyasi ishlamaydi).
+
+    DIQQAT: klientning bir nechta Черновик zakazi bo'lsa (masalan test_210 qty=2
+    bonusli + bu qty=1 bonussiz), ro'yxat eng yangi zakazni birinchi ko'rsatadi —
+    ``grid_row(...).first`` shu qty=1 negativ zakazni oladi (verify_order_bonus
+    bilan bir xil naqsh)."""
+    m = BasePage(page)
+
+    with allure.step("Навигация: Модератор → Продажи → Заказы"):
+        flow_navigate(page, tab="Модератор", name="Заказы")
+        m.expect_heading("Заказы")
+        m.settle()
+
+    with allure.step(f"'{client_name}' eng yangi Черновик zakazini tanlab 'Просмотреть'"):
+        m.search(client_name)
+        row = m.grid_row(client_name, "Черновик")
+        cell = row.get_by_text("Черновик", exact=True).first
+        cell.click()
+        for _ in range(10):
+            if m.grid_row_selected(row):
+                break
+            page.wait_for_timeout(300)
+        else:
+            cell.click()
+        m.click_button("Просмотреть")
+        m.expect_heading("Заказ (просмотр)")
+
+    with allure.step(f"'Акция' tab: bonus '{bonus_product}' qatori YO'Q (bonus qo'llanmagan)"):
+        m.click_button("Акция")
+        m.settle()
+        expect(
+            page.locator(".smt-data-row").filter(has_text=bonus_product)
+        ).to_have_count(0)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -427,3 +483,27 @@ def test_promotion(page: Page, code, case) -> None:
         bonus_product="B Fresh Classic lemonade",
         case=case,
     )
+
+
+@allure.epic("Акция")
+@allure.feature("Создание — негатив")
+@allure.title("Акция (negativ): Характеристики клиента majburiy — ДАЛЕЕ disabled")
+def test_promotion_requires_characteristic(page: Page, code) -> None:
+    """NEGATIV biznes-qoida: "Характеристики клиента" tanlanmasa 1-qadamdagi "ДАЛЕЕ"
+    tugmasi DISABLED bo'lib qoladi (majburiy maydon; MCP 2026-09-14). Faqat 1-qadam,
+    Saber OOO — order/setup zanjiriga bog'liq emas (ishonchli)."""
+    with allure.step("Tizimga kirish (admin)"):
+        authorization(page)
+    m = BasePage(page)
+    _open_supplier_akciya(page, m, "Saber OOO")
+    m.open_create()
+    m.expect_heading("Акция (Создания)")
+    start = datetime.now().strftime("%d.%m.%Y")
+    end = (datetime.now() + timedelta(days=365)).strftime("%d.%m.%Y")
+    m.input(label="Название", value=f"aksiya-neg-{code}")
+    m.input(label="Дата начало", value=start)
+    m.input(label="Дата окончания", value=end)
+    m.select("Количество", label="Тип акции")
+    page.keyboard.press("Escape")  # date-picker overlay'ini yopish
+    with allure.step("Характеристики клиента to'ldirilmadi → ДАЛЕЕ DISABLED"):
+        expect(page.get_by_role("button", name="ДАЛЕЕ")).to_be_disabled()

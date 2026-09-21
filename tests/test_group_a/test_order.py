@@ -83,7 +83,7 @@ def _fill_step2_and_advance(page: Page, m: BasePage, product_name: str, value: s
     raise AssertionError("Товары → Завершение: Кол-во qabul qilinmadi (qty-reset race)")
 
 
-def run_order(page: Page, code, product_name=None) -> None:
+def run_order(page: Page, code, product_name=None, qty: str = "2") -> None:
     """Group A: klient foydalanuvchisi nomidan yangi Заказ yaratadi — 3 qadamli
     wizard: Основное (savdo nuqtasi/postavshik/yetkazish vaqti) → Товары (tovar
     va miqdor) → Завершение (to'lov turi va status).
@@ -119,8 +119,8 @@ def run_order(page: Page, code, product_name=None) -> None:
         # "ДАЛЕЕ" tugmasi olib tashlangan — qadam tabi bosiladi
         m.wizard_step("Товары")
 
-    with allure.step(f"2-qadam Товары: {product_name} tanlash, Кол-во = 2 → Завершение"):
-        _fill_step2_and_advance(page, m, product_name)
+    with allure.step(f"2-qadam Товары: {product_name} tanlash, Кол-во = {qty} → Завершение"):
+        _fill_step2_and_advance(page, m, product_name, value=qty)
 
     with allure.step("3-qadam Завершение: Тип оплаты = Наличные"):
         # "Статус *" ham majburiy — lekin default "Черновик"
@@ -149,7 +149,7 @@ def run_order(page: Page, code, product_name=None) -> None:
                     error_dialog.get_by_role("button", name="Закрыть").first.click()
                     expect(error_dialog).to_be_hidden()
                 m.wizard_step("Товары")
-                _set_qty(page)
+                _set_qty(page, qty)
                 m.wizard_step("Завершение")
 
     with allure.step(f"Ro'yxatda yangi order ({supplier_name} / {client_name} / Черновик) tekshirish"):

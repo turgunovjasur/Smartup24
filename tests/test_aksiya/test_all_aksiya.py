@@ -47,7 +47,8 @@ from tests.test_group_a.test_order import run_order as ga_order
 from tests.test_aksiya.test_promotion import (
     run_promotion, run_promotion_view, run_promotion_edit,
     run_promotion_status, run_promotion_delete, run_promotion_duplicate,
-    verify_order_bonus,
+    run_promotion_deactivate,
+    verify_order_bonus, verify_no_order_bonus,
 )
 
 
@@ -250,6 +251,34 @@ def test_211_order_bonus(session_page: Page, code, runner_state) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# IV-B. NEGATIV CASE 1 — trigger sharti bajarilmasa bonus YO'Q (qty < Мин.значение)
+# ══════════════════════════════════════════════════════════════════════════════
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (негатив): Заказ — klient 1 dona buyurtma qiladi (Мин=2, trigger bajarilmaydi)")
+def test_212_order_below_min(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    # Мин.значение=2 → 1 dona buyurtма aksiya triggerini BAJARMAYDI (bonus yo'q kutiladi)
+    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="1")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (негатив): Бонус YO'Q — qty=1 zakazда 'Акция' tab bo'sh")
+def test_213_no_bonus_below_min(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page)
+    verify_no_order_bonus(
+        session_page,
+        bonus_product=runner_state.get("ak_product_name"),
+        client_name=f"client-{ak}",
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # V. АКЦИЯ — status + delete (bonus tekshiruvидан KEYIN — aksiyaga destruktiv amal)
 # ══════════════════════════════════════════════════════════════════════════════
 @allure.epic("Акция")
@@ -276,3 +305,43 @@ def test_221_promotion_delete(session_page: Page, code, runner_state) -> None:
         case="qty_free", name=f"aksiya-del-{ak}",
     )
     run_promotion_delete(session_page, supplier_name=f"supplier-{ak}", name=name)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VI. NEGATIV CASE 4 — Неактивный aksiya → bonus YO'Q (status oxirida: destruktiv)
+# ══════════════════════════════════════════════════════════════════════════════
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (негатив): asosiy aksiyani Неактивный qilish")
+def test_230_promotion_deactivate(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    # test_220 aksiyani Активный holatда qoldirgan — endi doimiy deaktivatsiya qilamiz.
+    run_promotion_deactivate(
+        session_page, supplier_name=f"supplier-{ak}",
+        name=runner_state["ak_promotion_name"],
+    )
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (негатив): Неактивный aksiyada Заказ — klient 2 dona (trigger to'g'ri, lekin aksiya o'chiq)")
+def test_231_order_inactive_promo(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    # Miqdor Мин=2 ni QANOATLANTIRADI, lekin aksiya Неактивный → bonus kutilMAYDI.
+    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (негатив): Бонус YO'Q — Неактивный aksiyada qty=2 zakazда 'Акция' tab bo'sh")
+def test_232_no_bonus_inactive(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page)
+    verify_no_order_bonus(
+        session_page,
+        bonus_product=runner_state.get("ak_product_name"),
+        client_name=f"client-{ak}",
+    )
