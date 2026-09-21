@@ -48,7 +48,7 @@ from tests.test_aksiya.test_promotion import (
     run_promotion, run_promotion_view, run_promotion_edit,
     run_promotion_status, run_promotion_delete, run_promotion_duplicate,
     run_promotion_deactivate,
-    verify_order_bonus, verify_no_order_bonus,
+    verify_order_bonus, verify_no_order_bonus, verify_order_discount,
 )
 
 
@@ -344,4 +344,93 @@ def test_232_no_bonus_inactive(session_page: Page, code, runner_state) -> None:
         session_page,
         bonus_product=runner_state.get("ak_product_name"),
         client_name=f"client-{ak}",
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VII. CASE 2 — Скидка (chegirma) aksiyasi order'да to'lov summasini kamaytiradi
+# ══════════════════════════════════════════════════════════════════════════════
+@allure.epic("Акция")
+@allure.feature("Заказ")
+@allure.title("Акция (Скидка): qty_discount aksiya yaratish (Тип бонуса=Скидка 10%)")
+def test_240_promotion_discount_create(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    # qty_free aksiyasi test_230'да Неактивный qilingan → faqat bu chegirma aksiyasi
+    # ta'sir qiladi (interferensiya yo'q). bonus_product = buyurtma qilinadigan tovar.
+    name = run_promotion(
+        session_page, ak,
+        supplier_name=f"supplier-{ak}",
+        bonus_product=runner_state.get("ak_product_name"),
+        case="qty_discount",
+        name=f"aksiya-discount-{ak}",
+    )
+    runner_state["ak_discount_name"] = name
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ")
+@allure.title("Акция (Скидка): Заказ — klient 2 dona (chegirma triggeri)")
+def test_241_order_discount(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ")
+@allure.title("Акция (Скидка): chegirma qo'llangani — Сумма к оплате < Общая сумма")
+def test_242_order_discount_applied(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page)
+    verify_order_discount(session_page, client_name=f"client-{ak}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VIII. CASE 5 — Сумма triggeri: buyurtma summasi ≥ Мин → tekin mahsulot bonusi
+# ══════════════════════════════════════════════════════════════════════════════
+@allure.epic("Акция")
+@allure.feature("Заказ")
+@allure.title("Акция (Сумма): chegirma aksiyasini Неактивный + sum_free aksiya yaratish")
+def test_250_promotion_sum_create(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    # Chegirma aksiyasini o'chiramiz — endi faqat sum_free ta'sir qilsin (interferensiya yo'q).
+    run_promotion_deactivate(
+        session_page, supplier_name=f"supplier-{ak}",
+        name=runner_state["ak_discount_name"],
+    )
+    # Тип акции=Сумма, Мин=100000. Mahsulot narxi 100000 → qty=2 = 200000 ≥ 100000 (trigger).
+    name = run_promotion(
+        session_page, ak,
+        supplier_name=f"supplier-{ak}",
+        bonus_product=runner_state.get("ak_product_name"),
+        case="sum_free",
+        name=f"aksiya-sum-{ak}",
+    )
+    runner_state["ak_sum_name"] = name
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ")
+@allure.title("Акция (Сумма): Заказ — klient 2 dona (summa 200 000 ≥ Мин 100 000)")
+def test_251_order_sum(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ")
+@allure.title("Акция (Сумма): Бонус qo'llangani — summa triggeri tekin mahsulot berdi")
+def test_252_order_sum_bonus(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page)
+    verify_order_bonus(
+        session_page,
+        bonus_product=runner_state.get("ak_product_name"),
+        client_name=f"client-{ak}",
+        expected_qty="1",
     )

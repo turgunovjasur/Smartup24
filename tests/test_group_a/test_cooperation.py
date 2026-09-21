@@ -67,6 +67,11 @@ def run_cooperation(page: Page, code) -> None:
                 break
             except AssertionError:
                 continue
+        # Tugma ko'rinsa ham fon loaderи uni "stable/enabled emas" holatда 60s
+        # ushlab click'ni yutib yuborardi (dev sekin oynasida test_114 shu sabab
+        # yiqilib butun order zanjirini kaskadga solardi, 2026-09-21) — klikdan
+        # oldin loader tozalanishini kutamiz.
+        m.settle()
         send_btn.click()
         m.confirm("да")
 

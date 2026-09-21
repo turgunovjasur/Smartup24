@@ -466,6 +466,54 @@ def verify_no_order_bonus(page: Page, *, bonus_product: str, client_name: str) -
         ).to_have_count(0)
 
 
+def _order_summary_number(page: Page, label_re: str) -> int:
+    """Order Просмотр "Основное" summary'sidagi ``label: N`` span'idan N ni (probel/vergul
+    tozalab) butun son sifatida qaytaradi. ``label_re`` anchored bo'lsin (masalan
+    ``r"^Общая сумма:"`` — "Общая сумма скидки"/"...НДС" ga tegib ketmasin)."""
+    span = page.locator("span").filter(has_text=re.compile(label_re)).first
+    expect(span).to_be_visible(timeout=10_000)
+    txt = span.inner_text()
+    digits = re.sub(r"[^\d]", "", txt.split(":", 1)[1])
+    return int(digits or "0")
+
+
+def verify_order_discount(page: Page, *, client_name: str) -> None:
+    """POZITIV (Скидка bonusi): ``client_name`` ning ENG YANGI Черновик zakazini ochib,
+    order Просмотр "Основное" summary'sida CHEGIRMA qo'llanganini tasdiqlaydi —
+    "Сумма к оплате" < "Общая сумма" (qty_discount aksiyasi: Тип бонуса=Скидка,
+    masalan 10% → 200 000 dan 20 000 chegirma → to'lov 180 000). MCP 2026-09-21:
+    order summary span'lari "Общая сумма: N" / "Сумма к оплате: N" (probel-formatли)."""
+    m = BasePage(page)
+
+    with allure.step("Навигация: Модератор → Продажи → Заказы"):
+        flow_navigate(page, tab="Модератор", name="Заказы")
+        m.expect_heading("Заказы")
+        m.settle()
+
+    with allure.step(f"'{client_name}' eng yangi Черновик zakazini tanlab 'Просмотреть'"):
+        m.search(client_name)
+        row = m.grid_row(client_name, "Черновик")
+        cell = row.get_by_text("Черновик", exact=True).first
+        cell.click()
+        for _ in range(10):
+            if m.grid_row_selected(row):
+                break
+            page.wait_for_timeout(300)
+        else:
+            cell.click()
+        m.click_button("Просмотреть")
+        m.expect_heading("Заказ (просмотр)")
+        m.settle()
+
+    with allure.step("'Основное' summary: Сумма к оплате < Общая сумма (chegirma qo'llangan)"):
+        gross = _order_summary_number(page, r"^Общая сумма:")
+        payable = _order_summary_number(page, r"^Сумма к оплате:")
+        assert payable < gross, (
+            f"Chegirma qo'llanmagan: Общая сумма={gross}, Сумма к оплате={payable} "
+            f"(qty_discount aksiyasi to'lov summasini kamaytirishi kutilgan edi)"
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Standalone (debug) — tovari bor mavjud supplier (Saber OOO) ustida create
 # ══════════════════════════════════════════════════════════════════════════════
