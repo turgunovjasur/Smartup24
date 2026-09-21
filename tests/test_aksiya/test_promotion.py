@@ -173,8 +173,19 @@ def _fill_step1(page: Page, m: BasePage, *, name: str, akciya_type: str, char: s
 
     with allure.step(f"Характеристики клиента: {char}"):
         page.keyboard.press("Escape")  # smt-date-picker backdrop'ini yopish
-        page.get_by_role("textbox", name="Выберите...").first.click()
-        _pick_overlay_listitem(page, char)
+        # Picker overlay'i ba'zan klikка ochilmay qoladi (date-picker backdrop fade
+        # bilan poyga) → _pick_overlay_listitem 15s topolmay yiqilardi (test_260,
+        # 2026-09-21). Ochish+tanlashni retry qilamiz.
+        for attempt in range(3):
+            page.get_by_role("textbox", name="Выберите...").first.click()
+            try:
+                _pick_overlay_listitem(page, char, timeout=8_000)
+                break
+            except (AssertionError, PlaywrightTimeoutError):
+                if attempt == 2:
+                    raise
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(500)
 
     next_btn = page.get_by_role("button", name="ДАЛЕЕ")
     expect(next_btn).to_be_enabled(timeout=10_000)
