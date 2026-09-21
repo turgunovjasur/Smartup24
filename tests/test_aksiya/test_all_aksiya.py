@@ -419,3 +419,59 @@ def test_252_order_sum_bonus(session_page: Page, code, runner_state) -> None:
         client_name=f"client-{ak}",
         expected_qty="1",
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IX. CASE 3 — Подтип (subtype) targeting NEGATIV: mos kelmaydigan podtipga
+#             yo'naltirilgan aksiya → klient bonus OLMAYDI
+# ══════════════════════════════════════════════════════════════════════════════
+# Client "Подтип по умолчанию"да (test_211 shu podtip bilan bonus OLDI = tasdiq).
+# Bu aksiyani "Закупочный подтип"ga yo'naltiramiz → client mos kelmaydi → bonus YO'Q.
+# test_211 (mos podtip → bonus) bilan toza A/B: bir xil qty_free/min=2, faqat podtip
+# farq qiladi. "Характеристики клиента" global podtiplar: Identification / Закупочный
+# подтип / Подтип по умолчанию (MCP 2026-09-21).
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (subtype): sum aksiyani Неактивный + 'Закупочный подтип'ga yo'naltirilgan aksiya")
+def test_260_promotion_subtype_create(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    # sum_free aksiyani o'chiramiz — faqat bu subtype-targeted aksiya aktiv qolsin
+    # (aks holda sum_free bonusi subtype-negativ natijani niqoblaydi).
+    run_promotion_deactivate(
+        session_page, supplier_name=f"supplier-{ak}",
+        name=runner_state["ak_sum_name"],
+    )
+    name = run_promotion(
+        session_page, ak,
+        supplier_name=f"supplier-{ak}",
+        bonus_product=runner_state.get("ak_product_name"),
+        case="qty_free",
+        char="Закупочный подтип",
+        name=f"aksiya-subtype-{ak}",
+    )
+    runner_state["ak_subtype_name"] = name
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (subtype): Заказ — klient 2 dona (podtip MOS KELMAYDI)")
+def test_261_order_subtype(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    # Miqdor Мин=2 ni qanoatlantiradi, LEKIN aksiya boshqa podtipga → bonus kutilMAYDI.
+    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (subtype): Бонус YO'Q — klient podtipi aksiya podtipiga mos kelmadi")
+def test_262_no_bonus_subtype(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page)
+    verify_no_order_bonus(
+        session_page,
+        bonus_product=runner_state.get("ak_product_name"),
+        client_name=f"client-{ak}",
+    )
