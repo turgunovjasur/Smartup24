@@ -1206,6 +1206,20 @@ class BasePage:
         button = None
         for _click_attempt in range(2):
             self._settle()
+            # Forma OXIRGI maydondан (masalan Роли multiselect) keyin ASINXRON
+            # qayta-validatsiya qiladi — shu oynada "Сохранить" bir lahza
+            # `disabled` bo'ladi. Playwright click() disabled→enabled kutadi, lekin
+            # aynan shu payt `app-global-page-loader` chiqib klikni to'sadi va
+            # forma re-init'да tugma DOM'dan UZILADI ("element was detached") →
+            # 60s timeout (group_a/aksiya test_112 supplier_user flaky, 2026-09-21).
+            # Klikdан OLDIN tugma enable bo'lishini (forma valid) kutamiz — disabled
+            # oynasini o'tkazib, loader-detach poygasiga tushmaymiz.
+            save_btn = self.page.get_by_role("button", name=button_name, exact=exact).first
+            try:
+                expect(save_btn).to_be_enabled(timeout=15_000)
+                self._settle()
+            except (AssertionError, PlaywrightTimeoutError):
+                pass  # baribir urinib ko'ramiz — quyidagi tekshiruvlar sababini beradi
             try:
                 button = self.click_button(button_name, exact=exact)
                 break
