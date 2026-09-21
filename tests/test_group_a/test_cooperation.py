@@ -2,6 +2,7 @@ import re
 
 import allure
 from playwright.sync_api import Page, expect
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -59,20 +60,31 @@ def run_cooperation(page: Page, code) -> None:
         # Qatorni TO'G'RIDAN-TO'G'RI bosamiz (click_grid_row ichki _settle bilan
         # so'rovni qayta yuborib ro'yxatni bo'shatishi mumkin). Action panelда
         # "Отправить запрос на сотрудничество" chiqadi (qator following-sibling'i).
+        # "Рекомендованные клиенты" grid backendi SEKIN → panel/tugma DOIM qayta-render
+        # bo'lib ("element is not stable" → "detached from the DOM") 60s'lik default
+        # click'ni yutib yuborardi (dev sekin oynasida test_114 shu sabab yiqilib
+        # BUTUN order zanjirini kaskadga solardi, 2026-09-21). Yechim: har urinishда
+        # grid settle bo'lishini kutib, qatorni QAYTA tanlab, tugmani QISQA timeout
+        # (4s) bilan bosamiz — nostabil bo'lsa 60s kutmasdan darhol qayta urinamiz;
+        # bir urinish grid barqaror bo'lgan lahzaga to'g'ri kelib klik o'tadi.
         send_btn = page.get_by_role("button", name="Отправить запрос на сотрудничество").first
-        for _ in range(6):
+        sent = False
+        for _ in range(8):
+            m.settle()
             row.click(position={"x": 120, "y": 12})
             try:
                 expect(send_btn).to_be_visible(timeout=3_000)
+                send_btn.click(timeout=4_000)
+                sent = True
                 break
-            except AssertionError:
+            except (AssertionError, PlaywrightTimeoutError):
                 continue
-        # Tugma ko'rinsa ham fon loaderи uni "stable/enabled emas" holatда 60s
-        # ushlab click'ni yutib yuborardi (dev sekin oynasida test_114 shu sabab
-        # yiqilib butun order zanjirini kaskadga solardi, 2026-09-21) — klikdan
-        # oldin loader tozalanishini kutamiz.
-        m.settle()
-        send_btn.click()
+        if not sent:
+            # Oxirgi urinish — hali yiqilsa aniq xato beradi (grid barqarorlashmadi).
+            m.settle()
+            row.click(position={"x": 120, "y": 12})
+            expect(send_btn).to_be_visible(timeout=5_000)
+            send_btn.click(timeout=10_000)
         m.confirm("да")
 
     with allure.step("Навигация: Модератор → Клиенты"):
