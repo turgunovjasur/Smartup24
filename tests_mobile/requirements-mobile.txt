@@ -1,0 +1,5 @@
+# Mobil (Android/Appium) testlari uchun qo'shimcha bog'liqliklar.
+# Web (playwright) requirements.txt dan ALOHIDA — aralashmasin.
+# O'rnatish:  .venv\Scripts\python -m pip install -r tests_mobile/requirements-mobile.txt
+Appium-Python-Client
+pytest
