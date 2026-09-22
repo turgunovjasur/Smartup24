@@ -6,6 +6,8 @@ bilan olinadi: 1-EditText = Логин, 2-EditText = Пароль. Tugma = "Во
 """
 from __future__ import annotations
 
+import time
+
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -21,14 +23,16 @@ _SUBMIT = "Войти"           # content-desc (tugma)
 _PROFILE_TAB = "Профиль"
 _LOGIN_ENTRY = "Вход"       # Профиль ekranidagi "Вход" tugmasi (login qilinmagan holat)
 _LOGGED_OUT_HINT = "Войдите в систему"   # login qilinmagan Профиль matni
+_LOGOUT = "Выйти"           # Профиль pastidagi "Выйти" + tasdiqlash dialogidagi tugma
+_LOGOUT_CANCEL = "Отмена"   # logout tasdiqlash dialogi belgisi
 
 
 class LoginScreen(BaseScreen):
 
-    def _on_login_form(self) -> bool:
+    def on_login_form(self, *, timeout: int = 2) -> bool:
         """Hozir login formasida turibmizmi (Логин maydoni ko'rinadimi)."""
         try:
-            WebDriverWait(self.driver, 2).until(
+            WebDriverWait(self.driver, timeout).until(
                 EC.presence_of_element_located(_LOGIN_FIELD)
             )
             return True
@@ -40,7 +44,7 @@ class LoginScreen(BaseScreen):
         - allaqachon formadamiz  -> hech nima qilmaydi,
         - Профиль'da 'Вход' bor  -> uni bosadi,
         - boshqa tabda           -> avval Профиль, keyin 'Вход'."""
-        if self._on_login_form():
+        if self.on_login_form():
             return
         if not self.is_visible(_LOGIN_ENTRY, timeout=3):
             self.tap(_PROFILE_TAB)
@@ -51,11 +55,41 @@ class LoginScreen(BaseScreen):
         """Логин/Пароль ni to'ldirib 'Войти' ni bosadi."""
         self.type_into(_LOGIN_FIELD, username)
         self.type_into(_PASSWORD_FIELD, password)
+        # Klaviatura "Войти" tugmasini yopib turadi — yozgach uni yashiramiz
+        try:
+            self.driver.hide_keyboard()
+        except Exception:
+            pass
         self.tap(_SUBMIT)
 
     def login(self, username: str, password: str) -> None:
         self.open_login_form()
         self.submit_login(username, password)
+
+    # ── logout ───────────────────────────────────────────────────────
+    def logout(self) -> None:
+        """Профиль -> pastga scroll -> 'Выйти' -> tasdiqlash dialogida 'Выйти'."""
+        self.tap(_PROFILE_TAB)
+        self.scroll_down()
+        self.tap(_LOGOUT)                 # menyudagi "Выйти" (dialog ochilishidan oldin yagona)
+        self.wait_visible(_LOGOUT_CANCEL)  # tasdiqlash dialogi chiqdi
+        self.tap_last(_LOGOUT)             # dialogdagi tasdiq "Выйти" (oxirgisi)
+        time.sleep(2)                      # logout amalga oshsin (ilova boshqa ekranga o'tishi mumkin)
+        self.tap(_PROFILE_TAB)             # Профиль'ga qaytamiz
+        self.wait_visible(_LOGIN_ENTRY)    # login qilinmagan holat tasdig'i ('Вход')
+
+    def ensure_logged_out(self) -> None:
+        """Test boshida TOZA holat: login qilingan bo'lsa chiqadi."""
+        # Ochiq qolgan logout tasdiqlash dialogi bo'lsa yopamiz
+        if self.is_visible(_LOGOUT_CANCEL, timeout=2):
+            self.tap(_LOGOUT_CANCEL)
+        # Allaqachon login formasida bo'lsak — demak login qilinmagan (Профиль tab yo'q)
+        if self.on_login_form():
+            return
+        self.tap(_PROFILE_TAB)
+        if self.is_visible(_LOGIN_ENTRY, timeout=3):
+            return                        # allaqachon chiqilgan
+        self.logout()
 
     # ── holat tekshiruvlari ──────────────────────────────────────────
     def is_logged_out(self) -> bool:
