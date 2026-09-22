@@ -22,7 +22,6 @@ tests/
   test_category.py       — run_category / test_category
   test_product.py        — run_product / test_product
   test_all.py            — test_all: barcha run_* ni bitta login bilan zanjir qiladi
-skills/skills/*/SKILL.md — write-test, debug-test, run-smoke, new-flow, review-test, learn
 pytest.ini             — testpaths=., python_files=test_*.py
 ```
 Eski `tests/smoke/`, group runnerlar, `scripts/run_tests.py`, `.env`, company/telegram mexanizmi YO'Q.
