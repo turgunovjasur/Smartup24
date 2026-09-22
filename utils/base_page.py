@@ -1233,9 +1233,15 @@ class BasePage:
             return
         except AssertionError:
             pass
-        # Tugma hali joyida — birinchi klik yo'qolgan (overlay yutgan).
-        # click_button qayta bosishdan oldin qolgan overlayni o'zi yopadi.
-        if button.count() and button.is_visible():
+        # Tugma hali joyida. IKKI holatni AJRATAMIZ:
+        #  - Tugma ENABLED → birinchi klik overlay tomonidan yutilган (submit
+        #    boshlanmagan) → qayta bosamiz.
+        #  - Tugма DISABLED → save ALLAQACHON ketyapti (submitting; smthotkey="save"
+        #    tugmasi submit paytida disabled bo'ladi). Bunda QAYTA BOSMAYMIZ —
+        #    disabled tugmaga click 60s "not enabled" timeout berardi va sekin server
+        #    save'ida test_212/112 supplier_user shu sabab yiqilardi (2026-09-22);
+        #    shunchaki submit tugab forma yopilishini kutamiz.
+        if button.count() and button.is_visible() and button.is_enabled():
             self.click_button(button_name, exact=exact)
             self.wait_for_loader()
         # Yakuniy tasdiq: forma yopilishi SHART. Jim o'tsak, saqlanmagan yozuv
@@ -1244,8 +1250,10 @@ class BasePage:
         # async re-init bilan RESET bo'lib, bo'sh formada save validatsiya jim
         # bloklagan — save so'rovi umuman yuborilmagan). Bu yerda aniq xato beramiz;
         # chaqiruvchi (masalan run_region) buni ushlab qayta yaratishi mumkin.
+        # Timeout 10s→30s: sekin server save'i (submit'да tugma disabled turadi)
+        # yopilishiga ulgursin (aks holda yashil save'ni jim rad etardik).
         try:
-            expect(button).to_be_hidden(timeout=10_000)
+            expect(button).to_be_hidden(timeout=30_000)
         except AssertionError:
             # Forma yopilmadi = saqlanmadi. ASL sababни aniq ko'rsatamiz: backend
             # «Ошибка» dialogi (dup_val_on_index / precision / 500) chiqqan bo'lsa
