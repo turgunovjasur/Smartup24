@@ -10,6 +10,8 @@ input) `android.widget.EditText` klassi bo'yicha olinadi.
 """
 from __future__ import annotations
 
+import time
+
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -61,6 +63,51 @@ class BaseScreen:
         el.click()
         el.clear()
         el.send_keys(text)
+
+    # ── XPath / contains yordamchilari ───────────────────────────────
+    # Flutter content-desc ko'pincha bir nechta matnni qo'shib beradi
+    # ("Тип оплаты*\nНе выбран") va bir xil desc'li elementlar ko'p bo'ladi —
+    # shunday joylarda ACCESSIBILITY_ID (aniq moslik) yetmaydi.
+    def _tap_xpath(self, xpath: str, *, timeout: int | None = None) -> None:
+        w = WebDriverWait(self.driver, timeout) if timeout else self.wait
+        w.until(EC.element_to_be_clickable((AppiumBy.XPATH, xpath))).click()
+
+    def _exists_xpath(self, xpath: str, *, timeout: int = 3) -> bool:
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((AppiumBy.XPATH, xpath))
+            )
+            return True
+        except Exception:
+            return False
+
+    def _tap_contains(self, needle: str, *, timeout: int | None = None) -> None:
+        self._tap_xpath(f"//*[contains(@content-desc, '{needle}')]", timeout=timeout)
+
+    def _exists_contains(self, needle: str, *, timeout: int = 3) -> bool:
+        return self._exists_xpath(f"//*[contains(@content-desc, '{needle}')]", timeout=timeout)
+
+    def _wait_marker(self, needle: str, *, timeout: int = 20) -> None:
+        """Berilgan matn (content-desc contains) EKRANDA ko'ringunча kutadi —
+        navigatsiya tugaganини tasdiqlaydi (ilova sekin bo'lgani uchun). Chiqмаса
+        ANIQ xato beradi."""
+        if not self._exists_contains(needle, timeout=timeout):
+            raise AssertionError(f"Kutilgan belgi ko'rinmadi (navigatsiya tugamadi?): {needle!r}")
+
+    def _open_overlay(self, field_needle: str, marker_desc: str,
+                      *, taps: int = 2, poll_s: int = 12) -> bool:
+        """Maydonни bosib overlay (dialog/kalendar) ochadi. Ilova quirk: 1-bosishда
+        ochilmasligi mumkin. LEKIN tez qayta bosиш ochilган dialogни YOPADI — shuning
+        uchun bir bosгач ``marker_desc`` chiqишини ``poll_s`` sekund KUTAMIZ, faqat
+        rostan chiqмаса qayta bosamiz (``taps`` marta)."""
+        xp = f"//*[@content-desc='{marker_desc}']"
+        for _ in range(taps):
+            self._tap_contains(field_needle)
+            end = time.time() + poll_s
+            while time.time() < end:
+                if self._exists_xpath(xp, timeout=1):
+                    return True
+        return False
 
     def scroll_down(self, times: int = 3) -> None:
         """Ekranni pastga suradi (yashirin pastki elementlarni ko'rsatish uchun)."""
