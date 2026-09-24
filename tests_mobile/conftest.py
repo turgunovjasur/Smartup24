@@ -1,13 +1,7 @@
-"""Mobil testlar uchun pytest fixtures (Appium).
+"""Mobil (Appium) fixtures: preflight, driver, yiqilganda artefaktlar.
 
-Web `conftest.py` (Playwright) dan ALOHIDA — bu yerda `driver` (Appium
-WebDriver) beriladi, `page` emas. Web testlarga umuman aralashmaydi.
-
-SHART: Appium server ishlab turishi kerak (alohida terminalda):
-    appium --address 127.0.0.1 --port 4723
-Qurilma USB bilan ulangan + qulfi ochiq + "USB debugging (Security settings)"
-yoqilgan bo'lishi kerak (Xiaomi/MIUI uchun). `_preflight` buni test boshida
-tekshiradi va yo'q bo'lsa TUSHUNARLI xabar bilan to'xtatadi.
+Web conftest'dan alohida; root conftest'ning `code` / `runner_state` /
+`session_page` fixture'lari bu yerda ham ko'rinadi (E2E test shundan foydalanadi).
 """
 import subprocess
 import time
@@ -16,33 +10,14 @@ from pathlib import Path
 
 import allure
 import pytest
-from appium import webdriver
-from appium.options.android import UiAutomator2Options
 
-from tests_mobile.config import (
-    APP_ACTIVITY, APP_PACKAGE, APPIUM_SERVER, DEVICE_UDID,
-)
+from tests_mobile.config import APPIUM_SERVER, DEVICE_UDID
+from tests_mobile.core.driver_factory import create_driver
 
 _SCREENSHOT_DIR = Path(__file__).parent / "screenshots"
 
 
-def build_options() -> UiAutomator2Options:
-    """Appium sessiya sozlamalari — YAGONA manba (debug skriptlar ham shuni oladi)."""
-    opts = UiAutomator2Options()
-    opts.platform_name = "Android"
-    opts.automation_name = "UiAutomator2"
-    opts.app_package = APP_PACKAGE
-    opts.app_activity = APP_ACTIVITY
-    opts.no_reset = True                # ilova ma'lumotini (login) tozalamaydi
-    opts.new_command_timeout = 300
-    # MIUI maxfiy sozlamaga tegishli xatoni e'tiborsiz qoldir
-    opts.set_capability("appium:ignoreHiddenApiPolicyError", True)
-    if DEVICE_UDID:
-        opts.set_capability("appium:udid", DEVICE_UDID)
-    return opts
-
-
-# ── 3. PREFLIGHT: Appium + telefon bormi — yo'q bo'lsa aniq xabar ────────────
+# ── Preflight: Appium va telefon bo'lmasa tushunarli xabar bilan to'xtaydi ──
 def _appium_ready() -> bool:
     try:
         with urllib.request.urlopen(f"{APPIUM_SERVER}/status", timeout=3) as r:
@@ -61,58 +36,37 @@ def _connected_devices() -> list[str]:
 
 @pytest.fixture(scope="session", autouse=True)
 def _preflight():
-    """Test boshlanishidan OLDIN: Appium server yoniqmi, telefon ulanganmi.
-    Aks holda tushunarsiz ConnectionRefused o'rniga ANIQ sabab bilan to'xtaydi."""
     problems = []
     if not _appium_ready():
-        problems.append(
-            f"Appium server ishlamayapti ({APPIUM_SERVER}). Yoqing:\n"
-            f"    appium --address 127.0.0.1 --port 4723"
-        )
+        problems.append(f"Appium server ishlamayapti ({APPIUM_SERVER}). Yoqing:\n"
+                        f"    appium --address 127.0.0.1 --port 4723")
     devices = _connected_devices()
     if not devices:
-        problems.append(
-            "Telefon ulanmagan (`adb devices` bo'sh). Tekshiring: USB kabel (ma'lumot "
-            "uzatadigan), telefonda 'Fayl uzatish' rejimi, USB debugging ruxsati."
-        )
+        problems.append("Telefon ulanmagan (`adb devices` bo'sh). Tekshiring: ma'lumot "
+                        "uzatadigan USB kabel, 'Fayl uzatish' rejimi, USB debugging ruxsati.")
     elif DEVICE_UDID and DEVICE_UDID not in devices:
         problems.append(f"ANDROID_UDID={DEVICE_UDID} ulanmagan. Ulanganlar: {devices}")
     if problems:
         pytest.exit("MOBIL PREFLIGHT XATO:\n  - " + "\n  - ".join(problems), returncode=3)
 
 
-# ── 2. DRIVER: implicit wait YO'Q + har test ilovani qayta ochadi ────────────
+# ── Driver: har test uchun yangi sessiya, ilova qayta ochiladi ──────────────
 @pytest.fixture
 def driver():
-    """Har test uchun yangi Appium sessiyasi.
-
-    - implicit wait ATAYIN yo'q: u explicit WebDriverWait bilan aralashsa har
-      `timeout=1` tekshiruv amalda 5+ sek kutadi (sekin va beqaror). Hamma kutish
-      BaseScreen'dagi explicit wait orqali.
-    - Ilova YOPIB qayta ochiladi: oldingi testdan qolgan ochiq ekran/dialog
-      yangi testga o'tmaydi (login `no_reset` tufayli saqlanadi)."""
-    drv = webdriver.Remote(APPIUM_SERVER, options=build_options())
+    drv = create_driver()
     try:
-        try:
-            drv.terminate_app(APP_PACKAGE)
-        except Exception:
-            pass
-        drv.activate_app(APP_PACKAGE)
-        time.sleep(2)   # Flutter birinchi kadrni chizguncha (ilova sovuq start)
         yield drv
     finally:
         drv.quit()
 
 
-# ── 1. YIQILGANDA ARTEFAKT: screenshot + ekran tuzilmasi → Allure ────────────
+# ── Yiqilganda: telefon ekrani + ekran tuzilmasi -> Allure (+ screenshots/) ──
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
-    if report.when != "call" or not report.failed:
-        return
     drv = item.funcargs.get("driver")
-    if drv is None:
+    if report.when != "call" or not report.failed or drv is None:
         return
     try:
         png = drv.get_screenshot_as_png()

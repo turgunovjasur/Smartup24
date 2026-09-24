@@ -32,33 +32,44 @@ winget install --id Google.PlatformTools    # adb (platform-tools)
 
 ## Ishga tushirish
 ```powershell
-# 1) Appium serverni alohida terminalda yoqib qo'y:
-appium --address 127.0.0.1 --port 4723
+# 1) Appium — ALOHIDA terminalda (Claude/IDE fon jarayoni xotira kam bo'lsa o'ldiriladi):
+appium --address 127.0.0.1 --port 4723 --use-plugins=inspector --allow-cors
 
-# 2) Login ma'lumotlari env orqali (koda yozilmaydi):
-$env:MOBILE_LOGIN="<login>"; $env:MOBILE_PASSWORD="<parol>"
-
-# 3) Testni ishga tushir:
-.venv\Scripts\python -m pytest tests_mobile\test_login.py -v -s
+# 2) Testlar (default user config.py da; env bilan almashtirsa bo'ladi: MOBILE_LOGIN/MOBILE_PASSWORD)
+.venv\Scripts\python -m pytest tests_mobile/tests/test_login.py -v --alluredir=test-results/allure-results
+.venv\Scripts\python -m pytest tests_mobile/tests/test_order_smoke.py -v   # ~2-3 min, tayyor data
+.venv\Scripts\python -m pytest tests_mobile/tests/test_order_e2e.py -v     # ~6 min, web+mobil
 ```
+Test boshida preflight Appium va telefonni tekshiradi; yo'q bo'lsa aniq xabar bilan to'xtaydi.
+Yiqilgan testning telefon ekrani va ekran tuzilmasi Allure'ga (va `screenshots/`) tushadi.
 
 ## Tuzilma
 ```
 tests_mobile/
-├── conftest.py            # Appium `driver` fixture (web `page` EMAS)
-├── config.py             # APP_PACKAGE/ACTIVITY, server, creds (env)
-├── pages/
-│   ├── base_screen.py    # BaseScreen: wait_visible / tap / type_into (web BasePage ekvivalenti)
-│   └── login_screen.py   # LoginScreen page-object
-├── test_login.py         # pilot: valid + wrong-password
-└── requirements-mobile.txt
+├── conftest.py           # preflight, driver fixture, yiqilganda artefaktlar
+├── config.py             # server, ilova, userlar, smoke ma'lumotlari — YAGONA joy
+├── flows.py              # biznes oqimlar (create_and_verify_order)
+├── core/driver_factory.py  # Appium sessiya sozlamalari — YAGONA joy
+├── screens/              # page object'lar (har biri ilovadagi bitta ekran)
+│   ├── base_screen.py    # locator: desc() / contains() / xpath(); tap / exists / wait_for / wait_gone / type
+│   ├── login_screen.py
+│   ├── catalog_screen.py # Постав. -> katalog -> kategoriya -> savatga
+│   ├── cart_screen.py    # to'lov, sana, Оформить
+│   └── orders_screen.py  # Заказы: ochish va tekshirish
+├── tests/                # faqat testlar
+└── tools/explore.py      # locator kashfiyoti (test emas); Appium Inspector — muqobil
 ```
 
-## Ma'lum cheklovlar / keyingi ishlar
-- `no_reset=True` — ilova holati saqlanadi; test boshlanish holatini o'zi
-  aniqlaydi (`open_login_form` allaqachon formadami/Профильдами tekshiradi).
-- **Repeatability:** valid login o'tgach ilova LOGIN qilingan qoladi — keyingi
-  run uchun LOGOUT oqimi kerak (hali yozilmagan).
-- Kamera (Штрих-код skaner) real qurilmada ishlaydi, emulatorda cheklangan.
-- `adb shell input text` Kirillni yozolmaydi; Appium `send_keys` UiAutomator2
-  orqali yozadi (ASCII login/parol uchun muammo yo'q).
+## Yangi test yozish qoidalari
+- Locatorni taxmin qilma — Appium Inspector bilan real ekranda tasdiqla.
+- Locator ekran faylining TEPASIDA konstanta; testda raw XPath yozilmaydi.
+- `time.sleep` o'rniga `exists` / `wait_for` / `wait_gone`.
+- Bir xil tugma ko'p joyda bo'lsa nomga bog'la: `//*[contains(@content-desc,'<nom>')]//*[@content-desc='<tugma>']`.
+
+## Ilova xususiyatlari (Flutter)
+- `resource-id` YO'Q; matn `content-desc` da; inputlar faqat `EditText` tartibi bilan.
+- Tab/dialog ba'zan 1-bosishda ochilmaydi, tez qayta bosish esa ochilganini yopadi
+  -> `BaseScreen.open_overlay` kutib, kerak bo'lsagina qayta bosadi.
+- `no_reset=True`: login saqlanadi; har test oldidan ilova yopib qayta ochiladi.
+- Savatda yangi tovar avtomatik belgilangan — belgilangan checkboxni bosish uni yechadi.
+- Kamera (Штрих-код) real qurilmada ishlaydi, emulatorda cheklangan.

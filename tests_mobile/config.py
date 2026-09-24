@@ -1,24 +1,25 @@
-"""Mobil (Android/Appium) testlari uchun markaziy sozlamalar.
+"""Mobil testlar sozlamalari — YAGONA joy (server, ilova, qurilma, userlar).
 
-Faqat KONSTANTALAR. Maxfiy qiymatlar (login/parol) env orqali beriladi —
-koda yozilmaydi (web flow_authorization bilan bir xil falsafada).
+Hammasini env bilan almashtirish mumkin; default qiymatlar dev (sm24) uchun.
 """
 import os
 
-# --- Appium server ---
+# --- Appium server / qurilma ---
 APPIUM_SERVER = os.getenv("APPIUM_SERVER", "http://127.0.0.1:4723")
+DEVICE_UDID = os.getenv("ANDROID_UDID") or None   # bir nechta telefon bo'lsa
 
 # --- Sinaladigan ilova ---
 APP_PACKAGE = "uz.greenwhite.smartup24"
 APP_ACTIVITY = "uz.greenwhite.smartup24.MainActivity"
 
-# --- Qurilma ---
-# Bitta telefon ulangan bo'lsa UDID shart emas (None). Bir nechta bo'lsa
-# `adb devices` dagi seriyani ANDROID_UDID env orqali ber.
-DEVICE_UDID = os.getenv("ANDROID_UDID") or None
+# --- Tayyor klient (dev sm24 da hamkorlik va tovarlari bor) ---
+MOBILE_LOGIN = os.getenv("MOBILE_LOGIN", "sanobar@sm24")
+MOBILE_PASSWORD = os.getenv("MOBILE_PASSWORD", "1")
 
-# --- Test login ma'lumotlari (mobil ilova; web admin'dan FARQLI bo'lishi mumkin) ---
-# DIQQAT: koda yozilmaydi — env orqali beriladi:
-#   $env:MOBILE_LOGIN="...";  $env:MOBILE_PASSWORD="..."
-MOBILE_LOGIN = os.getenv("MOBILE_LOGIN", "")
-MOBILE_PASSWORD = os.getenv("MOBILE_PASSWORD", "")
+# Tayyor klientning zakaz ma'lumotlari (test_order_smoke)
+SMOKE_SUPPLIER = "Sanobar Distir"
+SMOKE_CATEGORY = "Oziq-ovqat"
+SMOKE_PRODUCT = "Saber Energy Drink Maximum Power"
+
+# --- Web yaratgan userlar paroli (group_a run_*_user shu parol bilan yaratadi) ---
+WEB_USER_PASSWORD = "1"
