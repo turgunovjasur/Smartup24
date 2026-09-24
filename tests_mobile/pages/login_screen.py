@@ -6,8 +6,6 @@ bilan olinadi: 1-EditText = Логин, 2-EditText = Пароль. Tugma = "Во
 """
 from __future__ import annotations
 
-import time
-
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -29,7 +27,7 @@ _LOGOUT_CANCEL = "Отмена"   # logout tasdiqlash dialogi belgisi
 
 class LoginScreen(BaseScreen):
 
-    def on_login_form(self, *, timeout: int = 2) -> bool:
+    def on_login_form(self, *, timeout: int = 5) -> bool:
         """Hozir login formasida turibmizmi (Логин maydoni ko'rinadimi)."""
         try:
             WebDriverWait(self.driver, timeout).until(
@@ -46,7 +44,7 @@ class LoginScreen(BaseScreen):
         - boshqa tabda           -> avval Профиль, keyin 'Вход'."""
         if self.on_login_form():
             return
-        if not self.is_visible(_LOGIN_ENTRY, timeout=3):
+        if not self.is_visible(_LOGIN_ENTRY, timeout=5):
             self.tap(_PROFILE_TAB)
         self.tap(_LOGIN_ENTRY)
         self.wait.until(EC.presence_of_element_located(_LOGIN_FIELD))
@@ -74,7 +72,7 @@ class LoginScreen(BaseScreen):
         self.tap(_LOGOUT)                 # menyudagi "Выйти" (dialog ochilishidan oldin yagona)
         self.wait_visible(_LOGOUT_CANCEL)  # tasdiqlash dialogi chiqdi
         self.tap_last(_LOGOUT)             # dialogdagi tasdiq "Выйти" (oxirgisi)
-        time.sleep(2)                      # logout amalga oshsin (ilova boshqa ekranga o'tishi mumkin)
+        self.wait_gone(_LOGOUT_CANCEL)     # dialog yopilib logout amalga oshguncha
         self.tap(_PROFILE_TAB)             # Профиль'ga qaytamiz
         self.wait_visible(_LOGIN_ENTRY)    # login qilinmagan holat tasdig'i ('Вход')
 
@@ -87,7 +85,7 @@ class LoginScreen(BaseScreen):
         if self.on_login_form():
             return
         self.tap(_PROFILE_TAB)
-        if self.is_visible(_LOGIN_ENTRY, timeout=3):
+        if self.is_visible(_LOGIN_ENTRY, timeout=5):
             return                        # allaqachon chiqilgan
         self.logout()
 

@@ -36,6 +36,7 @@ ISHGA TUSHIRISH (telefon + Appium SHART — bu bo'lim CI cron'ida EMAS, lokal)
 HOLAT: real telefonda 3/3 YASHIL (2026-09-23, dev sm24, ~5.5 min).
 """
 import allure
+import pytest
 from playwright.sync_api import Page
 
 from flows.flow_authorization import COMPANY_CODE, authorization, logout
@@ -105,6 +106,7 @@ def test_100_web_seed(session_page: Page, code, runner_state) -> None:
         )
         product_name = ga_product_linking(session_page, c, product_name=product_name)
         runner_state["int_product_name"] = product_name
+    runner_state["int_seed_ok"] = True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -117,6 +119,8 @@ def test_200_mobile_order(driver, code, runner_state) -> None:
     """Web'да yaratilgan klient foydalanuvchisi bilan MOBIL ilovaga kirib zakaz
     beradi. Login `code` dan quriladi (web faza bilan bir xil session → bir xil
     `code`); tovar nomi Faza 1'dan `runner_state` orqali keladi."""
+    if not runner_state.get("int_seed_ok"):
+        pytest.skip("Faza 1 (web seed) o'tmadi — mobil zakaz uchun ma'lumot yo'q")
     c = _code(code)
     login = f"client_user-{c}@{COMPANY_CODE}"
     supplier_name = f"supplier-{c}"
@@ -140,6 +144,7 @@ def test_200_mobile_order(driver, code, runner_state) -> None:
     with allure.step("Zakaz ichига kirib ma'lumotlarни tekshirish"):
         order.open_last_order()
         order.verify_order(supplier_name, product_name, payment="Наличные")
+    runner_state["int_order_ok"] = True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -148,7 +153,7 @@ def test_200_mobile_order(driver, code, runner_state) -> None:
 @allure.epic("Web+Mobil E2E")
 @allure.feature("Faza 3 — Web tekshiruv")
 @allure.title("Web: supplier_user bilan mobil zakaz statusini o'zgartirish")
-def test_300_web_status_change(session_page: Page, code) -> None:
+def test_300_web_status_change(session_page: Page, code, runner_state) -> None:
     """Loop-close: mobil urgan zakaz backend'ga tushdimi — supplier_user bilan
     web'ga kirib Заказы'da topib statusini to'liq sikl bo'ylab o'zgartiramiz
     (run_order_status_change reuse).
@@ -157,6 +162,8 @@ def test_300_web_status_change(session_page: Page, code) -> None:
     boshlanadi (web zakaz shunday yaratardi). Mobil zakaz qaysi statusda
     tushishi QURILMADA tasdiqlansin — agar 'Новый' bo'lsa STATUS_CHAIN'ni
     moslashtirish kerak bo'ladi."""
+    if not runner_state.get("int_order_ok"):
+        pytest.skip("Faza 2 (mobil zakaz) o'tmadi — status o'zgartiriladigan zakaz yo'q")
     c = _code(code)
     logout(session_page)
     with allure.step(f"Web login: supplier_user-{c}@{COMPANY_CODE}"):

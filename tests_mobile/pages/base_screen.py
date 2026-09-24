@@ -42,6 +42,13 @@ class BaseScreen:
         except Exception:
             return False
 
+    def wait_gone(self, desc: str, *, timeout: int = 10) -> None:
+        """content-desc bo'yicha element ekrandan YO'QOLGUNCHA kutadi (dialog
+        yopildi, loader tugadi) — `time.sleep` o'rniga aniq shart."""
+        WebDriverWait(self.driver, timeout).until(
+            EC.invisibility_of_element_located(self._desc(desc))
+        )
+
     # ── amallar ──────────────────────────────────────────────────────
     def tap(self, desc: str, *, timeout: int | None = None) -> None:
         """content-desc bo'yicha elementni bosadi (bosiladigan bo'lguncha kutib)."""

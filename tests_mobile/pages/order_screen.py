@@ -71,96 +71,92 @@ class OrderScreen(BaseScreen):
         'Показать каталог' tugmasini bosadi (nomга bog'langan descendant XPath)."""
         xp = (f"//*[contains(@content-desc, '{supplier_name}')]"
               f"//*[@content-desc='{_SHOW_CATALOG}']")
+        any_card = f"//*[@content-desc='{_SHOW_CATALOG}']"
         # ILOVA QUIRK (user tasdiqlagan 2026-09-23): bo'lim tabini bosганда oyna
-        # ba'zан 1-bosishда OCHILMAYDI — o'shani QAYTA bosиш kerak. Shuning uchun
-        # supplier ro'yxati (Показать каталог) ko'rinмаса "Постав." ni qayta bosamiz;
-        # ko'ringач scroll bilan supplierни topib "Показать каталог" ni bosamiz.
+        # ba'zан 1-bosishда OCHILMAYDI — ro'yxat (istalgan "Показать каталог")
+        # chiqmasa "Постав." ni QAYTA bosamiz; chiqsa scroll bilan supplierni izlaymiz.
         for _ in range(4):
             self.tap(_SUPPLIERS_TAB)
-            time.sleep(1.5)
-            for _ in range(6):
-                if self._exists_xpath(xp, timeout=1):
+            if not self._exists_xpath(any_card, timeout=8):
+                continue
+            for _ in range(8):
+                if self._exists_xpath(xp, timeout=2):
                     self._tap_xpath(xp)
-                    self._wait_marker("Категории")  # supplier sahifasi ochilди
+                    self._wait_marker("Категории")  # supplier sahifasi ochildi
                     return
                 self.scroll_down(times=1)
-        self._tap_xpath(xp)  # oxirgi urinish — topilmаса aniq xato beradi
-        self._wait_marker("Категории")
+        raise AssertionError(
+            f"Поставщик '{supplier_name}' ro'yxatda topilmadi (yoki 'Постав.' bo'limi "
+            f"ochilmadi) — client_user bu supplier bilan hamkorlikda ekanini tekshiring"
+        )
 
     def open_category(self, category: str) -> None:
         """Supplier sahifasidagi 'Категории' tab kategoriyasini bosadi. Bir xil
         nom info bo'limида ham bo'lishi mumkin — OXIRGI mos kelgani (Категории
         tabдаgi) tanlanadi."""
         self._tap_xpath(f"(//*[@content-desc='{category}'])[last()]")
-        # Tovarlar ASINXRON yuklanadi — kamida bitta "В корзину" (yoki savatда
-        # bo'lса "шт") ko'ringunча kutamiz, aks holда add_to_cart bo'sh ro'yxatда
-        # tovarни topolmай jim o'tib ketadi.
-        for _ in range(12):
-            if self._exists_xpath(
-                f"//*[contains(@content-desc, '{_ADD_TO_CART_PREFIX}')]", timeout=1
-            ):
-                break
-            time.sleep(0.5)
-        time.sleep(1)
+        # Tovarlar ASINXRON yuklanadi — kamida bitta tovar tugmasi ("В корзину 1 шт"
+        # yoki savatда bo'lса "N шт") chiqquncha kutamiz; chiqmasa ANIQ xato.
+        if not self._exists_contains("шт", timeout=15):
+            raise AssertionError(f"'{category}' kategoriyasida tovarlar yuklanmadi (15s)")
 
     def add_to_cart(self, product_name: str, qty: int = 1) -> None:
         """Tovar kartаsидаgi 'В корзину 1 шт' ni bosadi (nomга bog'langan). qty>1
-        bo'lса '+' ni (qty-1) marta bosadi."""
+        bo'lса '+' ni (qty-1) marta bosadi. Tovar allaqachon savatда bo'lsa
+        qayta qo'shmaydi; umuman topilmasa ANIQ xato beradi."""
         xp_prod = f"//*[contains(@content-desc, '{product_name}')]"
         xp_add = f"{xp_prod}//*[contains(@content-desc, '{_ADD_TO_CART_PREFIX}')]"
+        xp_in_cart = f"{xp_prod}//*[contains(@content-desc, 'шт')]"
+        xp_plus = f"{xp_prod}//*[@content-desc='+']"
         # DIQQAT: "В корзину" tugmasi karta ekranга TO'LIQ chiqгандаgina
         # renderlanadi (past tovarларники DOM'да bo'lmaydi) — shuning uchun
         # TOVARNI emas, uning "В корзину" TUGMASINI ko'ringunча scroll qilamiz.
-        added = False
         for _ in range(10):
-            if self._exists_xpath(xp_add, timeout=1):
+            if self._exists_xpath(xp_add, timeout=2):
                 self._tap_xpath(xp_add)
-                time.sleep(1)
-                added = True
-                break
+                # qo'shilgach tugma "+ / N шт" boshqaruviga aylanadi — shuni kutamiz
+                self._exists_xpath(xp_plus, timeout=5)
+                for _ in range(max(0, qty - 1)):
+                    self._tap_xpath(xp_plus)
+                    time.sleep(0.5)   # har bosish serverga ketadi; ketma-ket tez bosish yutiladi
+                return
+            if self._exists_xpath(xp_in_cart, timeout=1):
+                return   # allaqachon savatда ("N шт", "В корзину" yo'q) — qayta qo'shmaymiz
             self.scroll_down(times=1)
-        # added=False → tovar allaqachon savatда ("N шт", "В корзину" yo'q) —
-        # qayta qo'shmaymiz.
-        if added:
-            # qty>1: qatordagi "+" tugmasi (В корзину endi "N шт" ga aylandi)
-            for _ in range(max(0, qty - 1)):
-                self._tap_xpath(
-                    f"//*[contains(@content-desc, '{product_name}')]//*[@content-desc='+']"
-                )
-                time.sleep(0.5)
+        raise AssertionError(f"Tovar '{product_name}' katalogda topilmadi (10 marta scroll)")
 
     def open_cart(self) -> None:
         """Pastki navigatsiyadagi 'Корзина' tabга o'tadi. "Корзина" bir necha
-        joyда uchraydi (suzuvchi "Корзина\\n<summa>" paneli, sarlavha) — pastki
+        joyда uchraydi (suzuvchi "Корзина\n<summa>" paneli, sarlavha) — pastki
         nav DARAXTNING OXIRIDA bo'lgani uchun OXIRGI mos kelgani tanlanadi.
 
         ILOVA QUIRK: bo'lim 1-bosishда ochilmasligi mumkin — savат oynasi
-        ('Оформить' belgisi) ko'rinмаса QAYTA bosamiz."""
+        ('Оформить' belgisi) ko'rinмаса QAYTA bosamiz; 3 urinishда ham
+        ochilmasa ANIQ xato."""
         for _ in range(3):
             self._tap_xpath("(//*[contains(@content-desc, 'Корзина')])[last()]")
-            time.sleep(1.5)
-            if self._exists_xpath(f"//*[@content-desc='{_CHECKOUT}']", timeout=2):
+            if self._exists_xpath(f"//*[@content-desc='{_CHECKOUT}']", timeout=5):
                 return
+        raise AssertionError("Savat ochilmadi ('Оформить' tugmasi chiqmadi, 3 urinish)")
 
     def choose_payment(self, payment: str = "Наличные") -> None:
         """Тип оплаты → payment → Применить. Dialog 1-bosishда ochilmasligi
-        mumkin (ilova quirk) — payment varianti ko'ringunча "Тип оплаты" ni
-        qayta bosamiz."""
-        time.sleep(1)
-        self._open_overlay(_PAYMENT_FIELD, payment)
+        mumkin (ilova quirk) — _open_overlay kutib, kerak bo'lsa qayta bosadi."""
+        if not self._open_overlay(_PAYMENT_FIELD, payment):
+            raise AssertionError(f"'Тип оплаты' dialogi ochilmadi ('{payment}' varianti chiqmadi)")
         self.tap(payment)
         self.tap(_PAYMENT_APPLY)
-        time.sleep(1)
+        self.wait_gone(_PAYMENT_APPLY)   # dialog yopilguncha
 
     def choose_delivery_date(self, days_ahead: int = 1) -> None:
         """Дата доставки → (bugun+days_ahead) sanani tanlash → Принять. Kalendar
-        1-bosishда ochilmasligi mumkin — "Принять" ko'ringunча qayta bosamiz."""
+        1-bosishда ochilmasligi mumkin — _open_overlay kutib qayta bosadi."""
         target = date.today() + timedelta(days=days_ahead)
-        time.sleep(1)
-        self._open_overlay(_DATE_FIELD, _DATE_ACCEPT)
+        if not self._open_overlay(_DATE_FIELD, _DATE_ACCEPT):
+            raise AssertionError("'Дата доставки' kalendari ochilmadi")
         self.tap(ru_date_desc(target))
         self.tap(_DATE_ACCEPT)
-        time.sleep(1)
+        self.wait_gone(_DATE_ACCEPT)     # kalendar yopilguncha
 
     def place_order(self, supplier_name: str | None = None) -> None:
         """Tovar tanlanганини ta'minlab 'Оформить' ni bosadi.
@@ -175,7 +171,10 @@ class OrderScreen(BaseScreen):
             boxes = self.driver.find_elements(AppiumBy.CLASS_NAME, "android.widget.CheckBox")
             if boxes:
                 boxes[-1].click()   # oxirgi CheckBox = tovar qatori (1-chisi "Выбрать все")
-                time.sleep(1)
+            try:
+                self.wait_gone("0 товаров", timeout=5)
+            except Exception:
+                raise AssertionError("Savatda tovar belgilanmadi ('Итого: 0 товаров' qoldi)")
         self.tap(_CHECKOUT)
         # Zakaz urilгач "Заказы" ro'yxatiga o'tadi — o'sha belgini kutamiz
         self._wait_marker(_ORDERS_HEADER)
