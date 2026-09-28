@@ -45,7 +45,8 @@ class CatalogScreen(BaseScreen):
         # Tovarlar asinxron yuklanadi: "В корзину" yoki "+" (savatda) chiqquncha kutamiz.
         # Birlik (шт/кг) tovarga bog'liq — unga tayanmaymiz.
         any_product = xpath(f"//*[contains(@content-desc, '{ADD_TO_CART}') or @content-desc='{PLUS}']")
-        self.wait_for(any_product, error=f"'{category}' kategoriyasida tovarlar yuklanmadi")
+        # Sekin internetda (4G) kartalar uzoq "skelet" holatida turadi -> 30s
+        self.wait_for(any_product, timeout=30, error=f"'{category}' kategoriyasida tovarlar yuklanmadi (30s)")
 
     def add_to_cart(self, product: str, qty: int = 1) -> None:
         """Tovarni savatga qo'shadi (allaqachon savatda bo'lsa tegmaydi).
