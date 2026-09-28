@@ -12,7 +12,7 @@ Hamma kutish explicit (WebDriverWait); implicit wait ishlatilmaydi.
 from __future__ import annotations
 
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -62,10 +62,17 @@ class BaseScreen:
 
     # ── amallar ──────────────────────────────────────────────────────
     def tap(self, loc: Locator, timeout: float = TIMEOUT) -> None:
-        try:
-            WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable(loc)).click()
-        except TimeoutException:
-            raise AssertionError(f"Bosib bo'lmadi ({timeout}s): {loc[1]}") from None
+        """Bosiladigan bo'lguncha kutib bosadi. Flutter elementni topish va bosish
+        orasida qayta chizishi mumkin (stale) — shunda qaytadan topib bosamiz."""
+        for attempt in range(3):
+            try:
+                WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable(loc)).click()
+                return
+            except TimeoutException:
+                raise AssertionError(f"Bosib bo'lmadi ({timeout}s): {loc[1]}") from None
+            except StaleElementReferenceException:
+                if attempt == 2:
+                    raise
 
     def tap_last(self, loc: Locator) -> None:
         """Bir nechta mos element bo'lsa OXIRGISINI bosadi (dialog tugmasi odatda oxirgi)."""

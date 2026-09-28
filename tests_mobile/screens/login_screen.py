@@ -77,20 +77,27 @@ class LoginScreen(BaseScreen):
         return self.exists(LOGIN_FIELD, timeout=timeout)
 
     def profile_state(self, timeout: float = 30) -> str:
-        """Профиль ochiq turganda: "in" (login qilingan) yoki "out".
+        """Профиль ochilgandan keyin: "in" (login qilingan) yoki "out".
         "Логин:" chiqsa darhol "in"; "Вход" esa LOGGED_OUT_STABLE_S turib qolsagina "out"
         (sessiya yuklanayotganda "Вход" vaqtincha ko'rinadi)."""
         end = time.time() + timeout
         out_since = None
+        blank_since = time.time()     # na "Логин:", na "Вход" — Профиль ochilmagan bo'lishi mumkin
         while time.time() < end:
             if self.exists(USER_INFO, timeout=0.5):
                 return "in"
             if self.exists(LOGIN_ENTRY, timeout=0.5):
+                blank_since = None
                 out_since = out_since or time.time()
                 if time.time() - out_since >= LOGGED_OUT_STABLE_S:
                     return "out"
             else:
                 out_since = None
+                blank_since = blank_since or time.time()
+                # Ilova tabni 1-bosishda ochmasligi mumkin -> 8s bo'sh tursa qayta bosamiz
+                if time.time() - blank_since >= 8 and self.exists(PROFILE_TAB, timeout=0.5):
+                    self.tap(PROFILE_TAB)
+                    blank_since = time.time()
         raise AssertionError(f"Профиль holati {timeout}s ichida aniqlanmadi (na 'Логин:', na 'Вход')")
 
     def is_logged_in(self, timeout: float = 20) -> bool:
