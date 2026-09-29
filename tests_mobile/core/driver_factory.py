@@ -21,16 +21,22 @@ def build_options() -> UiAutomator2Options:
     return opts
 
 
-def create_driver(*, restart_app: bool = True):
-    """Yangi sessiya. implicit wait ATAYIN yo'q — hamma kutish explicit
-    (BaseScreen). restart_app: oldingi ochiq ekran/dialog qolmasligi uchun
-    ilovani yopib qayta ochadi."""
-    drv = webdriver.Remote(APPIUM_SERVER, options=build_options())
-    if restart_app:
-        try:
-            drv.terminate_app(APP_PACKAGE)
-        except Exception:
-            pass
+def restart_app(drv) -> None:
+    """Ilovani yopib qayta ochadi — oldingi testdan qolgan ekran/dialog ketadi."""
+    try:
+        drv.terminate_app(APP_PACKAGE)
+    except Exception:
+        pass
     drv.activate_app(APP_PACKAGE)
     time.sleep(2)   # Flutter birinchi kadrni chizguncha
+
+
+def create_driver(*, restart_app_first: bool = True):
+    """Yangi sessiya. implicit wait ATAYIN yo'q — hamma kutish explicit
+    (BaseScreen). restart_app_first=False — joriy ekranni buzmaslik uchun (tools)."""
+    drv = webdriver.Remote(APPIUM_SERVER, options=build_options())
+    if restart_app_first:
+        restart_app(drv)
+    else:
+        drv.activate_app(APP_PACKAGE)
     return drv

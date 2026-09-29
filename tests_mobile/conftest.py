@@ -12,7 +12,7 @@ import allure
 import pytest
 
 from tests_mobile.config import APPIUM_SERVER, DEVICE_UDID
-from tests_mobile.core.driver_factory import create_driver
+from tests_mobile.core.driver_factory import create_driver, restart_app
 
 _SCREENSHOT_DIR = Path(__file__).parent / "screenshots"
 
@@ -50,14 +50,42 @@ def _preflight():
         pytest.exit("MOBIL PREFLIGHT XATO:\n  - " + "\n  - ".join(problems), returncode=3)
 
 
-# ── Driver: har test uchun yangi sessiya, ilova qayta ochiladi ──────────────
-@pytest.fixture
-def driver():
-    drv = create_driver()
+# ── Driver: BITTA Appium sessiyasi, lekin har test oldidan ilova qayta ochiladi ──
+# Sessiya yaratish ~10-15s — har testda qayta yaratmaymiz. Izolyatsiya ilovani
+# yopib-ochish bilan saqlanadi. Sessiya o'lgan bo'lsa (masalan E2E web seed
+# paytida new_command_timeout o'tib ketsa) — yangisi yaratiladi.
+def _alive(drv) -> bool:
     try:
-        yield drv
-    finally:
-        drv.quit()
+        drv.current_package
+        return True
+    except Exception:
+        return False
+
+
+@pytest.fixture(scope="session")
+def _appium_session():
+    holder = {"drv": None}
+    yield holder
+    if holder["drv"] is not None:
+        try:
+            holder["drv"].quit()
+        except Exception:
+            pass
+
+
+@pytest.fixture
+def driver(_appium_session):
+    drv = _appium_session["drv"]
+    if drv is not None and _alive(drv):
+        restart_app(drv)
+    else:
+        if drv is not None:
+            try:
+                drv.quit()
+            except Exception:
+                pass
+        drv = _appium_session["drv"] = create_driver()
+    yield drv
 
 
 # ── Yiqilganda: telefon ekrani + ekran tuzilmasi -> Allure (+ screenshots/) ──

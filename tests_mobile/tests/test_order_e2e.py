@@ -75,7 +75,7 @@ def test_200_mobile_order(driver, c, runner_state) -> None:
     user = f"client_user-{c}@{COMPANY_CODE}"
     with allure.step(f"Mobil login: {user}"):
         login = LoginScreen(driver)
-        login.login(user, WEB_USER_PASSWORD)
+        login.ensure_logged_in_as(user, WEB_USER_PASSWORD)
         assert login.is_logged_in(), f"Mobil login muvaffaqiyatsiz: {user}"
 
     create_and_verify_order(driver, f"supplier-{c}", f"Category-{c}", product)

@@ -53,7 +53,7 @@ def main() -> None:
     do_login = bool(args) and args[0] == "login"
     taps = args[1:] if do_login else args
 
-    drv = create_driver(restart_app=False)   # joriy ekranni buzmaslik uchun
+    drv = create_driver(restart_app_first=False)   # joriy ekranni buzmaslik uchun
     try:
         screen = BaseScreen(drv)
         if do_login:

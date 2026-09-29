@@ -40,6 +40,17 @@ class LoginScreen(BaseScreen):
         self.hide_keyboard()               # klaviatura "Войти" ni yopib turadi
         self.tap(SUBMIT)
 
+    def ensure_logged_in_as(self, username: str, password: str) -> None:
+        """Aynan shu user allaqachon kirgan bo'lsa hech narsa qilmaydi (~30-40s tejaydi);
+        boshqa user yoki chiqilgan bo'lsa to'liq login(). Profile'da "Логин: <login>"
+        (kompaniya kodisiz) aniq mos kelishi tekshiriladi."""
+        login_name = username.split("@")[0]
+        if not self.on_login_form(timeout=2):
+            self.tap(PROFILE_TAB)
+            if self.profile_state() == "in" and self.exists(desc(f"Логин: {login_name}"), timeout=3):
+                return
+        self.login(username, password)
+
     def logout(self) -> None:
         self.tap(PROFILE_TAB)
         self.scroll_down(3)                # "Выйти" Профиль eng pastida
