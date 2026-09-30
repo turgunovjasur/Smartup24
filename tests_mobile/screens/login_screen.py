@@ -80,6 +80,8 @@ class LoginScreen(BaseScreen):
         self.tap(PROFILE_TAB)
         if self.profile_state() == "in":
             raise AssertionError("Login formasini ochib bo'lmaydi: ilova login qilingan holatda")
+        if self.on_login_form(timeout=2):
+            return                         # Профиль formani o'zi ochdi
         self.tap(LOGIN_ENTRY)
         self.wait_for(LOGIN_FIELD, error="Login formasi ochilmadi")
 
@@ -88,7 +90,7 @@ class LoginScreen(BaseScreen):
         return self.exists(LOGIN_FIELD, timeout=timeout)
 
     def profile_state(self, timeout: float = 30) -> str:
-        """Профиль ochilgandan keyin: "in" (login qilingan) yoki "out".
+        """Профиль ochilgandan keyin: "in" (login qilingan) yoki "out" ("Вход" yoki login forma).
         "Логин:" chiqsa darhol "in"; "Вход" esa LOGGED_OUT_STABLE_S turib qolsagina "out"
         (sessiya yuklanayotganda "Вход" vaqtincha ko'rinadi)."""
         end = time.time() + timeout
@@ -97,6 +99,8 @@ class LoginScreen(BaseScreen):
         while time.time() < end:
             if self.exists(USER_INFO, timeout=0.5):
                 return "in"
+            if self.on_login_form(timeout=0.5):
+                return "out"               # mehmon (toza o'rnatish): Профиль darhol login formasini ochadi
             if self.exists(LOGIN_ENTRY, timeout=0.5):
                 blank_since = None
                 out_since = out_since or time.time()
