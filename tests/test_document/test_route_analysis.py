@@ -33,9 +33,8 @@ MENU = "Анализ маршрутов"
 # Report ilova-bo'ylab ruslashtirilib qayta nomlandi (2026-08-05 dumpда tasdiqlangan,
 # prod+dev ikkalasi ham): sheet "UI-SB276 route analysis" → "Анализ маршрутов",
 # ustunlar "UI-SB276:" prefiksli inglizcha → prefiksSIZ ruscha. Ustun TARTIBI
-# o'zgarmadi (COL_* indekslari hali to'g'ri). SHEET_NAME endi qat'iy tekshirilmaydi —
+# o'zgarmadi (COL_* indekslari hali to'g'ri). Sheet nomi qat'iy tekshirilmaydi —
 # _load_sheet birinchi (yagona) sheet'ni oladi (kelajakdagi qayta nomlashга chidamli).
-SHEET_NAME = "Анализ маршрутов"
 HEADER_PREFIX = ""  # prefiks olib tashlangan — _strip endi no-op
 # Kutilgan 13 ustun (joriy ruscha nomlar, tartib bilan)
 EXPECTED_HEADERS = [
