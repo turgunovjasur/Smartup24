@@ -71,7 +71,7 @@ def run_product_full(page: Page, code) -> None:
         m.input(label="ИКПУ", value=f"{random.randint(10**10, 10**11 - 1)}")
         m.input(label="ГТИН", value=f"{random.randint(10**12, 10**13 - 1)}")
 
-    with allure.step(f"Основное: Производитель, Регион, Статус, measure, Тип упаковки"):
+    with allure.step("Основное: Производитель, Регион, Статус, measure, Тип упаковки"):
         m.select(f"Manufacturer-{code}", label="Производитель")
         m.select(f"Region-{code}", label="Регион производство")
         m.radio("Активный", label="Статус")

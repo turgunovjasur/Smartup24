@@ -33,7 +33,7 @@ from playwright.sync_api import Page
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
 from tests.test_regression.test_vaprost import run_vaprost_basic
-from tests.test_setup.test_oprosniki import OPROS_END, OPROS_START, run_oprosniki
+from tests.test_setup.test_oprosniki import OPROS_END, OPROS_START
 from utils.base_page import BasePage
 
 # Biriktirish testi uchun savol seansda BIR MARTA yaratiladi

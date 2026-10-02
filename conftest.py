@@ -5,7 +5,6 @@ import json
 import time
 import shutil
 import socket
-import random
 import threading
 import allure
 import pytest

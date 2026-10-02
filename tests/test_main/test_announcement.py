@@ -24,7 +24,7 @@ Dublikat Титул RUXSAT etilgan (ro'yxatda bir xil nomli yozuvlar bor) — du
 xato testi yo'q.
 """
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
@@ -96,7 +96,7 @@ def run_announcement_full(page: Page, code) -> None:
         m.open_create()
         m.expect_heading("Объявление (создание)")
 
-    with allure.step(f"Форма (to'liq): Титул + Отрасли + Описание"):
+    with allure.step("Форма (to'liq): Титул + Отрасли + Описание"):
         m.input(smtid="title", value=name)
         # Отрасли multi-select menyusi tanlangach OCHIQ qoladi (Escape ham,
         # heading klik ham yopmaydi — MCP tasdiqlangan 2026-07-24), faqat boshqa

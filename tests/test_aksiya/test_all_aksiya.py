@@ -245,7 +245,6 @@ def test_210_order(session_page: Page, code, runner_state) -> None:
 @allure.feature("Заказ")
 @allure.title("Акция: Бонус — zakazда 'buy 2 → 1 tekin' qo'llangani (Продажи→Заказы)")
 def test_211_order_bonus(session_page: Page, code, runner_state) -> None:
-    ak = _ak_code(code)
     # Bonus tekshiruvi admin (Модератор) rolida — klient seansdan admin'ga qaytamiz.
     logout(session_page)
     authorization(session_page)

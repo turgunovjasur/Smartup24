@@ -195,7 +195,7 @@ def run_client_view(page: Page, code) -> None:
         m.input(smtid="cv_main_status", expect_value="Активный")
         m.input(smtid="cv_main_short_name", expect_value=data["name"])
 
-    with allure.step(f"Адрес: Регион ko'rsatilgan"):
+    with allure.step("Адрес: Регион ko'rsatilgan"):
         expect(page.locator("#main-content")).to_contain_text(f"Region-{code}")
 
 

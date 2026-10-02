@@ -27,7 +27,6 @@ import tempfile
 
 import allure
 import openpyxl
-import pytest
 from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import authorization

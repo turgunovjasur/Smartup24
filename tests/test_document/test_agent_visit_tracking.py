@@ -78,7 +78,7 @@ def create_weekly_plan_5_points(page: Page, agent: str) -> str:
         _open_agent_plans(page, m, agent)
         user_id = re.search(r"user_id=(\d+)", page.url).group(1)
 
-    with allure.step(f"Добавить → Дата начала = сегодня → Получить"):
+    with allure.step("Добавить → Дата начала = сегодня → Получить"):
         _open_plan_form(page, m)
 
     with allure.step(f"{WEEKLY_SECTION} → {label} (bugungi hafta kuni)"):

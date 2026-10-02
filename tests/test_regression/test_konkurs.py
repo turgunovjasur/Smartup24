@@ -13,7 +13,6 @@ from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
-from tests.test_setup.test_konkurs import run_konkurs
 from tests.test_setup.test_region import run_region
 from utils.base_page import BasePage
 
