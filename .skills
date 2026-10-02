@@ -3,40 +3,49 @@
 ## Proyekt haqida
 - Playwright + Python (pytest) UI test avtomatizatsiyasi — Smartup24 (x24) ERP tizimi
 - Framework: pytest + playwright-python (+ allure-pytest report uchun)
-- IKKI muhit — flows/flow_authorization.py boshida ikkala juftlik yozig'liq, keraklisi komentdan ochiladi (URL va COMPANY_CODE DOIM birga almashtiriladi):
-  - x24 production: https://app.smartup24.com/a2/auth/login — kompaniya `test`, admin@test / greenwhite
-  - x24 dev: https://app2.greenwhite.uz/x24/a2/auth/login — kompaniya `sm24`, admin@sm24 / greenwhite
-- Admin email `admin@{COMPANY_CODE}` dan, user loginlari `<Логин>@{COMPANY_CODE}` dan avtomatik quriladi — faqat shu ikki qator almashtiriladi. DIQQAT: production'da yangi UI `/a2/...` da (prefiks YO'Q), dev'da `/x24/a2/...` da; `app.smartup24.com/login.html` — ESKI biruni UI, testlar u yerda ishlamaydi.
+- IKKI muhit — `TEST_ENV` env o'zgaruvchisi tanlaydi (`dev` default / `prod`; `.env` yoki CLI), flows/flow_authorization.py `_ENVIRONMENTS` lug'atida (URL va COMPANY_CODE DOIM birga keladi). Parol `TEST_PASSWORD` (.env, default greenwhite):
+  - x24 production: https://app.smartup24.com/a2/auth/login — kompaniya `test`, admin@test
+  - x24 dev: https://app2.greenwhite.uz/x24/a2/auth/login — kompaniya `sm24`, admin@sm24
+- Admin email `admin@{COMPANY_CODE}` dan, user loginlari `<Логин>@{COMPANY_CODE}` dan avtomatik quriladi. DIQQAT: production'da yangi UI `/a2/...` da (prefiks YO'Q), dev'da `/x24/a2/...` da; `app.smartup24.com/login.html` — ESKI biruni UI, testlar u yerda ishlamaydi.
 - UI: yangi Angular `smt-*` komponentlari (eski `b-input`/`biruni` EMAS)
 
-## Katalog tuzilmasi (tekis / flat)
+## Katalog tuzilmasi
 ```
-conftest.py            — pytest fixtures + allure setup + failure screenshot
-utils/base_page.py     — BasePage: barcha forma amallari uchun universal funksiyalar
+conftest.py            — fixtures, Allure, Telegram progress, session-lock/chunk-error handlerlar, run qulfi
+pytest.ini             — testpaths=., norecursedirs (tests_mobile ham), --alluredir
+.env / .env.example    — TEST_ENV, TEST_PASSWORD, HEADLESS, TG_*, INSTALL_APP (.env git'da YO'Q)
+utils/
+  base_page.py           — BasePage: barcha forma amallari uchun universal funksiyalar
+  base_api.py            — VisitApi: mobil vizit API client (requests)
+  qa_report.py           — Allure qadam/xato matnlari (qa_action, visible_error_dialog_text)
 flows/
   flow_authorization.py  — authorization(page, email, password), logout(page)
   flow_navbar.py         — flow_navigate(page, tab, name), flow_search(), flow_menu()
-tests/
-  test_manufacturer.py   — run_manufacturer / test_manufacturer  (eng sodda namuna)
-  test_industry.py       — run_industry / test_industry
-  test_category.py       — run_category / test_category
-  test_product.py        — run_product / test_product
-  test_all.py            — test_all: barcha run_* ni bitta login bilan zanjir qiladi
-pytest.ini             — testpaths=., python_files=test_*.py
+tests/                 — har bo'lim: test_all_*.py RUNNER + run_*/test_* modul fayllari
+  test_setup/            — basic create (ma'lumotnomalar)          runner test_all_setup.py
+  test_group_a/          — supplier/client/order oqimi             runner test_all_group_a.py
+  test_regression/       — to'liq CRUD                             runner test_all_regression.py
+  test_main/             — "Главное"/Модератор (org, role, user...) runner test_all_main.py
+  test_document/         — vizit, reja, hisobotlar                 runner test_all_document_runner.py
+  test_aksiya/           — Акция (promotion) + zakaz bonusi        runner test_all_aksiya.py
+  test_vazrat/           — Возврат (vozvrat)                       runner test_all_vazrat.py
+tests_mobile/          — Android/Appium (Flutter ilova), ALOHIDA stack; README.md ichida
+scripts/cleanup_test_data.py — test ma'lumotlarini bulk tozalash (qo'lda, --dry-run)
+tg_bot_runner.py       — lokal Telegram bot: testlarni start/stop qiladi
+.github/workflows/e2e.yml — CI jadvali
 ```
-Eski `tests/smoke/`, group runnerlar, `scripts/run_tests.py`, `.env`, company/telegram mexanizmi YO'Q.
 
 ## conftest.py — Fixtures
 
 | Fixture | Scope | Tavsif |
 |---------|-------|--------|
-| `browser` | function | Yangi Chromium (headless=False, --start-maximized) |
+| `browser` | function | Yangi Chromium (HEADLESS / `--show-browser`/`--hide-browser`) |
 | `page` | function | Yangi context+page + trace + teardownda `logout()` |
-| `session_browser`/`session_context`/`session_page` | session | Chain uchun yagona browser/context/page |
-| `code` | session | random 4-xonali son (str) — unikal nom uchun |
-| `save_data` / `load_data` | session | `test-results/data/data_store.json` ga yozish/o'qish |
+| `session_browser`/`session_context`/`session_page` | session | Runner zanjiri uchun yagona browser/context/page (bitta login) |
+| `code` | session | unix vaqtining oxirgi 7 raqami (str) — unikal nom uchun |
+| `runner_state` | session | runner testlari orasida qiymat uzatish uchun dict |
 
-Timeout: `DEFAULT_TIMEOUT=10_000` ms, `NAVIGATION_TIMEOUT=60_000` ms.
+Timeout: `DEFAULT_TIMEOUT=60_000` ms, `NAVIGATION_TIMEOUT=60_000` ms (locator handler vaqti amal timeout'iga kiradi).
 
 ## BasePage (utils/base_page.py) — asosiy metodlar
 Element `label` (ko'rinadigan matn) yoki barqaror `smtid` orqali topiladi.
@@ -103,7 +112,10 @@ python -m pytest tests/test_group_a/test_all_group_a.py -v        # group_a (ord
 python -m pytest tests/test_regression/test_all_regression.py -v  # regression (to'liq CRUD), {code}3
 python -m pytest tests/test_main/test_all_main.py -v              # main ("Главное")
 python -m pytest tests/test_document/test_all_document_runner.py -v  # document
+python -m pytest tests/test_aksiya/test_all_aksiya.py -v          # aksiya, {code}4
+python -m pytest tests/test_vazrat/test_all_vazrat.py -v          # vazrat (возврат), {code}5
 python -m pytest tests/test_regression/test_region.py -v          # bitta modul (debug)
+python -m pytest tests_mobile/tests -v                            # mobil (Appium server + telefon shart)
 allure serve test-results/allure-results                          # report (Allure 3, npm)
 ```
 Report vositasi — **Allure 3** (CLI npm orqali: `npm install -g allure`; paket nomi
@@ -117,11 +129,12 @@ python -m pytest tests/test_setup/test_all_setup.py tests/test_group_a/test_all_
   tests/test_regression/test_all_regression.py tests/test_main/test_all_main.py \
   tests/test_document/test_all_document_runner.py -v
 ```
-KOD VARIANTI: setup=`code`, group_a=`{code}2`, regression=`{code}3` — birga
-ishlaganда nom to'qnashmaydi (main/document o'z prefikslari bilan). Individual
-`test_...` fayllar debug uchun (har biri o'z login bilan).
-JADVAL: GitHub Actions (`.github/workflows/e2e.yml`) har 2 soatda setup+group_a,
-har 12 soatda (UTC 03:00/15:00 = Toshkent 08:00/20:00) regression — bitta
+KOD VARIANTI: setup=`code`, group_a=`{code}2`, regression=`{code}3`, aksiya=`{code}4`,
+vazrat=`{code}5` — birga ishlaganда nom to'qnashmaydi (main/document o'z prefikslari
+bilan). Aksiya va vazrat CI/botda YO'Q — qo'lda, har biri O'Z pytest chaqiruvida
+(birga qo'shilsa flaky). Individual `test_...` fayllar debug uchun (har biri o'z login bilan).
+JADVAL: GitHub Actions (`.github/workflows/e2e.yml`, har doim DEV, headless) har 2 soatda
+setup+group_a, har 12 soatda (Toshkent 08:12/20:12) regression+main+document — bitta
 concurrency guruhda (parallel yo'q). Telegram bot (`tg_bot_runner.py`): `start
 [dev|prod] [all|setup_groupa|regression|main|document]` (default `dev all`);
 slash: `/start_dev` `/setup_groupa_dev` `/regression_prod` `/main_dev` ... (har
