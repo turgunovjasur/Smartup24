@@ -23,6 +23,7 @@ from playwright.sync_api import Page
 from flows.flow_authorization import authorization
 from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
+from utils.qa_report import visible_error_dialog_text
 
 
 def run_role(page: Page, code, name=None) -> dict:
@@ -145,10 +146,16 @@ def run_role_view(page: Page, code) -> None:
         assert values & {"Активный", "active"}, f"Статус (Активный/active) view'da yo'q: {values}"
 
     with allure.step("View bo'limlari: Пользователи → Формы → Продукты → История изменений"):
-        m.click_button("Пользователи")
-        m.click_button("Формы")
-        m.click_button("Продукты")
-        m.click_button("История изменений")
+        # Har bo'limdan keyin settle + Ошибка dialogini tekshiramiz. Dialog modal —
+        # butun app-root'ni ARIA'dan yashiradi; tekshirilmasa keyingi tugma
+        # "topilmadi" timeout bilan (tasodifiy vaqtda) yiqilardi. 2026-09-24 da
+        # Пользователи/Формы jadvalni role_id'siz yuborib 500 "NULL SELF argument"
+        # qaytarardi — ilovada tuzatildi (2026-09-29); qaytsa shu yerda aniq yiqiladi.
+        for section in ("Пользователи", "Формы", "Продукты", "История изменений"):
+            m.click_button(section)
+            m.settle()
+            err = visible_error_dialog_text(page)
+            assert not err, f"'{section}' bo'limida Ошибка dialogi: {err}"
 
     with allure.step("Ro'yxatga qaytish"):
         # "Go back" bo'lim almashganda yo'qolishi mumkin (Организация patterni) —

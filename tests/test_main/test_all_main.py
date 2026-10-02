@@ -22,6 +22,7 @@ ISHGA TUSHIRISH
         --alluredir=test-results/allure-results
 """
 import allure
+import pytest
 from playwright.sync_api import Page
 
 from flows.flow_authorization import authorization
@@ -39,7 +40,7 @@ from tests.test_main.test_role import (
 )
 # --- Пользователи ---
 from tests.test_main.test_user import (
-    run_user, run_user_delete, run_user_edit, run_user_full,
+    MENU_RECLICK_BUG, run_user, run_user_delete, run_user_edit, run_user_menu_reclick,
     run_user_status, run_user_view,
 )
 # --- Объявления ---
@@ -180,7 +181,7 @@ def test_026_role_duplicate(session_page: Page, code) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# III. ПОЛЬЗОВАТЕЛИ — to'liq CRUD
+# III. ПОЛЬЗОВАТЕЛИ — to'liq CRUD (Главное → Пользователи, sbr — biruni EMAS)
 # ══════════════════════════════════════════════════════════════════════════════
 @allure.epic("Модератор")
 @allure.feature("Пользователи")
@@ -191,37 +192,38 @@ def test_030_user_create(session_page: Page, code) -> None:
 
 @allure.epic("Модератор")
 @allure.feature("Пользователи")
-@allure.title("Пользователи: Создание — barcha maydonlar")
-def test_031_user_full(session_page: Page, code) -> None:
-    run_user_full(session_page, code)
-
-
-@allure.epic("Модератор")
-@allure.feature("Пользователи")
 @allure.title("Пользователи: Просмотр")
-def test_032_user_view(session_page: Page, code) -> None:
+def test_031_user_view(session_page: Page, code) -> None:
     run_user_view(session_page, code)
 
 
 @allure.epic("Модератор")
 @allure.feature("Пользователи")
 @allure.title("Пользователи: Редактирование")
-def test_033_user_edit(session_page: Page, code) -> None:
+def test_032_user_edit(session_page: Page, code) -> None:
     run_user_edit(session_page, code)
 
 
 @allure.epic("Модератор")
 @allure.feature("Пользователи")
 @allure.title("Пользователи: Статус — Неактивный")
-def test_034_user_status(session_page: Page, code) -> None:
+def test_033_user_status(session_page: Page, code) -> None:
     run_user_status(session_page, code)
 
 
 @allure.epic("Модератор")
 @allure.feature("Пользователи")
 @allure.title("Пользователи: Удаление")
-def test_035_user_delete(session_page: Page, code) -> None:
+def test_034_user_delete(session_page: Page, code) -> None:
     run_user_delete(session_page, code)
+
+
+@allure.epic("Модератор")
+@allure.feature("Пользователи")
+@allure.title("Пользователи: menyuni qayta bosish → Сохранить (ilova bag'i, xfail)")
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason=MENU_RECLICK_BUG)
+def test_035_user_menu_reclick(session_page: Page, code) -> None:
+    run_user_menu_reclick(session_page, code)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

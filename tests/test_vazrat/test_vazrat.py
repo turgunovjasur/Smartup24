@@ -55,25 +55,35 @@ def _fill_return_qty(page: Page, m: BasePage, product_name: str, value: str) -> 
     (``quantity``) | quantity box — qaytariladigan miqdor "Кол-во" (``quantity``)
     input'iga yoziladi (Сумма shунда yangilanadi)."""
     search = page.locator('#main-content input[type="text"][placeholder="Поиск"]').first
-    expect(search).to_be_visible(timeout=15_000)
-    search.click()
-    search.fill(product_name)
-
-    # Avtokomplit dropdownдан tovarni tanlaymiz (smt-select-dropdown li — select
-    # bilan bir xil struktura).
+    # "Кол-во" (quantity) — tovar qatoridagi input (grid'da tovar qatori filtr
+    # qatoridан oldin keladi → .first).
+    qty_input = page.locator('#main-content [data-smt-col-key="quantity"] input').first
     option = (
         page.locator(".cdk-overlay-container smt-select-dropdown li")
         .filter(has_text=product_name)
         .first
     )
+
+    # Avtokomplit dropdownдан tovarni tanlaymiz (smt-select-dropdown li — select
+    # bilan bir xil struktura).
+    # RACE (2026-09-24, MCP network bilan tasdiqlangan): "Поиск" click FILTRSIZ
+    # return+add:products so'rovini yuboradi — uning javobi dropdown'da tovarni
+    # darhol ko'rsatadi; fill() esa ikkinchi, FILTRLI so'rov yuboradi va javobi
+    # kelganda dropdown QAYTA render bo'ladi. Option birinchi javobdan bosilsa,
+    # qayta render klikni yutadi → tovar grid'ga tushmaydi → quantity input yo'q
+    # (60s timeout). Shuning uchun filtrli so'rov javobini kutib, KEYIN bosamiz.
+    expect(search).to_be_visible(timeout=15_000)
+    search.click()
+    with page.expect_response(
+        lambda r: "return+add:products" in r.url
+        and product_name in (r.request.post_data or "")
+    ):
+        search.fill(product_name)
     expect(option).to_be_visible(timeout=30_000)
     option.click()
     m.settle()
-    page.wait_for_timeout(1_000)  # tanlangan tovar grid'ga tushishini kutamiz
+    expect(qty_input).to_be_visible(timeout=15_000)
 
-    # "Кол-во" (quantity) — tovar qatoridagi input (grid'da tovar qatori filtr
-    # qatoridан oldin keladi → .first).
-    qty_input = page.locator('#main-content [data-smt-col-key="quantity"] input').first
     qty_input.click()
     qty_input.fill(value)
     qty_input.press("Tab")

@@ -620,6 +620,38 @@ def _edit_telegram(message_id: int, text: str, sync: bool = False) -> None:
         threading.Thread(target=_do, daemon=True).start()
 
 
+def _delete_telegram(message_id: int) -> None:
+    """Telegram xabarini (``message_id``) o'chiradi. Tarmoq/API xatosi runni
+    yiqitmaydi (masalan xabar allaqachon o'chirilgan yoki 48 soatdan eski)."""
+    if not TG_BOT_TOKEN or not TG_CHAT_ID or not message_id:
+        return
+    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/deleteMessage"
+    try:
+        requests.post(url, data={"chat_id": TG_CHAT_ID, "message_id": message_id}, timeout=10)
+    except Exception as e:
+        print(f"[Telegram] o'chirishda xato: {e}")
+
+
+def _delete_stale_progress() -> None:
+    """Oldingi run'dan qolgan TUGALLANMAGAN progress xabarini Telegram'dan o'chiradi.
+
+    Normal tugagan run sessionfinish'да progress faylini o'chiradi. Run majburan
+    to'xtatilsa (taskkill / RAM tanqisligi) sessionfinish ishlamaydi — Telegram'да
+    "Test bajarilmoqda 86%" xabari abadiy qotib qoladi va yangi run bilan
+    parallel ketayotgandek chalg'itadi (2026-09-29). Yangi run global qulfni
+    olgach bu fayl bor bo'lsa — u aniq o'lik run'niki: xabarni o'chirib, faylni
+    tozalaymiz."""
+    try:
+        if not os.path.exists(TG_PROGRESS_FILE):
+            return
+        with open(TG_PROGRESS_FILE, encoding="utf-8-sig") as f:
+            stale_id = json.load(f).get("msg_id")
+        _delete_telegram(stale_id)
+        os.remove(TG_PROGRESS_FILE)
+    except Exception as e:
+        print(f"[progress-file] eski xabarni tozalashda xato: {e}")
+
+
 def _send_telegram_photo(png_bytes: bytes, caption: str) -> None:
     """Telegram'ga rasm (screenshot) yuboradi. Yiqilgan testlar oxirida
     xatoning ekran holatini ko'rsatish uchun."""
@@ -830,6 +862,7 @@ def pytest_collection_finish(session):
         f"\U0001F4E6 <b>{_progress['suite']}</b>\n"
         f"\U0001F4CA {_progress['total']} test   \U0001F5A5 {HOST_LABEL}"
     )
+    _delete_stale_progress()  # to'xtatilgan oldingi run'ning qotib qolgan xabari
     _progress["msg_id"] = _send_telegram(start_text)
     _persist_progress(start_text)  # bot o'qishi uchun (band-flash)
     # Pin QILMAYMIZ (senior): o'tkinchi progress'ни qadash professional emas —

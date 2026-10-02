@@ -138,10 +138,15 @@ def _send(text: str, chat_id: str | None = None, reply_to: int | None = None,
     threading.Thread(target=_do, daemon=True).start()
 
 
-def _send_autodelete(text: str, chat_id: str | None = None, ttl: int = 25) -> None:
+def _send_autodelete(text: str, chat_id: str | None = None, ttl: int = 25,
+                     cmd_msg_id: int | None = None) -> None:
     """Xabar yuboradi va ``ttl`` soniyadan keyin O'ZINI o'chiradi — /status
     suratkash (snapshot) bo'lgani uchun eski qiymatli xabarlar chatда qolib
-    chalkashtirmasin. NON-BLOKING (fon thread)."""
+    chalkashtirmasin. NON-BLOKING (fon thread).
+
+    ``cmd_msg_id`` — foydalanuvchining buyruq xabari (masalan "/status"): javob
+    bilan BIRGA o'chiriladi, aks holda chatда yolg'iz "/status" qolib ketardi
+    (user so'rovi 2026-09-29). Bot shaxsiy chatда kiruvchi xabarni o'chira oladi."""
     if not BOT_TOKEN:
         return
     target = chat_id or CHAT_ID
@@ -156,8 +161,10 @@ def _send_autodelete(text: str, chat_id: str | None = None, ttl: int = 25) -> No
             mid = r.json().get("result", {}).get("message_id") if r.ok else None
             if mid:
                 time.sleep(ttl)
-                requests.post(f"{API}/deleteMessage",
-                              data={"chat_id": target, "message_id": mid}, timeout=10)
+                for m in (mid, cmd_msg_id):
+                    if m:
+                        requests.post(f"{API}/deleteMessage",
+                                      data={"chat_id": target, "message_id": m}, timeout=10)
         except Exception as e:
             print(f"[bot] autodelete xato: {e}")
 
@@ -635,7 +642,7 @@ def _stop_tests(chat_id: str) -> None:
     )
 
 
-def _status(chat_id: str) -> None:
+def _status(chat_id: str, cmd_msg_id: int | None = None) -> None:
     # /status — SURATKASH: eski qiymatli xabar chatда qolmasin deb ~90s da o'zini
     # o'chiradi. 25s JUDA QISQA edi — foydalanuvchi kechroq qarasa "kelmadi"dek
     # tuyulardi. 90s: aniq ko'rasiz, keyin o'chadi. Jonli ko'rish uchun progress
@@ -646,14 +653,14 @@ def _status(chat_id: str) -> None:
         # boshlangan yoki eski kodli run) asosiy ma'lumot bilan cheklanamiz.
         info = _read_progress_file()
         if info and info.get("text"):
-            _send_autodelete(f"{info['text']}\n\nTo'xtatish: /stop", chat_id, ttl=90)
+            _send_autodelete(f"{info['text']}\n\nTo'xtatish: /stop", chat_id, ttl=90, cmd_msg_id=cmd_msg_id)
         else:
             _send_autodelete(
                 "\U0001F7E2 <b>Ishlamoqda</b>\n"
                 f"{_run_block(_run_env, _run_target)}\n\n"
                 "(jonli progress hali tayyor emas — bir zumdan keyin /status)\n"
                 "To'xtatish: /stop",
-                chat_id, ttl=90,
+                chat_id, ttl=90, cmd_msg_id=cmd_msg_id,
             )
     else:
         # Lokal run yo'q — BULUT (GitHub CI) run ishlayaptimi tekshiramiz
@@ -664,13 +671,13 @@ def _status(chat_id: str) -> None:
                 f"Holat: <b>{gh.get('status')}</b>  ·  {gh.get('event')}\n"
                 "Bu LOKAL emas — /stop bilan to'xtatib bo'lmaydi (GitHub'да bekor qilinadi).\n"
                 f"{gh.get('html_url', '')}",
-                chat_id, ttl=90,
+                chat_id, ttl=90, cmd_msg_id=cmd_msg_id,
             )
         else:
             _send_autodelete(
                 "⚪️ <b>Bo'sh</b> — test ishlamayapti (lokal ham, bulut ham)\n"
                 "Boshlash: /start_dev (hammasi) yoki bo'lim buyrug'i — /help",
-                chat_id, ttl=90,
+                chat_id, ttl=90, cmd_msg_id=cmd_msg_id,
             )
 
 
@@ -864,7 +871,7 @@ def _handle(text: str, chat_id: str, msg_id: int | None = None) -> None:
     elif cmd == "stop":
         _stop_tests(chat_id)
     elif cmd == "status":
-        _status(chat_id)
+        _status(chat_id, msg_id)
     elif cmd == "servers":
         _send(SERVERS_MSG, chat_id)
     elif cmd in ("help", "commands"):

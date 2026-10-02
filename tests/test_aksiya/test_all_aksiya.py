@@ -18,12 +18,18 @@ OQIM
 ----
 setup refs → supplier/client/userlar/hamkorlik/tovar+narx+В наличие →
 aksiya CREATE → VIEW → EDIT → DUBLIKAT(xato) → ZAKAZ(klient) →
-BONUS tekshiruvi(admin, Продажи→Заказы) → STATUS → DELETE.
+BONUS tekshiruvi(admin, Продажи→Заказы) → negativlar (Мин dan kam, Максимум dan
+ko'p, Неактивный, muddatdan tashqari) → STATUS → DELETE.
+
+Har bir zakaz ИД'si (run_order qaytaradi) runner_state'da saqlanadi va tekshiruv
+aynan shu zakazni ochadi — "eng yangi Черновик"ga tayanmaydi.
 
 ISHGA TUSHIRISH
 ---------------
     python -m pytest tests/test_aksiya/test_all_aksiya.py -v
 """
+from datetime import datetime, timedelta
+
 import allure
 from playwright.sync_api import Page
 
@@ -231,7 +237,8 @@ def test_210_order(session_page: Page, code, runner_state) -> None:
     ak = _ak_code(code)
     logout(session_page)
     authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
-    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"))
+    runner_state["ak_deal_bonus"] = ga_order(
+        session_page, ak, product_name=runner_state.get("ak_product_name"))
 
 
 @allure.epic("Акция")
@@ -244,8 +251,8 @@ def test_211_order_bonus(session_page: Page, code, runner_state) -> None:
     authorization(session_page)
     verify_order_bonus(
         session_page,
+        deal_id=runner_state["ak_deal_bonus"],
         bonus_product=runner_state.get("ak_product_name"),
-        client_name=f"client-{ak}",
         expected_qty="1",
     )
 
@@ -261,20 +268,49 @@ def test_212_order_below_min(session_page: Page, code, runner_state) -> None:
     logout(session_page)
     authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
     # Мин.значение=2 → 1 dona buyurtма aksiya triggerini BAJARMAYDI (bonus yo'q kutiladi)
-    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="1")
+    runner_state["ak_deal_below_min"] = ga_order(
+        session_page, ak, product_name=runner_state.get("ak_product_name"), qty="1")
 
 
 @allure.epic("Акция")
 @allure.feature("Заказ — негатив")
 @allure.title("Акция (негатив): Бонус YO'Q — qty=1 zakazда 'Акция' tab bo'sh")
-def test_213_no_bonus_below_min(session_page: Page, code, runner_state) -> None:
-    ak = _ak_code(code)
+def test_213_no_bonus_below_min(session_page: Page, runner_state) -> None:
     logout(session_page)
     authorization(session_page)
     verify_no_order_bonus(
         session_page,
+        deal_id=runner_state["ak_deal_below_min"],
         bonus_product=runner_state.get("ak_product_name"),
-        client_name=f"client-{ak}",
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IV-C. NEGATIV — miqdor "Максимум" dan KO'P bo'lsa bonus YO'Q (qty > Максимум)
+# ══════════════════════════════════════════════════════════════════════════════
+# Qoida (user + dev probe 2026-09-25): Мин=2, Максимум=10 aksiyasida 11 dona
+# buyurtma oraliqdan chiqadi → bonus BERILMAYDI (nazorat: 2 dona → bonus 1).
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (негатив): Заказ — klient 11 dona buyurtma qiladi (Максимум=10 dan ko'p)")
+def test_214_order_above_max(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    runner_state["ak_deal_above_max"] = ga_order(
+        session_page, ak, product_name=runner_state.get("ak_product_name"), qty="11")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (негатив): Бонус YO'Q — qty=11 (Максимум=10) zakazда 'Акция' tab bo'sh")
+def test_215_no_bonus_above_max(session_page: Page, runner_state) -> None:
+    logout(session_page)
+    authorization(session_page)
+    verify_no_order_bonus(
+        session_page,
+        deal_id=runner_state["ak_deal_above_max"],
+        bonus_product=runner_state.get("ak_product_name"),
     )
 
 
@@ -330,33 +366,33 @@ def test_231_order_inactive_promo(session_page: Page, code, runner_state) -> Non
     logout(session_page)
     authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
     # Miqdor Мин=2 ni QANOATLANTIRADI, lekin aksiya Неактивный → bonus kutilMAYDI.
-    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+    runner_state["ak_deal_inactive"] = ga_order(
+        session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
 
 
 @allure.epic("Акция")
 @allure.feature("Заказ — негатив")
 @allure.title("Акция (негатив): Бонус YO'Q — Неактивный aksiyada qty=2 zakazда 'Акция' tab bo'sh")
-def test_232_no_bonus_inactive(session_page: Page, code, runner_state) -> None:
-    ak = _ak_code(code)
+def test_232_no_bonus_inactive(session_page: Page, runner_state) -> None:
     logout(session_page)
     authorization(session_page)
     verify_no_order_bonus(
         session_page,
+        deal_id=runner_state["ak_deal_inactive"],
         bonus_product=runner_state.get("ak_product_name"),
-        client_name=f"client-{ak}",
     )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # VII. CASE 2 — Скидка (chegirma) TIPIDAGI aksiya yaratish
 # ══════════════════════════════════════════════════════════════════════════════
-# DIQQAT: Скидка-tipidagi aksiya (Тип бонуса=Скидка) bu tizimda ORDER'ga na
-# Черновик, na Новый bosqichida qo'llanmaydi (MCP 2026-09-21: deal 882521 Новый'да
-# ham "Общая сумма скидки"=0, "Акция" tab bo'sh) — tekin-mahsulot bonusidan (Количество)
-# farqli. Shu sabab bu case order-darajasida EMAS, faqat aksiya YARATISH darajasida
-# qamrab olinadi (chegirma-tur promo muvaffaqiyatli saqlanadi). Chegirmaning order'да
-# qo'llanish MEXANIZMI hali noaniq (ehtimol keyingi status yoki backend config) —
-# kelajakda tekshirish uchun. Yaratilgan promo test_250'да deaktivatsiya qilinadi.
+# DIQQAT: Скидка-tipidagi aksiya (Тип бонуса=Скидка) zakazga HECH QAYSI statusda
+# qo'llanmaydi — dev probe 2026-09-25: deal 883353 (qty=2, Скидка 10%) Черновик →
+# Новый → ... → Завершен butun zanjirida "Общая сумма скидки"=0, "Акция" tab bo'sh.
+# Kutilgan qoida ("keyingi statusda qo'llanadi") tizimda TASDIQLANMADI — bug yoki
+# qo'shimcha sozlama kerak (analitikdan aniqlash). Shu sabab bu case hozircha faqat
+# aksiya YARATISH darajasida qamrab olinadi; verify_order_discount tayyor turibdi.
+# Yaratilgan promo test_250'да deaktivatsiya qilinadi.
 @allure.epic("Акция")
 @allure.feature("CRUD")
 @allure.title("Акция (Скидка): qty_discount TIPIDAGI aksiya yaratish (Тип бонуса=Скидка 10%)")
@@ -403,22 +439,122 @@ def test_251_order_sum(session_page: Page, code, runner_state) -> None:
     ak = _ak_code(code)
     logout(session_page)
     authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
-    ga_order(session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+    runner_state["ak_deal_sum"] = ga_order(
+        session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
 
 
 @allure.epic("Акция")
 @allure.feature("Заказ")
 @allure.title("Акция (Сумма): Бонус qo'llangani — summa triggeri tekin mahsulot berdi")
-def test_252_order_sum_bonus(session_page: Page, code, runner_state) -> None:
-    ak = _ak_code(code)
+def test_252_order_sum_bonus(session_page: Page, runner_state) -> None:
     logout(session_page)
     authorization(session_page)
     verify_order_bonus(
         session_page,
+        deal_id=runner_state["ak_deal_sum"],
         bonus_product=runner_state.get("ak_product_name"),
-        client_name=f"client-{ak}",
         expected_qty="1",
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IX. NEGATIV — amal qilish MUDDATIDAN tashqarida aksiya bonus BERMAYDI
+# ══════════════════════════════════════════════════════════════════════════════
+# Qoida (user + dev probe 2026-09-25): muddati o'tgan (start/end o'tmishda) va hali
+# boshlanmagan (start kelajakda) aksiya shart bajarilsa ham (qty=2 ≥ Мин=2) bonus
+# BERMAYDI. Forma o'tgan sanani QABUL qiladi (validatsiya yo'q). Har biri o'z
+# zakazida alohida tekshiriladi; boshqa aksiyalar oldin deaktivatsiya qilinadi.
+def _days(n: int) -> str:
+    return (datetime.now() + timedelta(days=n)).strftime("%d.%m.%Y")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (negativ, sana): sum aksiyani Неактивный + MUDDATI O'TGAN aksiya yaratish")
+def test_260_promotion_expired_create(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    # test_252'dan keyin faqat sum_free aktiv — interferensiya bo'lmasin.
+    run_promotion_deactivate(
+        session_page, supplier_name=f"supplier-{ak}", name=runner_state["ak_sum_name"],
+    )
+    runner_state["ak_expired_name"] = run_promotion(
+        session_page, ak,
+        supplier_name=f"supplier-{ak}",
+        bonus_product=runner_state.get("ak_product_name"),
+        case="qty_free", name=f"aksiya-expired-{ak}",
+        start=_days(-30), end=_days(-1),
+    )
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (negativ, sana): Заказ — klient 2 dona (muddati o'tgan aksiya)")
+def test_261_order_expired(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    runner_state["ak_deal_expired"] = ga_order(
+        session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (negativ, sana): Бонус YO'Q — muddati o'tgan aksiya")
+def test_262_no_bonus_expired(session_page: Page, runner_state) -> None:
+    logout(session_page)
+    authorization(session_page)
+    verify_no_order_bonus(
+        session_page,
+        deal_id=runner_state["ak_deal_expired"],
+        bonus_product=runner_state.get("ak_product_name"),
+    )
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (negativ, sana): o'tgan aksiyani Неактивный + HALI BOSHLANMAGAN aksiya yaratish")
+def test_263_promotion_future_create(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    run_promotion_deactivate(
+        session_page, supplier_name=f"supplier-{ak}", name=runner_state["ak_expired_name"],
+    )
+    runner_state["ak_future_name"] = run_promotion(
+        session_page, ak,
+        supplier_name=f"supplier-{ak}",
+        bonus_product=runner_state.get("ak_product_name"),
+        case="qty_free", name=f"aksiya-future-{ak}",
+        start=_days(10), end=_days(40),
+    )
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (negativ, sana): Заказ — klient 2 dona (hali boshlanmagan aksiya)")
+def test_264_order_future(session_page: Page, code, runner_state) -> None:
+    ak = _ak_code(code)
+    logout(session_page)
+    authorization(session_page, email=f"client_user-{ak}@{COMPANY_CODE}", password="1")
+    runner_state["ak_deal_future"] = ga_order(
+        session_page, ak, product_name=runner_state.get("ak_product_name"), qty="2")
+
+
+@allure.epic("Акция")
+@allure.feature("Заказ — негатив")
+@allure.title("Акция (negativ, sana): Бонус YO'Q — hali boshlanmagan aksiya")
+def test_265_no_bonus_future(session_page: Page, runner_state) -> None:
+    logout(session_page)
+    authorization(session_page)
+    verify_no_order_bonus(
+        session_page,
+        deal_id=runner_state["ak_deal_future"],
+        bonus_product=runner_state.get("ak_product_name"),
+    )
+
+
+# ── Цикличный (har N donaga takroriy bonus) HALI QO'SHILMADI ────────────────────
+# Dev probe 2026-09-25: Цикличный, "Макс. значение"=3, bonus Значения=1 + bonus
+# "Максимум"=10 bilan 6 dona zakazда bonus UMUMAN tushmadi (kutilgan 2). Maydonlar
+# ma'nosi analitikdan aniqlanguncha runner'ga qo'shilmaydi.
 
 
 # ── CASE 3 (subtype targeting negativ) OLIB TASHLANDI ─────────────────────────

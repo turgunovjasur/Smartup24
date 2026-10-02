@@ -63,8 +63,10 @@ PROMOTION_CASES = {
     "sum_free":     dict(akciya_type="Сумма",      bonus_type="Количество", min_value="100000", max_value="1000000", bonus_value="1"),
     # summa ≥ X → chegirma %
     "sum_discount": dict(akciya_type="Сумма",      bonus_type="Скидка",     min_value="100000", max_value="1000000", bonus_value="10"),
-    # cyclic: har N donaga takroriy bonus (Цикличный — faqat "Макс. значение")
-    "cyclic_free":  dict(akciya_type="Количество", bonus_type="Количество", min_value="3", max_value=None, bonus_value="1", cyclic=True),
+    # cyclic: har N donaga takroriy bonus (Цикличный — faqat "Макс. значение").
+    # "bonus_max" — Цикличный'da bonus qatorida paydo bo'ladigan "Максимум" ustuni
+    # (jami bonus chegarasi); bo'sh qolsa bonus UMUMAN berilmaydi (probe 2026-09-25).
+    "cyclic_free":  dict(akciya_type="Количество", bonus_type="Количество", min_value="3", max_value=None, bonus_value="1", cyclic=True, bonus_max="10"),
 }
 
 
@@ -158,11 +160,13 @@ def _row_action(page: Page, name: str):
     return panel.get_by_role("button", name=name, exact=True)
 
 
-def _fill_step1(page: Page, m: BasePage, *, name: str, akciya_type: str, char: str) -> None:
-    """1-qadam «Основное»: majburiy maydonlar + Характеристики клиента, ДАЛЕЕ."""
-    # Boshlanish = bugun; tugash = +1 yil (kun raqami bir xil, aniq KEYINGI yil).
-    start = datetime.now().strftime("%d.%m.%Y")
-    end = (datetime.now() + timedelta(days=365)).strftime("%d.%m.%Y")
+def _fill_step1(page: Page, m: BasePage, *, name: str, akciya_type: str, char: str,
+                start: str = None, end: str = None) -> None:
+    """1-qadam «Основное»: majburiy maydonlar + Характеристики клиента, ДАЛЕЕ.
+
+    ``start``/``end`` ("dd.mm.yyyy") berilmasa: boshlanish = bugun, tugash = +1 yil."""
+    start = start or datetime.now().strftime("%d.%m.%Y")
+    end = end or (datetime.now() + timedelta(days=365)).strftime("%d.%m.%Y")
 
     m.input(label="Название", value=name)
     # Sana label'lari 2026-09-18 da o'zgardi: "Дата начала"→"Дата начало",
@@ -194,7 +198,8 @@ def _fill_step1(page: Page, m: BasePage, *, name: str, akciya_type: str, char: s
 
 
 def _fill_step2(page: Page, m: BasePage, *, bonus_type: str, min_value: str,
-                max_value, bonus_product: str, bonus_value: str, cyclic: bool = False) -> None:
+                max_value, bonus_product: str, bonus_value: str, cyclic: bool = False,
+                bonus_max: str = None) -> None:
     """2-qadam «Уровни»: shart (Мин.значение + Максимум) + bonus (tovar + Значения)."""
     if cyclic:
         # Цикличный: "Окупаемость"/"Мин. значение" YO'Q — "Макс. значение" bor.
@@ -240,6 +245,15 @@ def _fill_step2(page: Page, m: BasePage, *, bonus_type: str, min_value: str,
             if (value_input.input_value() or "").strip() == bonus_value:
                 break
 
+    if bonus_max is not None:
+        # Цикличный'да bonus qatorida qo'shimcha "Максимум" ustuni (col-key max_value).
+        with allure.step(f"Бонус 'Максимум' = {bonus_max}"):
+            max_input = bonus_row.locator('[data-smt-col-key="max_value"] input').first
+            max_input.click()
+            max_input.fill(bonus_max)
+            max_input.press("Tab")
+            expect(max_input).to_have_value(bonus_max)
+
 
 def _save_promotion(page: Page, m: BasePage) -> None:
     """Уровни'да Сохранить + "Сохранить?" confirm "да" → supplier_view."""
@@ -257,10 +271,11 @@ def _save_promotion(page: Page, m: BasePage) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 def run_promotion(page: Page, code, *, supplier_name: str, bonus_product: str,
                   case: str = "qty_free", char: str = "Подтип по умолчанию",
-                  name: str = None) -> str:
+                  name: str = None, start: str = None, end: str = None) -> str:
     """``supplier_name`` uchun bitta aksiya YARATADI (``case`` — PROMOTION_CASES
     kaliti) va nomini qaytaradi. Admin login kutiladi; ``bonus_product`` supplier'ga
-    biriktirilgan (В наличие) tovar bo'lishi shart."""
+    biriktirilgan (В наличие) tovar bo'lishi shart. ``start``/``end`` — amal qilish
+    muddati ("dd.mm.yyyy"), berilmasa bugundan +1 yil."""
     m = BasePage(page)
     params = PROMOTION_CASES[case]
     name = name or f"aksiya-{case}-{code}"
@@ -271,7 +286,8 @@ def run_promotion(page: Page, code, *, supplier_name: str, bonus_product: str,
         m.expect_heading("Акция (Создания)")
 
     with allure.step(f"1-qadam Основное: {name} (Тип акции={params['akciya_type']})"):
-        _fill_step1(page, m, name=name, akciya_type=params["akciya_type"], char=char)
+        _fill_step1(page, m, name=name, akciya_type=params["akciya_type"], char=char,
+                    start=start, end=end)
 
     with allure.step(
         f"2-qadam Уровни: Мин={params['min_value']}, Тип бонуса={params['bonus_type']}, "
@@ -282,6 +298,7 @@ def run_promotion(page: Page, code, *, supplier_name: str, bonus_product: str,
             bonus_type=params["bonus_type"], min_value=params["min_value"],
             max_value=params.get("max_value"), bonus_product=bonus_product,
             bonus_value=params["bonus_value"], cyclic=params.get("cyclic", False),
+            bonus_max=params.get("bonus_max"),
         )
         _save_promotion(page, m)
 
@@ -373,6 +390,7 @@ def run_promotion_duplicate(page: Page, code, *, supplier_name: str, bonus_produ
         bonus_type=params["bonus_type"], min_value=params["min_value"],
         max_value=params.get("max_value"), bonus_product=bonus_product,
         bonus_value=params["bonus_value"], cyclic=params.get("cyclic", False),
+        bonus_max=params.get("bonus_max"),
     )
     m.click_button("Сохранить")
     m.confirm("да")
@@ -399,24 +417,22 @@ def run_promotion_delete(page: Page, *, supplier_name: str, name: str) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 # Zakaz bonusi tekshiruvi — Модератор → Продажи → Заказы
 # ══════════════════════════════════════════════════════════════════════════════
-def verify_order_bonus(page: Page, *, bonus_product: str, client_name: str,
-                       expected_qty: str = "1") -> None:
-    """Модератор → Продажи → Заказы: ``client_name`` zakazini ochib, order Просмотр
-    "Акция" tab'ida aksiya bonusi (tekin tovar) qo'llanganini tasdiqlaydi —
-    bonus tovar qatori mavjud va Кол-во = ``expected_qty`` (MCP 2026-09-15)."""
-    m = BasePage(page)
+def _open_order_view(page: Page, m: BasePage, deal_id: str) -> None:
+    """Модератор → Продажи → Заказы: zakazni ИД bo'yicha topib Просмотр'ni ochadi.
 
+    Zakaz "klientning eng yangi Черновик"i deb EMAS, aynan ``deal_id`` bilan
+    topiladi — klientda bir nechta Черновик zakaz bo'lganda boshqa zakazni ochib
+    noto'g'ri PASSED berish xavfi yo'q (admin qidiruvi ИД bo'yicha ishlaydi,
+    MCP 2026-09-25). ИД katagi oddiy matn (klient/postavshik kataklari BUTTON)."""
     with allure.step("Навигация: Модератор → Продажи → Заказы"):
         flow_navigate(page, tab="Модератор", name="Заказы")
         m.expect_heading("Заказы")
         m.settle()
 
-    with allure.step(f"'{client_name}' Черновик zakazini tanlab 'Просмотреть'"):
-        m.search(client_name)
-        # Qatordagi klient/postavshik kataklari BUTTON — status katagi (Черновик,
-        # oddiy matn) orqali tanlanadi (order_status_change patterni).
-        row = m.grid_row(client_name, "Черновик")
-        cell = row.get_by_text("Черновик", exact=True).first
+    with allure.step(f"Zakaz #{deal_id} ni tanlab 'Просмотреть'"):
+        m.search(deal_id)
+        row = m.grid_row(deal_id)
+        cell = row.get_by_text(deal_id, exact=True).first
         cell.click()
         for _ in range(10):
             if m.grid_row_selected(row):
@@ -426,6 +442,15 @@ def verify_order_bonus(page: Page, *, bonus_product: str, client_name: str,
             cell.click()
         m.click_button("Просмотреть")
         m.expect_heading("Заказ (просмотр)")
+        m.settle()
+
+
+def verify_order_bonus(page: Page, *, deal_id: str, bonus_product: str,
+                       expected_qty: str = "1") -> None:
+    """Zakaz #``deal_id`` Просмотр "Акция" tab'ida aksiya bonusi (tekin tovar)
+    qo'llanganini tasdiqlaydi — bonus tovar qatori mavjud va Кол-во = ``expected_qty``."""
+    m = BasePage(page)
+    _open_order_view(page, m, deal_id)
 
     with allure.step(f"'Акция' tab: bonus '{bonus_product}' Кол-во={expected_qty}"):
         m.click_button("Акция")
@@ -438,36 +463,11 @@ def verify_order_bonus(page: Page, *, bonus_product: str, client_name: str,
         expect(qty_cell).to_have_text(re.compile(rf"^\s*{re.escape(expected_qty)}\s*$"))
 
 
-def verify_no_order_bonus(page: Page, *, bonus_product: str, client_name: str) -> None:
-    """NEGATIV: ``client_name`` ning ENG YANGI Черновик zakazini ochib, order
-    Просмотр "Акция" tab'ida aksiya bonusi qo'llanMAGANini tasdiqlaydi — trigger
-    sharti bajarilmagan (masalan buyurtma miqdori Мин.значение dan KAM). Bonus tovar
-    qatori "Акция" tab'ida BO'LMASLIGI kerak (Кол-во=0 ⇒ min=2 aksiyasi ishlamaydi).
-
-    DIQQAT: klientning bir nechta Черновик zakazi bo'lsa (masalan test_210 qty=2
-    bonusli + bu qty=1 bonussiz), ro'yxat eng yangi zakazni birinchi ko'rsatadi —
-    ``grid_row(...).first`` shu qty=1 negativ zakazni oladi (verify_order_bonus
-    bilan bir xil naqsh)."""
+def verify_no_order_bonus(page: Page, *, deal_id: str, bonus_product: str) -> None:
+    """NEGATIV: zakaz #``deal_id`` Просмотр "Акция" tab'ida bonus tovar qatori YO'Q
+    (aksiya sharti bajarilmagan, aksiya noaktiv yoki muddatidan tashqarida)."""
     m = BasePage(page)
-
-    with allure.step("Навигация: Модератор → Продажи → Заказы"):
-        flow_navigate(page, tab="Модератор", name="Заказы")
-        m.expect_heading("Заказы")
-        m.settle()
-
-    with allure.step(f"'{client_name}' eng yangi Черновик zakazini tanlab 'Просмотреть'"):
-        m.search(client_name)
-        row = m.grid_row(client_name, "Черновик")
-        cell = row.get_by_text("Черновик", exact=True).first
-        cell.click()
-        for _ in range(10):
-            if m.grid_row_selected(row):
-                break
-            page.wait_for_timeout(300)
-        else:
-            cell.click()
-        m.click_button("Просмотреть")
-        m.expect_heading("Заказ (просмотр)")
+    _open_order_view(page, m, deal_id)
 
     with allure.step(f"'Акция' tab: bonus '{bonus_product}' qatori YO'Q (bonus qo'llanmagan)"):
         m.click_button("Акция")
@@ -488,33 +488,12 @@ def _order_summary_number(page: Page, label_re: str) -> int:
     return int(digits or "0")
 
 
-def verify_order_discount(page: Page, *, client_name: str) -> None:
-    """POZITIV (Скидка bonusi): ``client_name`` ning ENG YANGI Черновик zakazini ochib,
-    order Просмотр "Основное" summary'sida CHEGIRMA qo'llanganini tasdiqlaydi —
-    "Сумма к оплате" < "Общая сумма" (qty_discount aksiyasi: Тип бонуса=Скидка,
-    masalan 10% → 200 000 dan 20 000 chegirma → to'lov 180 000). MCP 2026-09-21:
-    order summary span'lari "Общая сумма: N" / "Сумма к оплате: N" (probel-formatли)."""
+def verify_order_discount(page: Page, *, deal_id: str) -> None:
+    """POZITIV (Скидка bonusi): zakaz #``deal_id`` Просмотр "Основное" summary'sida
+    CHEGIRMA qo'llanganini tasdiqlaydi — "Сумма к оплате" < "Общая сумма"
+    (summary span'lari "Общая сумма: N" / "Сумма к оплате: N", MCP 2026-09-21)."""
     m = BasePage(page)
-
-    with allure.step("Навигация: Модератор → Продажи → Заказы"):
-        flow_navigate(page, tab="Модератор", name="Заказы")
-        m.expect_heading("Заказы")
-        m.settle()
-
-    with allure.step(f"'{client_name}' eng yangi Черновик zakazini tanlab 'Просмотреть'"):
-        m.search(client_name)
-        row = m.grid_row(client_name, "Черновик")
-        cell = row.get_by_text("Черновик", exact=True).first
-        cell.click()
-        for _ in range(10):
-            if m.grid_row_selected(row):
-                break
-            page.wait_for_timeout(300)
-        else:
-            cell.click()
-        m.click_button("Просмотреть")
-        m.expect_heading("Заказ (просмотр)")
-        m.settle()
+    _open_order_view(page, m, deal_id)
 
     with allure.step("'Основное' summary: Сумма к оплате < Общая сумма (chegirma qo'llangan)"):
         gross = _order_summary_number(page, r"^Общая сумма:")

@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 
 import allure
@@ -83,7 +84,27 @@ def _fill_step2_and_advance(page: Page, m: BasePage, product_name: str, value: s
     raise AssertionError("Товары → Завершение: Кол-во qabul qilinmadi (qty-reset race)")
 
 
-def run_order(page: Page, code, product_name=None, qty: str = "2") -> None:
+def _new_deal_id(table_responses, supplier_name: str, client_name: str) -> str:
+    """Save'dan keyingi ``deal_list:table`` javobidan shu supplier/klient juftligining
+    ENG KATTA deal_id'sini (= hozirgina yaratilgan zakaz) qaytaradi.
+
+    Klient ro'yxatida ИД ustuni YO'Q va ``deal+add$save`` javobi BO'SH keladi —
+    ID faqat ro'yxat so'rovining javobida bor (MCP tasdiqlangan 2026-09-25).
+    Ustun indekslari so'rovdagi ``p.column`` dan olinadi (UI tartibiga bog'lanmaydi)."""
+    for resp in reversed(table_responses):
+        try:
+            columns = json.loads(resp.request.post_data or "{}")["p"]["column"]
+            rows = resp.json()["data"]
+        except Exception:
+            continue
+        i_id, i_sup, i_out = (columns.index(c) for c in ("deal_id", "supplier_name", "outlet_name"))
+        ids = [int(r[i_id]) for r in rows if r[i_sup] == supplier_name and r[i_out] == client_name]
+        if ids:
+            return str(max(ids))
+    raise AssertionError(f"Yangi zakaz ID'si ro'yxat javobida topilmadi ({supplier_name} / {client_name})")
+
+
+def run_order(page: Page, code, product_name=None, qty: str = "2") -> str:
     """Group A: klient foydalanuvchisi nomidan yangi Заказ yaratadi — 3 qadamli
     wizard: Основное (savdo nuqtasi/postavshik/yetkazish vaqti) → Товары (tovar
     va miqdor) → Завершение (to'lov turi va status).
@@ -92,7 +113,10 @@ def run_order(page: Page, code, product_name=None, qty: str = "2") -> None:
     yaratadi); dropdownlarda faqat hamkorlik tasdiqlangan postavshik
     (run_cooperation) va unga biriktirilgan narxli tovar chiqadi — shu sabab
     ``product_name`` ga run_product_linking HAQIQATDA biriktirgan tovar nomi
-    beriladi (u har doim ham product-{code} emas)."""
+    beriladi (u har doim ham product-{code} emas).
+
+    Yaratilgan zakazning ИД'sini (deal_id) qaytaradi — tekshiruvlar zakazni
+    "eng yangi Черновик" deb emas, aynan shu ID bo'yicha ochishi uchun."""
     m = BasePage(page)
     supplier_name = f"supplier-{code}"
     client_name = f"client-{code}"
@@ -127,7 +151,15 @@ def run_order(page: Page, code, product_name=None, qty: str = "2") -> None:
         # bilan to'lgan; faqat "Тип оплаты" tanlanadi.
         m.select("Наличные", label="Тип оплаты")
 
+    # Save'dan keyingi ro'yxat javoblarini yig'amiz (deal_id faqat shu yerda bor).
+    table_responses = []
+
+    def _collect(resp):
+        if "deal_list:table" in resp.url:
+            table_responses.append(resp)
+
     with allure.step("Сохранить va Заказы ro'yxatiga qaytish"):
+        page.on("response", _collect)
         # 2-qadamda qty allaqachon tasdiqlangan (Завершение ochilgan) — save
         # to'g'ridan-to'g'ri o'tadi; xavfsizlik uchun bir marta qayta uriniladi.
         error_dialog = page.get_by_role("dialog").filter(has_text="Не указано количество")
@@ -155,6 +187,13 @@ def run_order(page: Page, code, product_name=None, qty: str = "2") -> None:
     with allure.step(f"Ro'yxatda yangi order ({supplier_name} / {client_name} / Черновик) tekshirish"):
         # Yangi order Черновик statusida yaratiladi
         m.grid_row(supplier_name, client_name, "Черновик")
+
+    try:
+        deal_id = _new_deal_id(table_responses, supplier_name, client_name)
+    finally:
+        page.remove_listener("response", _collect)
+    allure.dynamic.parameter("deal_id", deal_id)
+    return deal_id
 
 
 @allure.epic("Клиент")
