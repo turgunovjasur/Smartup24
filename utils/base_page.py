@@ -358,6 +358,17 @@ class BasePage:
         action_items = re.compile(r"Добавить|Показать все")
         dropdown = self.page.locator("smt-select-dropdown").last
         li_option = dropdown.locator("li").filter(has_text=pattern, has_not_text=action_items).first
+        # Ko'p ustunli lookup dropdown ("Форма собственности": Название / Краткое
+        # название / Место расположение) — li matni bir nechta katakdan iborat, anchored
+        # pattern mos kelmaydi. Tor dropdown'da birinchi (1fr) ustun 0px'ga siqilib
+        # span "hidden" bo'ladi — shuning uchun span EMAS, uni o'z ichiga olgan li
+        # bosiladi. (MCP tasdiqlangan prod 2026-10-02.)
+        li_cell_option = (
+            dropdown.locator("li")
+            .filter(has=self.page.get_by_text(option_text, exact=exact))
+            .filter(has_not_text=action_items)
+            .first
+        )
         text_option = dropdown.get_by_text(option_text, exact=exact).filter(has_not_text=action_items).first
         overlay = self.page.locator(".cdk-overlay-container")
         # smt-tree-select: treeitem'ning accessible NAME'i ishonchsiz — 2026-09 deploy'i
@@ -380,6 +391,9 @@ class BasePage:
         while True:
             if li_option.count() > 0:
                 option = li_option
+                break
+            if li_cell_option.count() > 0:
+                option = li_cell_option
                 break
             if text_option.count() > 0:
                 option = text_option
