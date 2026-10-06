@@ -23,8 +23,7 @@ def run_supplier_user(page: Page, code) -> None:
     with allure.step(f"'{supplier_name}' ni topib Просмотр formasini ochish"):
         m.search(supplier_name)
         m.click_grid_row(supplier_name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Поставщик (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Поставщик (Просмотр)")
 
     with allure.step("Пользователи bo'limida Создать formasini ochish"):
         m.click_button("Пользователи")

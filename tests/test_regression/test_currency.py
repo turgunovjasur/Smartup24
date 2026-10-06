@@ -80,8 +80,7 @@ def run_currency_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Валюта (Редактирования)")
+        m.click_button("Изменить", expect_heading="Валюта (Редактирования)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}"):
         m.input(label="Название", value=new_name)
@@ -128,8 +127,7 @@ def run_currency_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотр")
-        m.expect_heading("Валюта (просмотр)")
+        m.click_button("Просмотр", expect_heading="Валюта (просмотр)")
 
     with allure.step("Qiymatlar: Название, Код, Статус, Базовая единица"):
         m.input(smtid="cv_name", expect_value=data["name"])

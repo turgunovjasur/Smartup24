@@ -58,8 +58,7 @@ def run_region_full(page: Page, code) -> None:
 
     with allure.step("Изменить formasida saqlangan qiymatlar to'g'riligi"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Регионы (Редактирования)")
+        m.click_button("Изменить", expect_heading="Регионы (Редактирования)")
         m.input(smtid="region-name", expect_value=name)
         m.checkbox(label="Статус", expect_checked=True)
 
@@ -92,8 +91,7 @@ def run_region_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Регионы (Редактирования)")
+        m.click_button("Изменить", expect_heading="Регионы (Редактирования)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}"):
         m.input(smtid="region-name", value=new_name)
@@ -140,8 +138,7 @@ def run_region_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Регионы (Редактирования)")
+        m.click_button("Изменить", expect_heading="Регионы (Редактирования)")
 
     with allure.step("Qiymatlar: Название va Статус to'g'ri to'ldirilgan"):
         m.input(smtid="region-name", expect_value=name)
@@ -213,8 +210,7 @@ def run_region_status(page: Page, code) -> None:
 
     with allure.step(f"1) '{active_name}' ni Изменить formasida passiv qilish"):
         m.click_grid_row(active_name)
-        m.click_button("Изменить")
-        m.expect_heading("Регионы (Редактирования)")
+        m.click_button("Изменить", expect_heading="Регионы (Редактирования)")
         m.checkbox(label="Статус", checked=False)
         # Edit'dan keyin ham redirect barqaror emas (dashboard'ga tushadi) —
         # ro'yxatga o'zimiz kiramiz
@@ -234,8 +230,7 @@ def run_region_status(page: Page, code) -> None:
 
     with allure.step(f"2) Passiv yaratilgan '{passive_name}' ni aktiv qilish"):
         m.click_grid_row(passive_name)
-        m.click_button("Изменить")
-        m.expect_heading("Регионы (Редактирования)")
+        m.click_button("Изменить", expect_heading="Регионы (Редактирования)")
         m.checkbox(label="Статус", checked=True)
         # Edit'dan keyin ham redirect barqaror emas (dashboard'ga tushadi) —
         # ro'yxatga o'zimiz kiramiz

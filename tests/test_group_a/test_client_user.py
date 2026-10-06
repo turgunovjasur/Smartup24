@@ -24,8 +24,7 @@ def run_client_user(page: Page, code) -> None:
     with allure.step(f"'{client_name}' ni topib Просмотр formasini ochish"):
         m.search(client_name)
         m.click_grid_row(client_name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Клиент (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Клиент (Просмотр)")
 
     with allure.step("Пользователи bo'limida Создать formasini ochish"):
         m.click_button("Пользователи")

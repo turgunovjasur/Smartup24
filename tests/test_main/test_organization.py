@@ -120,8 +120,7 @@ def run_organization_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотреть formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Организация (просмотр)")
+        m.click_button("Просмотреть", expect_heading="Организация (просмотр)")
 
     with allure.step("View bo'limlari: Пользователи → История пользователя → Системные ошибки"):
         m.click_button("Пользователи")
@@ -160,8 +159,7 @@ def run_organization_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Организация (изменение)")
+        m.click_button("Изменить", expect_heading="Организация (изменение)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}"):
         m.input(label="Название", value=new_name)
@@ -210,8 +208,7 @@ def run_organization_status(page: Page, code) -> None:
 
     with allure.step(f"1) '{name}' ni Изменить orqali Неактивный qilish"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Организация (изменение)")
+        m.click_button("Изменить", expect_heading="Организация (изменение)")
         m.checkbox(label="Статус", checked=False)
         m.save()
 
@@ -227,8 +224,7 @@ def run_organization_status(page: Page, code) -> None:
 
     with allure.step(f"2) '{name}' ni qayta Активный qilish"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Организация (изменение)")
+        m.click_button("Изменить", expect_heading="Организация (изменение)")
         m.checkbox(label="Статус", checked=True)
         m.save()
 

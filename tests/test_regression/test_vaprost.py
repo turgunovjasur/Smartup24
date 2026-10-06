@@ -93,8 +93,7 @@ def run_vaprost_full(page: Page, code) -> None:
 
     with allure.step("Изменить formasida saqlangan qiymatlar to'g'riligi"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Вопрос (Редактирование)")
+        m.click_button("Изменить", expect_heading="Вопрос (Редактирование)")
         m.input(label="Название", expect_value=name)
         m.checkbox(label="Обязательный вопрос", expect_checked=True)
         m.checkbox(label="Обязательное фото", expect_checked=True)
@@ -130,8 +129,7 @@ def run_vaprost_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Вопрос (Редактирование)")
+        m.click_button("Изменить", expect_heading="Вопрос (Редактирование)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}"):
         m.input(label="Название", value=new_name)
@@ -177,8 +175,7 @@ def run_vaprost_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Вопрос (Редактирование)")
+        m.click_button("Изменить", expect_heading="Вопрос (Редактирование)")
 
     with allure.step("Qiymatlar: Название va Статус to'g'ri"):
         m.input(label="Название", expect_value=name)

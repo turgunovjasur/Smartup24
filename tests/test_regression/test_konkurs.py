@@ -125,8 +125,7 @@ def run_konkurs_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Конкурсы (Редактирования)")
+        m.click_button("Изменить", expect_heading="Конкурсы (Редактирования)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}, победителей = 7"):
         m.input(label="Название", value=new_name)
@@ -173,8 +172,7 @@ def run_konkurs_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотр")
-        m.expect_heading("Конкурс (Просмотр)")
+        m.click_button("Просмотр", expect_heading="Конкурс (Просмотр)")
 
     with allure.step("Qiymatlar: Название, Количество победителей, Статус"):
         m.input(smtid="cv_main_name", expect_value=data["name"])

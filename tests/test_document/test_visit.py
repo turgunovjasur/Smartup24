@@ -186,8 +186,7 @@ def run_visit_check(page: Page) -> None:
     with allure.step(f"Визиты: visit #{visit_id} 'Завершен' + Просмотр tablari"):
         _goto_visits(page, m)
         _open_visit_row(page, m, agent, visit_id)
-        m.click_button("Просмотр")
-        m.expect_heading("Визит (Просмотр)")
+        m.click_button("Просмотр", expect_heading="Визит (Просмотр)")
         m.click_button("Дополнительная информация")
         m.click_button("Результаты анализа")
         m.click_button("Go back")
@@ -197,8 +196,7 @@ def run_visit_check(page: Page) -> None:
         m.click_button("Лиды")
         m.expect_heading("Лиды")
         m.click_grid_row(agent)
-        m.click_button("Просмотр")
-        m.expect_heading("Просмотр лида")
+        m.click_button("Просмотр", expect_heading="Просмотр лида")
         # Lead Просмотр bo'limlari 2026-08 da o'zgardi: "Дополнительные поля" → "Основная информация"
         m.click_button("Основная информация")
         m.click_button("История")
@@ -228,8 +226,7 @@ def run_visit_leads(page: Page) -> None:
 
     with allure.step("Lead Просмотр: Основная информация / История"):
         m.click_grid_row("agent-")
-        m.click_button("Просмотр")
-        m.expect_heading("Просмотр лида")
+        m.click_button("Просмотр", expect_heading="Просмотр лида")
         # Lead Просмотр bo'limlari 2026-08 da o'zgardi: "Дополнительные поля" → "Основная информация"
         m.click_button("Основная информация")
         m.click_button("История")
@@ -263,8 +260,7 @@ def run_visit_reason(page: Page, code: str) -> None:
     with allure.step(f"Изменить: {name} → {edited}"):
         m.search(name)
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Причина (Редактирование)")
+        m.click_button("Изменить", expect_heading="Причина (Редактирование)")
         page.locator("#null:visible").fill(edited)
         m.save()
         m.expect_heading("Причины")
@@ -272,8 +268,7 @@ def run_visit_reason(page: Page, code: str) -> None:
     with allure.step(f"Просмотр/tekshirish: qiymat '{edited}' saqlanganini read-back"):
         m.search(edited)
         m.click_grid_row(edited)
-        m.click_button("Изменить")
-        m.expect_heading("Причина (Редактирование)")
+        m.click_button("Изменить", expect_heading="Причина (Редактирование)")
         expect(page.locator("#null:visible")).to_have_value(edited)
         m.click_button("Go back")
         m.expect_heading("Причины")

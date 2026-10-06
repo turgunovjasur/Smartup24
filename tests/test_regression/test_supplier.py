@@ -164,8 +164,7 @@ def run_supplier_edit(page: Page, code) -> None:
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         # run_supplier_basic ro'yxatni old_name bo'yicha qidirilgan holda qoldiradi
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Юр. Лицо (Редактирования)")
+        m.click_button("Изменить", expect_heading="Юр. Лицо (Редактирования)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}, izoh yangilash"):
         # Edit forma ham leak'dan buziladi (Примечания→Примечание) — smtid orqali
@@ -215,8 +214,7 @@ def run_supplier_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Поставщик (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Поставщик (Просмотр)")
 
     with allure.step("Основное: Название, ИНН, Статус, Форма собственности qiymatlari"):
         m.input(smtid="sv_main_name", expect_value=data["name"])

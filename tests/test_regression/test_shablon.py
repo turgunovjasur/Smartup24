@@ -75,8 +75,7 @@ def run_shablon_full(page: Page, code) -> None:
 
     with allure.step("Изменить formasida saqlangan qiymatlar to'g'riligi"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Шаблон отчета по опросам (Редактирование)")
+        m.click_button("Изменить", expect_heading="Шаблон отчета по опросам (Редактирование)")
         m.input(smtid="name", expect_value=name)
         m.input(smtid="description", expect_value=f"Avto-test shablon izohi {code}")
         # Tanlangan savol qatordagi select inputida ko'rinadi
@@ -112,8 +111,7 @@ def run_shablon_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Шаблон отчета по опросам (Редактирование)")
+        m.click_button("Изменить", expect_heading="Шаблон отчета по опросам (Редактирование)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}, Описание"):
         m.input(label="Название", value=new_name)
@@ -160,8 +158,7 @@ def run_shablon_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Изменить")
-        m.expect_heading("Шаблон отчета по опросам (Редактирование)")
+        m.click_button("Изменить", expect_heading="Шаблон отчета по опросам (Редактирование)")
 
     with allure.step("Qiymatlar: Название va Статус to'g'ri to'ldirilgan"):
         m.input(smtid="name", expect_value=name)

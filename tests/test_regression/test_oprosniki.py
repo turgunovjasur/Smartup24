@@ -117,8 +117,7 @@ def run_oprosniki_full(page: Page, code) -> None:
 
     with allure.step("Просмотр formasida saqlangan qiymatlar to'g'riligi"):
         m.click_grid_row(name)
-        m.click_button("Просмотр")
-        m.expect_heading("Опросник (Просмотр)")
+        m.click_button("Просмотр", expect_heading="Опросник (Просмотр)")
         m.input(smtid="qsv_name", expect_value=name)
         m.input(smtid="qsv_state", expect_value="Активный")
         m.input(smtid="qsv_start_date", expect_value=OPROS_START)
@@ -155,8 +154,7 @@ def run_oprosniki_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Опросник (Редактирование)")
+        m.click_button("Изменить", expect_heading="Опросник (Редактирование)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}, Описание"):
         m.input(label="Название", value=new_name)
@@ -200,8 +198,7 @@ def run_oprosniki_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотр")
-        m.expect_heading("Опросник (Просмотр)")
+        m.click_button("Просмотр", expect_heading="Опросник (Просмотр)")
 
     with allure.step("Qiymatlar: Название, Статус, Дата начала, Конец"):
         m.input(smtid="qsv_name", expect_value=name)

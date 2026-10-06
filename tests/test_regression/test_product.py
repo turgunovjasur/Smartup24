@@ -125,8 +125,7 @@ def run_product_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Товары (Редактирования)")
+        m.click_button("Изменить", expect_heading="Товары (Редактирования)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}"):
         m.input(label="Название", value=new_name)
@@ -178,8 +177,7 @@ def run_product_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Продукт (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Продукт (Просмотр)")
 
     with allure.step("Qiymatlar: Название, Статус, Производитель, Код, measure"):
         m.input(smtid="pv_main_name", expect_value=data["name"])

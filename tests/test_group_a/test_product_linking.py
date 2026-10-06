@@ -26,8 +26,7 @@ def run_product_linking(page: Page, code, product_name=None) -> str:
     with allure.step(f"'{supplier_name}' Просмотр formasini ochish"):
         m.search(supplier_name)
         m.click_grid_row(supplier_name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Поставщик (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Поставщик (Просмотр)")
 
     with allure.step("Товары → Прикрепить formasini ochish"):
         m.click_button("Товары")

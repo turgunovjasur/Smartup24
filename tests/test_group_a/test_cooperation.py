@@ -27,8 +27,7 @@ def run_cooperation(page: Page, code) -> None:
     with allure.step(f"'{supplier_name}' Просмотр formasini ochish"):
         m.search(supplier_name)
         m.click_grid_row(supplier_name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Поставщик (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Поставщик (Просмотр)")
 
     with allure.step("Поставщик view → 'Клиент' bo'limi"):
         # Рекомендованные клиенты "Клиент" BO'LIMI ichida (eski UI'да "Запросы на
@@ -94,8 +93,7 @@ def run_cooperation(page: Page, code) -> None:
     with allure.step(f"'{client_name}' Просмотр formasini ochish"):
         m.search(client_name)
         m.click_grid_row(client_name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Клиент (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Клиент (Просмотр)")
 
     with allure.step(f"Запросы поставщиков: '{supplier_name}' so'rovini tasdiqlash"):
         # DIQQAT: bu bosqich dev BACKEND 500'iga qarab yiqilishi mumkin —

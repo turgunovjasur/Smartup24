@@ -124,8 +124,7 @@ def _deactivate_agent(page: Page, m: BasePage, agent: str) -> None:
     _goto_person_users(page, m)
     m.search(agent)
     m.click_grid_row(agent)
-    m.click_button("Изменить")
-    m.expect_heading("Пользователь (Редактирования)")
+    m.click_button("Изменить", expect_heading="Пользователь (Редактирования)")
     # "Статус: Активный" label anchored mos EMAS — formadagi yagona smt-switch'ni
     # to'g'ridan-to'g'ri Неактивный (OFF) qilamiz
     m.checkbox(locator="smt-switch", checked=False)
@@ -147,8 +146,7 @@ def verify_visit_completed_web(page: Page, m: BasePage, agent: str, visit_id: st
     # ID katagini (matn) bosib qatorni tanlaymiz (exact: agent code'iga tushmasin)
     row.get_by_text(visit_id, exact=True).click()
     m.settle()
-    m.click_button("Просмотр")
-    m.expect_heading("Визит (Просмотр)")
+    m.click_button("Просмотр", expect_heading="Визит (Просмотр)")
     m.click_button("Результаты анализа")  # sub-bo'lim ochiladi
 
 

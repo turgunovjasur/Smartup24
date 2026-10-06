@@ -137,8 +137,7 @@ def run_legal_person_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Юр. Лицо (Редактирования)")
+        m.click_button("Изменить", expect_heading="Юр. Лицо (Редактирования)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}"):
         m.input(label="Юр. лица название", value=new_name)

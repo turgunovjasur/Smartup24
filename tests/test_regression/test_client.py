@@ -137,8 +137,7 @@ def run_client_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Юр. Лицо (Редактирования)")
+        m.click_button("Изменить", expect_heading="Юр. Лицо (Редактирования)")
 
     with allure.step(f"Tahrirlash: nom {old_name} → {new_name}, izoh yangilash"):
         # Edit forma ham leak'dan buziladi (Примечания→Примечание) — smtid orqali
@@ -186,8 +185,7 @@ def run_client_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Клиент (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Клиент (Просмотр)")
 
     with allure.step("Qiymatlar: Название, ИНН, Статус, Краткое название"):
         m.input(smtid="cv_main_name", expect_value=data["name"])

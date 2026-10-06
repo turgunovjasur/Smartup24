@@ -109,8 +109,7 @@ def run_user_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотреть formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотреть")
-        m.expect_heading("Пользователь (Просмотр)")
+        m.click_button("Просмотреть", expect_heading="Пользователь (Просмотр)")
 
     with allure.step("Qiymatlar: ФИО/Логин/Код/Должность/Эл. адрес/Статус view formada"):
         m.input(smtid="uv_name", expect_value=name)
@@ -148,8 +147,7 @@ def run_user_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Пользователь (Редактирования)")
+        m.click_button("Изменить", expect_heading="Пользователь (Редактирования)")
 
     with allure.step(f"Tahrirlash: ФИО {old_name} → {new_name}"):
         m.input(smtid="moderator-user-name", value=new_name)

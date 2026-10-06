@@ -136,8 +136,7 @@ def run_announcement_view(page: Page, code) -> None:
 
     with allure.step(f"'{name}' qatorini tanlab Просмотр formasini ochish"):
         m.click_grid_row(name)
-        m.click_button("Просмотр")
-        m.expect_heading("Объявление (просмотр)")
+        m.click_button("Просмотр", expect_heading="Объявление (просмотр)")
 
     with allure.step("View'da sarlavha qiymati to'g'ri ko'rinishini tekshirish"):
         # Просмотр (readonly): sarlavha readonly smt-input[smtid=av_main_title] value'sида
@@ -175,8 +174,7 @@ def run_announcement_edit(page: Page, code) -> None:
 
     with allure.step(f"'{old_name}' qatorini tanlab Изменить formasini ochish"):
         m.click_grid_row(old_name)
-        m.click_button("Изменить")
-        m.expect_heading("Объявление (изменение)")
+        m.click_button("Изменить", expect_heading="Объявление (изменение)")
 
     with allure.step(f"Tahrirlash: Титул {old_name} → {new_name}"):
         m.input(smtid="title", value=new_name)

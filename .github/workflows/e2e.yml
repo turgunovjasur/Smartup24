@@ -40,6 +40,13 @@ on:
     - cron: "12 */2 * * *"    # har 2 soatda → setup + group_a
     - cron: "12 3,15 * * *"   # har 12 soatda → regression + main + document (Toshkent 08:12 / 20:12)
 
+# Runner UTC'da, server esa Toshkent (UTC+5) sanasida ishlaydi. UTC 19:00–24:00
+# oralig'ida date.today() va brauzerdagi "bugun" Toshkentdan bir kun ORQADA
+# qolib, vizit testlari (bugungi reja / exp_client_list bo'sh) yiqilardi.
+# TZ ham Python'ga, ham Chromium'ga ta'sir qiladi.
+env:
+  TZ: Asia/Tashkent
+
 concurrency:
   group: e2e-shared-account    # ulashilgan akkaunt — overlapping run YO'Q
   cancel-in-progress: false    # boshlangan run tugasin, yangisi kutsin

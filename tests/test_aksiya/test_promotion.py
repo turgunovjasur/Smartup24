@@ -109,8 +109,7 @@ def _open_supplier_akciya(page: Page, m: BasePage, supplier_name: str) -> None:
     m.expect_heading("Поставщики")
     m.search(supplier_name)
     m.click_grid_row(supplier_name)
-    m.click_button("Просмотреть")
-    m.expect_heading("Поставщик (Просмотр)")
+    m.click_button("Просмотреть", expect_heading="Поставщик (Просмотр)")
     m.click_button("Акция")
     m.settle()
     try:
@@ -440,8 +439,7 @@ def _open_order_view(page: Page, m: BasePage, deal_id: str) -> None:
             page.wait_for_timeout(300)
         else:
             cell.click()
-        m.click_button("Просмотреть")
-        m.expect_heading("Заказ (просмотр)")
+        m.click_button("Просмотреть", expect_heading="Заказ (просмотр)")
         m.settle()
 
 
