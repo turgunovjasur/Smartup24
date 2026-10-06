@@ -63,6 +63,7 @@ class BasePage:
             return ""
         return re.sub(r"\s+", " ", text).strip()
 
+    @qa_action("«{0}» sahifasi ochilishini kutish")
     def expect_heading(self, text, *, timeout=30_000):
         """Aktiv forma sarlavhasi (title span) ``text`` ni o'z ichiga olishini kutadi."""
         expect(self.page.locator(HEADING).last).to_contain_text(text, timeout=timeout)
@@ -730,7 +731,9 @@ class BasePage:
         field.click()
         field.fill(text)
         field.press("Enter")
-        self.wait_for_loader()
+        # 1s-probe'li wait_for_loader kech chiqqan loaderni o'tkazib yuboradi — sekin
+        # CI'da grid_row ESKI ro'yxatni o'qib qolardi. Natija yuklanguncha kutamiz.
+        self._settle()
         return field
 
     def show_all(self, *, button_name="Показать все"):
@@ -850,6 +853,7 @@ class BasePage:
         except Exception:
             pass
 
+    @qa_action("«{0}» bo'limiga o'tish")
     def click_link(self, name, *, exact=True):
         """Sub-nav bo'limiga (link) o'tadi va kontent almashishini kutadi.
 
@@ -870,6 +874,7 @@ class BasePage:
         self._settle()
         return link
 
+    @qa_action("«{0}» tugmasini bosish")
     def click_button(self, name, *, exact=True, expect_heading=None):
         """Tugmani bosadi. ``expect_heading`` berilsa — shu sarlavha ochilishini kutadi;
         ochilmasa va tugma hali joyida bo'lsa (klik qator paneli qayta-render paytida
@@ -908,6 +913,7 @@ class BasePage:
         step.click()
         self._settle()
 
+    @qa_action("Yangi yozuv formasini ochish (Создать)")
     def open_create(self, *, button_name="Создать"):
         """"Создать" ni bosib create formaga o'tadi.
 

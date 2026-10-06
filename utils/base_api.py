@@ -6,6 +6,8 @@ yozish). Javobdagi har "tape" elementi ``status == 'S'`` bo'lishi shart.
 """
 from __future__ import annotations
 
+import time
+
 import requests
 
 from flows.flow_authorization import LOGIN_URL
@@ -44,11 +46,17 @@ def login_cookie(context, login: str, password: str) -> str:
         p.get_by_role("textbox", name="Введите пароль").fill(password)
         p.get_by_role("button", name="Войти").click()
         p.wait_for_url(lambda u: "/auth/login" not in u, timeout=60_000)
-        p.wait_for_timeout(1_500)
-        cookies = context.cookies()
+        # Sessiya cookie'si redirect'dan keyin ham kechikib yozilishi mumkin — ko'r-ko'rona
+        # 1.5s kutish o'rniga JSESSIONID paydo bo'lguncha (15s gacha) tekshiramiz.
+        deadline = time.monotonic() + 15
+        while True:
+            cookies = [c for c in context.cookies() if COOKIE_DOMAIN in c["domain"]]
+            if any(c["name"] == "JSESSIONID" for c in cookies) or time.monotonic() > deadline:
+                break
+            p.wait_for_timeout(300)
     finally:
         p.close()
-    return "; ".join(f"{c['name']}={c['value']}" for c in cookies if COOKIE_DOMAIN in c["domain"])
+    return "; ".join(f"{c['name']}={c['value']}" for c in cookies)
 
 
 class VisitApi:
@@ -73,14 +81,43 @@ class VisitApi:
         self.headers = {"Cookie": cookie, "Content-Type": "application/json"}
 
     # -- past daraja: POST + "tape" status tekshiruvi ------------------------------------
+    @staticmethod
+    def _code(payload) -> str:
+        """So'rov kodi (``c:exp_client_list`` ...) — xato xabarida qaysi amal yiqilgani."""
+        item = payload[0] if isinstance(payload, list) and payload else payload
+        return item.get("code", "?") if isinstance(item, dict) else "?"
+
     def _post(self, url: str, payload):
         """POST + JSON; HTTP 200 va har "tape" elementi ``status == 'S'`` ni tekshiradi.
-        Export (``exp_*``) javobi LIST (har item status), import (``imp_*``) DICT (status)."""
-        resp = requests.post(url, json=payload, headers=self.headers, timeout=60)
-        assert resp.status_code == 200, f"{url} → HTTP {resp.status_code}: {resp.text[:300]}"
-        body = resp.json()
+        Export (``exp_*``) javobi LIST (har item status), import (``imp_*``) DICT (status).
+
+        Faqat O'QISH (export) so'rovlari tarmoq uzilishi / 502-504 da 3 martagacha
+        qayta yuboriladi. Import (begin/save/end) qayta yuborilMAYDI — server
+        allaqachon bajargan bo'lsa ikkinchi visit yaratilib qolardi."""
+        code = self._code(payload)
+        attempts = 3 if url == self.export_url else 1
+        for attempt in range(1, attempts + 1):
+            try:
+                resp = requests.post(url, json=payload, headers=self.headers, timeout=60)
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                if attempt == attempts:
+                    raise AssertionError(f"API {code}: server javob bermadi ({type(exc).__name__})") from None
+                time.sleep(2 * attempt)
+                continue
+            if resp.status_code in (502, 503, 504) and attempt < attempts:
+                time.sleep(2 * attempt)
+                continue
+            break
+        assert resp.status_code == 200, f"API {code} → HTTP {resp.status_code}: {resp.text[:300]}"
+        try:
+            body = resp.json()
+        except ValueError:
+            # Sessiya tugagan bo'lsa server JSON o'rniga login/xato HTML sahifasini qaytaradi
+            raise AssertionError(
+                f"API {code}: JSON emas javob keldi (sessiya tugaganmi?): {resp.text[:200]!r}"
+            ) from None
         for it in (body if isinstance(body, list) else [body]):
-            assert it.get("status") == "S", f"{url} → status!=S: {it.get('error_text') or it}"
+            assert it.get("status") == "S", f"API {code} → status!=S: {it.get('error_text') or it}"
         return body
 
     # -- chana dict'idan maydon ajratish (test dict shakliga tegmasin) -------------------

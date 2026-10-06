@@ -1,6 +1,8 @@
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from utils.qa_report import qa_action
+
 
 def flow_menu(page, field="Название") -> None:
     """Ro'yxatning "Настройки поиска" dialogida ``field`` ustuni bo'yicha
@@ -21,6 +23,7 @@ def flow_menu(page, field="Название") -> None:
     dialog.get_by_role("button", name="Сохранить").click()
 
 
+@qa_action("Menyu: {tab} → {name}")
 def flow_navigate(page: Page, tab, name, expect_url=None) -> None:
     # Oldingi amal (odatda Сохранить) so'rovi hali tugamagan bo'lishi mumkin:
     # uning KECHIKKAN redirecti (ro'yxat YOKI dashboard) allaqachon bosilgan

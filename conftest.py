@@ -1,3 +1,4 @@
+import html
 import os
 import re
 import sys
@@ -14,7 +15,7 @@ from typing import Any, Generator
 from playwright.sync_api import sync_playwright, Browser, Page, expect
 
 from flows.flow_authorization import logout, TEST_ENV, COMPANY_CODE
-from utils.qa_report import current_step_desc, friendly_reason
+from utils.qa_report import current_step_desc, friendly_reason, reset as reset_qa_report
 
 # .env fayldan Telegram bildirishnoma sozlamalarini o'qiymiz (fayl bo'lmasa jim o'tadi)
 load_dotenv()
@@ -868,6 +869,12 @@ def pytest_collection_finish(session):
     # pin/unpin tizim shovqini + bezovta. Xabar shunchaki oxirgi bo'lib turadi.
 
 
+def pytest_runtest_setup(item):
+    """Har test boshida xato-hisobot kontekstini tozalaymiz — oldingi testning
+    yiqilgan qadami keyingisiga yuqmasin."""
+    reset_qa_report()
+
+
 def pytest_runtest_logstart(nodeid, location):
     """Har test boshlanganда joriy test nomini yangilaydi. Progress FAYLini DOIM
     yozamiz (/status har doim yangi bo'lsin), faqat Telegram tahririni throttle
@@ -1097,11 +1104,13 @@ def pytest_runtest_makereport(item, call):
         # (tushunarsiz lokator/stack o'rniga). Telegram yakuniy xabarига chiqadi.
         exc = call.excinfo.value if call.excinfo else None
         page = item.funcargs.get("session_page") or item.funcargs.get("page")
+        # Telegram HTML parse_mode — matndagi "<"/">" (selector) xabarni buzmasin.
+        step = current_step_desc(exc)          # "allure qadami › BasePage amali"
         _failure_ctx[item.nodeid] = {
-            "step": current_step_desc(),          # masalan "…'category-12343' ni tanlash"
+            "step": html.escape(step) if step else None,
             # page berilса — ko'rinib turган backend «Ошибка» dialogi ASL sabab
             # sifatida raw timeout/detach o'rniga ustun qo'yiladi.
-            "reason": friendly_reason(exc, page),
+            "reason": html.escape(friendly_reason(exc, page)),
         }
         # Page/browser allaqachon yopilgan bo'lishi mumkin (masalan, test browser
         # crash bilan yiqilsa) — bunda hook xatosi INTERNALERROR bo'lib butun
