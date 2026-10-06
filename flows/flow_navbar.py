@@ -36,6 +36,16 @@ def flow_navigate(page: Page, tab, name, expect_url=None) -> None:
     # qaytadan yuzaga keladi va app dashboard'da qolib ketadi. Menyu modullari
     # hech qachon dashboard emas — shuning uchun bosilgandan keyin NATIJANI
     # tekshiramiz: URL intro/dashboard'da qolsa, redirect yutgan — qayta bosamiz.
+    start_url = page.url
+    # Allaqachon shu modul ro'yxatida turibmiz (masalan save'dan keyin) — qayta
+    # bosilganda URL O'ZGARMAYDI, quyidagi URL-o'zgarish kutishi har safar behuda
+    # 20s timeout bo'lardi (MCP tasdiqlangan 2026-10-06). Boshqa moduldan kelsak
+    # sarlavha boshqacha — kutish saqlanadi.
+    try:
+        heading = page.locator("app-form-stack-widget span.font-semibold.truncate:visible").last
+        already_there = heading.inner_text(timeout=1_000).strip() == name
+    except Exception:
+        already_there = False
     for attempt in range(3):
         # Klik juftligi himoyalanadi: sessiya qulfi (app-session-lock) menyu
         # ochiq turganda tushsa, handler qulfni yechadi-yu, ochilgan dropdown
@@ -76,12 +86,31 @@ def flow_navigate(page: Page, tab, name, expect_url=None) -> None:
             except Exception:
                 pass
             continue
+        # Login'dan keyingi BIRINCHI navigatsiya dashboard'dan boshlanadi va sekin
+        # CI VM'da (sovuq lazy chunk + ~13k Товары) URL o'zgarishi 15s+ kechikadi.
+        # Avval URL'ni BIR ZUMDA tekshirardik → hali dashboard → "redirect yutdi"
+        # deb tabni qayta bosib, allaqachon ochilayotgan modul ustida menyuni
+        # yopib qo'yardik → 3-urinish menuitem'ni topmay 60s timeout (CI 2026-10-05:
+        # test_010 Товары, test_410 Регионы — ikkalasi 61s, screenshot'da modul
+        # OCHIQ). Endi URL dashboard'dan CHIQISHINI kutamiz; chiqmasa — qayta bosamiz.
+        try:
+            page.wait_for_url(lambda url: "intro/dashboard" not in url, timeout=30_000)
+        except Exception:
+            continue
+        # Kontent outleti (list + "Создать") URL bilan birga, title'dan KECH
+        # almashadi — URL hali OLDINGI modulda bo'lsa open_create eski ro'yxatning
+        # "Создать"ini bosadi (CI 2026-10-05: Юр.лица → Валюты, "Валюта (Создания)"
+        # o'rniga "Юр. Лицо (Создания)" ochildi). URL o'zgarishini kutamiz; shu
+        # modulning o'zi qayta bosilgan bo'lsa URL o'zgarmaydi — kutib, davom etamiz.
+        if page.url == start_url and not already_there:
+            try:
+                page.wait_for_url(lambda url: url != start_url, timeout=20_000)
+            except Exception:
+                pass
         try:
             page.wait_for_load_state("networkidle", timeout=15_000)
         except Exception:
             pass
-        if "intro/dashboard" in page.url:
-            continue
         # URL tekshiruvi o'tgan bo'lsa ham KECHIKKAN save-redirect hali otilishi
         # mumkin (client full 2026-07-18: networkidle'dan KEYIN dashboard'ga
         # uloqtirdi — oldingi tekshiruv buni ko'rmay o'tib ketgan). Qisqa grace

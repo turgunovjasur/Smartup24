@@ -113,6 +113,7 @@ class BasePage:
         "Код": ("Код", "Код сервера"),                       # OAuth2 formasi i18n leak
         "Название": ("Название", "table.name"),              # OAuth2 prod: tarjimasiz kalit
         "Юр. лица название": ("Юр. лица название", "Название"),
+        "Тип Юр. лица": ("Тип Юр. лица", "person kind"),           # tarjimasiz i18n kaliti
         "Краткое название": ("Краткое название", "Альтернативное название"),  # Продукт
         "Начало": ("Начало", "Дата начало", "Дата начала"),
         "Конец": ("Конец", "Дата окончания"),
@@ -580,8 +581,15 @@ class BasePage:
                 num_buttons = pagination.get_by_role("button", name=re.compile(r"^\d+$"))
                 advanced = False
                 for i in range(num_buttons.count()):
+                    # Sahifa bosilgach pagination qayta render bo'lib qisqarishi mumkin —
+                    # yo'qolgan tugmani 60s kutmaymiz.
+                    if i >= num_buttons.count():
+                        break
                     btn = num_buttons.nth(i)
-                    label = (btn.text_content() or "").strip()
+                    try:
+                        label = (btn.text_content(timeout=3_000) or "").strip()
+                    except PlaywrightTimeoutError:
+                        break
                     if label in seen:
                         continue
                     seen.add(label)
