@@ -1,18 +1,8 @@
-"""Web↔Mobile Visit API klienti — Postman/newman EMAS, to'g'ridan-to'g'ri ``requests``.
+"""Mobil Visit API klienti (``requests``) — UI uchun ``base_page.py`` qanday bo'lsa,
+mobil API uchun shunday: test NIMA tekshirishni aytadi, endpoint/payload shu yerda.
 
-``utils/base_page.py`` UI amallari uchun qanday umumiy qatlam bo'lsa, ``base_api.py``
-MOBIL VISIT API so'rovlari uchun shunday: test fayllar NIMA tekshirishni aytadi,
-endpoint/payload mexanikasi shu yerda turadi.
-
-Ilgari bu mantiq IKKI joyda takrorlangan edi:
-  - ``test_Plan_visit_recurrence.py`` da embedded Postman ``COLLECTION`` (newman yuritardi)
-  - ``test_agent_visit_tracking.py`` da ``requests`` bilan qayta yozilgan begin/save/end
-Payload o'zgarса ikkala fayl tuzatilishi kerak edi (bag manbai). Endi bitta manba —
-faqat shu fayl.
-
-Backend endpointlari: ``/sb/external:export`` (``exp_*`` — o'qish) va ``:import``
-(``imp_*`` — yozish). Javob "tape" formatida: har element ``status == 'S'`` bo'lishi
-shart, aks holda ``error_text`` bilan yiqiladi.
+Endpointlar: ``/sb/external:export`` (``exp_*`` — o'qish) va ``:import`` (``imp_*`` —
+yozish). Javobdagi har "tape" elementi ``status == 'S'`` bo'lishi shart.
 """
 from __future__ import annotations
 
@@ -20,12 +10,8 @@ import requests
 
 from flows.flow_authorization import LOGIN_URL
 
-# API backend URL va cookie domeni MUHITGA qarab LOGIN_URL'dan olinadi (prod/dev) —
-# qattiq kodlanmaydi (aks holda agent PROD'da yaratilib login DEV'ga borib timeout
-# berardi). BASE_URL: ".../a2/auth/login" -> ".../b" (dev'da "/x24" prefiks saqlanadi:
-# app2.greenwhite.uz/x24/b; prod: app.smartup24.com/b). COOKIE_DOMAIN: login host'ining
-# registrable domeni (oxirgi 2 label) — prod cookie'lari (smartup24.com) dev filtridan
-# (greenwhite.uz) chiqib ketmasin.
+# Muhitga (prod/dev) qarab LOGIN_URL'dan: ".../a2/auth/login" -> ".../b" (dev'da /x24
+# prefiks saqlanadi). COOKIE_DOMAIN — login host'ining oxirgi 2 labeli.
 BASE_URL = LOGIN_URL.replace("/a2/auth/login", "/b")
 COOKIE_DOMAIN = ".".join(LOGIN_URL.split("//", 1)[1].split("/", 1)[0].split(".")[-2:])
 
@@ -49,20 +35,19 @@ def login_cookie(context, login: str, password: str) -> str:
     """Berilgan Playwright ``context`` da foydalanuvchi sifatida login qilib
     "k=v; ..." cookie satrini qaytaradi (JSESSIONID HttpOnly bo'lsa ham).
 
-    Context TASHQARIDAN beriladi — ishlab turgan sync Playwright ichida ham
-    chaqirса bo'ladi (nested ``sync_playwright`` YO'Q). Agent (yoki boshqa user)
-    cookie'sini olib API'ni O'SHA foydalanuvchi nomidan chaqirish uchun ishlatiladi."""
+    Context tashqaridan beriladi (nested ``sync_playwright`` yo'q) — API'ni o'sha
+    foydalanuvchi (masalan agent) nomidan chaqirish uchun."""
     p = context.new_page()
-    # Default goto timeout 30s — dev-server sekin javob berganda login sahifasi
-    # yuklanmay broken bo'lardi; navigatsiya timeout'i (60s) beriladi.
-    p.goto(LOGIN_URL, timeout=60_000)
-    p.get_by_role("textbox", name="Логин").fill(login)
-    p.get_by_role("textbox", name="Введите пароль").fill(password)
-    p.get_by_role("button", name="Войти").click()
-    p.wait_for_url(lambda u: "/auth/login" not in u, timeout=60_000)
-    p.wait_for_timeout(1_500)
-    cookies = context.cookies()
-    p.close()
+    try:
+        p.goto(LOGIN_URL, timeout=60_000)   # dev-server sekin — default 30s yetmaydi
+        p.get_by_role("textbox", name="Логин").fill(login)
+        p.get_by_role("textbox", name="Введите пароль").fill(password)
+        p.get_by_role("button", name="Войти").click()
+        p.wait_for_url(lambda u: "/auth/login" not in u, timeout=60_000)
+        p.wait_for_timeout(1_500)
+        cookies = context.cookies()
+    finally:
+        p.close()
     return "; ".join(f"{c['name']}={c['value']}" for c in cookies if COOKIE_DOMAIN in c["domain"])
 
 
@@ -150,8 +135,8 @@ class VisitApi:
     def end(self, person_id, visit_id, legal_form_id=None) -> None:
         """Visitni yakunlaydi (``c:imp_visit_end``) — visit ``C`` holatiga o'tadi.
 
-        ``step_ids`` BO'SH yuboriladi: exp_client_list'даги GLOBAL visit_steps
-        step_id'lari prod'да sbmv_steps FK'ida bo'lmasligi mumkin (ORA-20999 parent
+        ``step_ids`` BO'SH yuboriladi: exp_client_list'dagi GLOBAL visit_steps
+        step_id'lari prod'da sbmv_steps FK'ida bo'lmasligi mumkin (ORA-20999 parent
         key not found) — step visit yakunlash uchun MAJBURIY emas."""
         self._post(self.import_url, {"code": "c:imp_visit_end", "data": {
             "person_id": int(person_id), "visit_id": visit_id, "end_latlng": END_LATLNG,

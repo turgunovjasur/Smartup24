@@ -1,43 +1,29 @@
-"""Biznes tilида xato hisoboti (TZ formati) — qa_step context manager.
+"""Biznes tilida xato hisoboti — test yiqilganda Playwright stack trace o'rniga
+INSON tushunadigan tavsif Telegram/Allure'ga chiqadi (conftest o'qiydi).
 
-Maqsad: test yiqilganда tushunarsiz Playwright lokator/stack trace o'rniga
-INSON tushunadigan tavsif Telegram'ga chiqsin. Riskli amalni ``qa_step`` bilan
-o'raysiz; ichida xato bo'lsa, tavsif conftest orqali Telegram xatolik xabariga
-uzatiladi (skrinshot bilan birga).
-
-Namuna (test ichida):
     from utils.qa_report import qa_step
 
-    with qa_step(f"Yaratilgan ro'yxatдан '{name}' ni tanlash"):
+    with qa_step(f"Ro'yxatdan '{name}' ni tanlash"):
         m.grid_row(name)          # topilmasa -> "…'{name}' ni tanlash — bajarilmadi"
 
-Ichma-ich ham bo'ladi (eng ichkisi ko'rsatiladi):
-    with qa_step("Kategoriya biriktirish"):
-        with qa_step(f"'{cat}' ni ro'yxatdan tanlash"):
-            m.select(cat, label="Категории")
-
-Test KETMA-KET ishlaydi (session_page, bitta jarayon), shuning uchun bitta global
-holat yetarli — thread/parallel murakkabligi yo'q.
+Ichma-ich bo'lsa eng ichkisi ko'rsatiladi. Testlar ketma-ket (bitta jarayon)
+ishlagani uchun bitta global stek yetarli.
 """
 import functools
 from contextlib import contextmanager
 
-# Joriy biznes-qadam tavsiflari steki (ichma-ich qadamlar uchun)
 _stack: list[str] = []
 
 
 def current_step_desc() -> str | None:
-    """Ayni ishlayotган (eng ichki) biznes-qadam tavsifi — conftest makereport
-    xato bo'lganда shuni o'qib, Telegram'ga uzatadi. Qadam yo'q bo'lsa None."""
+    """Joriy (eng ichki) biznes-qadam tavsifi; qadam yo'q bo'lsa None."""
     return _stack[-1] if _stack else None
 
 
 @contextmanager
 def qa_step(description: str):
-    """Biznes tilидаги qadam. Ichидаги istalgan xato (Playwright timeout, assert,
-    va h.k.) yuz berса, conftest shu ``description`` ni xato hisobotiga qo'yadi.
-    Xatoning O'ZINI YUTMAYDI — test baribir yiqiladi (stack trace Allure/log'da
-    qoladi), faqat Telegram'ga TUSHUNARLI tavsif ham qo'shiladi."""
+    """Biznes qadam. Ichidagi xatoni YUTMAYDI — test baribir yiqiladi, faqat
+    hisobotga tushunarli tavsif qo'shiladi."""
     _stack.append(description)
     try:
         yield
@@ -46,21 +32,16 @@ def qa_step(description: str):
 
 
 def qa_action(template: str):
-    """DEKORATOR — BasePage metodini biznes tavsif bilan o'raydi (metod mantig'iga
-    TEGMAYDI). ``template`` — metod argumentlaridan to'ldiriladigan format:
-    ``{0}`` = 1-foydali argument (self'дан keyingi). To'ldirib bo'lmasa (argument
-    kwarg bilan berilса) template o'zi ishlatiladi.
+    """Dekorator — BasePage metodini ``qa_step`` bilan o'raydi. ``{0}`` = self'dan
+    keyingi 1-argument; to'ldirib bo'lmasa template o'zi ishlatiladi.
 
-    Namuna:
-        @qa_action("Ro'yxatдан «{0}» ni topish")
+        @qa_action("Ro'yxatdan «{0}» ni topish")
         def grid_row(self, text, ...): ...
-    -> grid_row yiqilса Telegram'да: "↳ Ro'yxatдан «field-group-123» ni topish —
-       element vaqtida topilmadi"
     """
     def deco(method):
         @functools.wraps(method)
         def wrapper(*args, **kwargs):
-            try:                      # args[0]=self; foydali argumentlar args[1:]
+            try:
                 desc = template.format(*args[1:], **kwargs)
             except Exception:
                 desc = template
@@ -71,12 +52,11 @@ def qa_action(template: str):
 
 
 def visible_error_dialog_text(page) -> str | None:
-    """Ko'rinib turган backend «Ошибка» dialogi matnini qaytaradi (yo'q bo'lsa None).
+    """Ko'rinib turgan backend «Ошибка» dialogi matni (yo'q bo'lsa None).
 
-    Save/navigatsiya KUTILMAGANDA yiqilганда asl server sababi (``dup_val_on_index``,
-    ``paid_delivery not found``, ``number precision too large`` ...) ko'pincha
-    dialogда turadi, lekin test buni bilmay 2 qadam keyin "element topilmadi" bilan
-    yiqiladi. Shu matnni ushlab, generic timeout o'rniga ASL sababни ko'rsatamiz."""
+    Asl server sababi (``dup_val_on_index``, ``number precision too large`` ...)
+    ko'pincha shu dialogda turadi, test esa 2 qadam keyin "element topilmadi"
+    bilan yiqiladi — shu matn bilan ASL sabab ko'rsatiladi."""
     try:
         dialog = page.get_by_role("dialog").filter(has_text="Ошибка").first
         if dialog.count() and dialog.is_visible():
@@ -87,11 +67,8 @@ def visible_error_dialog_text(page) -> str | None:
 
 
 def friendly_reason(exc: BaseException | None, page=None) -> str:
-    """Xato turini biznes tilига o'giradi (lokator/stack o'rniga qisqa sabab).
-
-    ``page`` berilса, ko'rinib turган backend «Ошибка» dialogi ASL sabab sifatida
-    ustun qo'yiladi — timeout/detach kabi hosila simptomlar o'rniga (masalan
-    dublikat/precision/backend 500 xatolari to'g'ridan-to'g'ri ko'rinadi)."""
+    """Xatoni qisqa biznes sababga o'giradi; ``page`` berilsa ochiq «Ошибка»
+    dialogi ustun qo'yiladi."""
     if page is not None:
         err = visible_error_dialog_text(page)
         if err:
@@ -101,8 +78,7 @@ def friendly_reason(exc: BaseException | None, page=None) -> str:
     name = type(exc).__name__
     text = str(exc)
     if name == "AssertionError":
-        # Boyitilган (grid_row/save/_click_option) yoki expect(...) xatosi — birinchi
-        # qatori tushunarli sarlavha bo'ladi, shuni qoldiramiz.
+        # BasePage boyitilgan xabarlarining 1-qatori tushunarli sarlavha
         first = text.strip().splitlines()[0] if text.strip() else ""
         return first[:160] if first else "tekshiruv o'tmadi"
     if "Timeout" in name or "timeout" in text.lower():
