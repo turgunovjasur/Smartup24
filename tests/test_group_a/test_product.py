@@ -27,7 +27,7 @@ def pick_manufacturer(page: Page) -> str:
     return re.search(r"Manufacturer-\S+", row.inner_text()).group(0)
 
 
-def run_product(page: Page, code, manufacturer=None, industry=None, category=None) -> str:
+def run_product(page: Page, code, manufacturer=None, industry=None, category=None, name=None) -> str:
     """Group A: yangi Продукт yaratadi — run_product_linking shu tovarni
     supplier'ga biriktira oladi. Yaratilgan tovar nomini qaytaradi.
 
@@ -35,7 +35,7 @@ def run_product(page: Page, code, manufacturer=None, industry=None, category=Non
     Manufacturer-*/Industry-*/Category-* olinadi; 0 bazada test_all ularni
     avval o'zi yaratib, aniq nomlarini uzatadi."""
     m = BasePage(page)
-    name = f"product-{code}"
+    name = name or f"product-{code}"   # ixtiyoriy aniq nom (sbr S-05.1.2: "Sut 1L-{code}")
     if manufacturer is None:
         manufacturer = pick_manufacturer(page)
 

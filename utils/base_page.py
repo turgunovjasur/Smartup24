@@ -254,9 +254,16 @@ class BasePage:
         tag_name = select.evaluate("el => el.tagName.toLowerCase()")
 
         if tag_name == "smt-tree-select":
-            select.locator("smt-select-trigger").first.click()
+            opener = select.locator("smt-select-trigger").first
             trigger = self.page.locator(f'{self._TREE_PANEL} input[placeholder="Поиск..."]').last
-            expect(trigger).to_be_visible()
+            opener.click()
+            try:
+                expect(trigger).to_be_visible(timeout=5_000)
+            except AssertionError:
+                # Multi panel Escape bilan yopilgach keyingi 1-klik ba'zan yutiladi,
+                # 2-klik ochadi (MCP tasdiqlangan 2026-10-15, supplier "Регион").
+                opener.click()
+                expect(trigger).to_be_visible()
             return select, trigger, tag_name
 
         if tag_name == "smt-select":
@@ -358,6 +365,29 @@ class BasePage:
             msg += f"\n  • OCHIQ Ошибка dialogi: {err}"
         return msg
 
+    def _fill_multi_filter(self, trigger, query, timeout=5_000):
+        """smt-multi-data-select filtriga ``query`` yozadi va SERVER filtr javobini kutadi.
+
+        Filtr so'rovi (~300 ms debounce, POST tanasida ``%query%``) javobidan OLDIN
+        filtrlanmagan ro'yxatdagi variant bosilsa, javob menyuni qayta chizib tanlovni
+        yo'qotadi — chip qo'shilmaydi, menyu bo'sh qoladi ("Роли" 4 dan 2, "Торговые
+        точки" — filtrsiz ro'yxat ham bitta mos variant, shuning uchun variant matniga
+        qarab kutish YETMAYDI; MCP tasdiqlangan 2026-10-14). Kutish yiqitmaydi."""
+        try:
+            with self.page.expect_response(
+                lambda r: r.request.method == "POST" and query in (r.request.post_data or ""),
+                timeout=timeout,
+            ):
+                trigger.fill(query)
+        except PlaywrightTimeoutError:
+            logger.warning("Multi-select filtri «%s» javobi %s ms ichida kelmadi", query, timeout)
+        items = self.page.locator(".cdk-overlay-container [role=menuitemcheckbox]")
+        q = re.compile(re.escape(query), re.IGNORECASE)
+        try:
+            expect(items.filter(has_not_text=q)).to_have_count(0, timeout=timeout)
+        except AssertionError:
+            logger.warning("Multi-select menyusida «%s» siz variantlar qoldi", query)
+
     @qa_action("«{0}» ni ro'yxatdan tanlash")
     def select(
         self,
@@ -388,7 +418,10 @@ class BasePage:
             last = attempt == attempts - 1
             if query and trigger is not None:
                 trigger.fill("")
-                trigger.fill(query)
+                if tag_name == "smt-multi-data-select":
+                    self._fill_multi_filter(trigger, query)
+                else:
+                    trigger.fill(query)
             try:
                 self._click_option(option_text, exact=exact,
                                    timeout=timeout if last else 8_000)
@@ -417,6 +450,11 @@ class BasePage:
                 try:
                     expect(select).to_contain_text(pattern, timeout=10_000)
                 except AssertionError:
+                    # Klik menyuni yopib yuborgan bo'ladi — qayta ochib, filtrni qayta yozamiz
+                    _, trigger, _ = self._open_select(label=label, smtid=smtid, index=index, root=root)
+                    if query:
+                        trigger.fill("")   # bir xil matn qayta yozilsa filtr so'rovi ketmaydi
+                        self._fill_multi_filter(trigger, query)
                     self._click_option(option_text, exact=exact, timeout=timeout)
                     expect(select).to_contain_text(pattern, timeout=timeout)
             else:
@@ -967,7 +1005,15 @@ class BasePage:
         except AssertionError:
             pass
         if button.count() and button.is_visible() and button.is_enabled():
-            self.click_button(button_name, exact=exact)
+            # Sekin save: loader ikkinchi klikni to'sib, so'ng forma yopilib tugma DOM'dan
+            # ketishi mumkin (2026-10-14, user formasi) — qisqa timeout, xato yutiladi;
+            # saqlanganmi-yo'qmi degan qarorni pastdagi to_be_hidden(30s) qiladi.
+            self.wait_for_loader()
+            try:
+                if button.is_visible() and button.is_enabled():
+                    button.click(timeout=5_000)
+            except PlaywrightTimeoutError:
+                pass
             self.wait_for_loader()
         # Forma yopilishi SHART — aks holda saqlanmagan yozuv keyinroq chalg'ituvchi
         # "Нет результатов" bo'lib chiqadi. 30s: sekin server save'i ulgursin.

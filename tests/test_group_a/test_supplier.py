@@ -25,7 +25,7 @@ def pick_region(page: Page) -> str:
     return re.search(r"Region-\S+", row.inner_text()).group(0)
 
 
-def run_supplier(page: Page, code, region=None, ownership=None, industry=None) -> None:
+def run_supplier(page: Page, code, region=None, ownership=None, industry=None, extra_regions=()) -> None:
     """Group A: yangi Поставщик yaratadi — keyingi group A testlari shunga tayanadi.
 
     ``region``/``ownership``/``industry`` berilmasa bazadagi mavjud yozuvlar
@@ -54,6 +54,12 @@ def run_supplier(page: Page, code, region=None, ownership=None, industry=None) -
         m.select(ownership or "MCHJ-1", label="Форма собственности")
         m.radio("Поставщик", label="Тип Юр. лица")
         m.select(region, label="Регион")
+        # "Регион" — multi smt-tree-select (MCP 2026-10-14): qo'shimcha regionlar
+        # (sbr S-05.1.2: ikki regiondagi mijozlar bilan hamkorlik uchun). 2+ tanlovda
+        # trigger nom emas "N выбрано" ko'rsatadi (MCP 2026-10-15) — tanlov saqlangandan
+        # keyin ro'yxat qatorida (Регионы ustuni) tekshiriladi.
+        for extra in extra_regions:
+            m.select(extra, label="Регион", expect_selected=False)
 
     with allure.step(f"Характеристика товаров: Отрасль = {industry or 'birinchi Industry-*'}"):
         m.click_button("Характеристика товаров")
@@ -68,7 +74,7 @@ def run_supplier(page: Page, code, region=None, ownership=None, industry=None) -
 
     with allure.step(f"Qidiruv va ro'yxatda '{name}' tekshirish"):
         m.search(name)
-        m.grid_row(name)
+        m.grid_row(name, *extra_regions)
 
 
 @allure.epic("Модератор")

@@ -9,7 +9,7 @@ from flows.flow_navbar import flow_navigate
 from utils.base_page import BasePage
 
 
-def run_cooperation(page: Page, code) -> None:
+def run_cooperation(page: Page, code, supplier_name=None, client_name=None) -> None:
     """Group A: supplier-{code} dan client-{code} ga hamkorlik so'rovi yuboradi
     va klient tomonида uni tasdiqlaydi (run_supplier va run_client dan keyin).
 
@@ -17,8 +17,9 @@ def run_cooperation(page: Page, code) -> None:
     bir xil Регион va Отрасль bo'lishi kerak (run_supplier/run_client shuni
     ta'minlaydi — ikkalasi ham birinchi Region-*/Industry-* ni tanlaydi)."""
     m = BasePage(page)
-    supplier_name = f"supplier-{code}"
-    client_name = f"client-{code}"
+    # Ixtiyoriy aniq nomlar: bitta supplier + bir nechta klient (sbr S-05.1.2)
+    supplier_name = supplier_name or f"supplier-{code}"
+    client_name = client_name or f"client-{code}"
 
     with allure.step("Навигация: Модератор → Поставщики"):
         flow_navigate(page, tab="Модератор", name="Поставщики")
@@ -100,8 +101,28 @@ def run_cooperation(page: Page, code) -> None:
         # request_list:supplier_requests "FAZO_QUERY: Field not found
         # [supplier_pinfl]" qaytaradi (2026-08-26 trace). Bu test kodidan
         # tuzatib bo'lmaydi; runner'da test_214 shu sabab xfail belgilangan.
-        m.click_button("Запросы на сотрудничество")
-        m.click_button("Запросы поставщиков")
+        # Tablar settle'siz ketma-ket bosilsa grid "Нет результатов" bo'lib qoladi,
+        # garchi so'rov serverda saqlangan bo'lsa ham (S-05.1.2 E2E HEADLESS, 2026-10-15,
+        # bug-investigator: request_list:supplier_requests count:1). Рекомендованные
+        # bosqichidagi kabi: har tabdan keyin settle, qatorni sabr bilan kutamiz;
+        # chiqmasa BIR marta reload + tablarni qayta ochib urinamiz.
+        request_row = page.locator(".smt-data-row").filter(has_text=supplier_name).first
+
+        def _open_supplier_requests() -> None:
+            m.click_button("Запросы на сотрудничество")
+            m.settle()
+            m.click_button("Запросы поставщиков")
+            m.settle()
+
+        _open_supplier_requests()
+        try:
+            expect(request_row).to_be_visible(timeout=20_000)
+        except AssertionError:
+            page.reload()
+            m.expect_heading("Клиент (Просмотр)")
+            m.settle()
+            _open_supplier_requests()
+            expect(request_row).to_be_visible(timeout=20_000)
         m.click_grid_row(supplier_name)
         m.click_button("Подтвердить")
         m.confirm("да")

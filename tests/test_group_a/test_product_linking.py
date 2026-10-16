@@ -30,13 +30,19 @@ def run_product_linking(page: Page, code, product_name=None) -> str:
 
     with allure.step("Товары → Прикрепить formasini ochish"):
         m.click_button("Товары")
+        # "Товары" tab kontenti qayta chizilguncha kutamiz — aks holda klik eski
+        # (yo'qolayotgan) tugmaga tushib yutiladi (2026-10-14). Qayta bosish YO'Q:
+        # sekin DEV'da 1-klik ishlab, sarlavha kech chiqqanda qayta klik keyingi
+        # sahifadagi qator "Прикрепить"iga tushgan (2026-10-15).
+        m.settle()
         m.click_button("Прикрепить")
-        m.expect_heading(f"Поставщик:{supplier_name}")
+        m.expect_heading(f"Поставщик:{supplier_name}", timeout=60_000)
 
     with allure.step(f"Доступные ro'yxatidan tovarni biriktirish ({product_name or 'birinchi product-*'})"):
         m.search(product_name or "product-")
         row = m.grid_row(product_name or "product-")
-        product_name = re.search(r"product-\S+", row.inner_text()).group(0)
+        if product_name is None:
+            product_name = re.search(r"product-\S+", row.inner_text()).group(0)
         # Qator ichidagi ikonka tugma — aria-label="Прикрепить"
         row.get_by_role("button", name="Прикрепить").click()
 
