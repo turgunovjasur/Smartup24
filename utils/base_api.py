@@ -6,6 +6,7 @@ yozish). Javobdagi har "tape" elementi ``status == 'S'`` bo'lishi shart.
 """
 from __future__ import annotations
 
+import re
 import time
 
 import requests
@@ -43,7 +44,8 @@ def login_cookie(context, login: str, password: str) -> str:
     try:
         p.goto(LOGIN_URL, timeout=60_000)   # dev-server sekin — default 30s yetmaydi
         p.get_by_role("textbox", name="Логин").fill(login)
-        p.get_by_role("textbox", name="Введите пароль").fill(password)
+        # Parol maydoni: eski "Введите пароль", 2026-10-14 deploy'dan "Пароль"
+        p.get_by_role("textbox", name=re.compile(r"^(Введите пароль|Пароль)$")).fill(password)
         p.get_by_role("button", name="Войти").click()
         p.wait_for_url(lambda u: "/auth/login" not in u, timeout=60_000)
         # Sessiya cookie'si redirect'dan keyin ham kechikib yozilishi mumkin — ko'r-ko'rona

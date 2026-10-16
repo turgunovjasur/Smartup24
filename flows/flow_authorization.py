@@ -1,4 +1,5 @@
 import os
+import re
 
 from playwright.sync_api import Page, expect
 
@@ -39,7 +40,9 @@ def authorization(page: Page, email=None, password=None) -> None:
         password = TEST_PASSWORD
     page.goto(LOGIN_URL)
     page.get_by_role("textbox", name="Логин").fill(email)
-    page.get_by_role("textbox", name="Введите пароль").fill(password)
+    # Parol maydoni nomi deploy'ga qarab: eski "Введите пароль", 2026-10-14 dan
+    # "Пароль" (placeholder, id=password) — ikkalasi qabul qilinadi (MCP tasdiqlangan 2026-10-14).
+    page.get_by_role("textbox", name=re.compile(r"^(Введите пароль|Пароль)$")).fill(password)
     page.get_by_role("button", name="Войти").click()
     page.wait_for_url(lambda url: "/auth/login" not in url, timeout=60_000)
     expect(page.locator("app-user-dropdown")).to_be_visible(timeout=60_000)
