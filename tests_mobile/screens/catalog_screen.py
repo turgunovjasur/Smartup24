@@ -6,8 +6,10 @@ Bir xil tugma ko'p joyda bor (har supplierda "Показать каталог", 
 """
 from __future__ import annotations
 
+import re
 import time
 
+import allure
 from selenium.webdriver.support.ui import WebDriverWait
 
 from tests_mobile.screens.base_screen import BaseScreen, contains, desc, xpath
@@ -36,6 +38,17 @@ ANY_PRODUCT = xpath(f"//*[contains(@content-desc, '{ADD_TO_CART}') or @content-d
 OTHER_SUPPLIERS = desc("Другие поставщики")
 CHANGE_SUPPLIER_SHEET = desc("Изменить поставщика")
 SHEET_CANCEL = desc("Отменить")
+# Qoldiq (stock_quantity) — faqat supplier «Кому показывать остатки» ro'yxatidagi mijozga
+# (emulyatorda tasdiqlangan 2026-10-19; bo'shliqlar oddiy probel):
+#   karta desc 1-qatori "2 000 000 кг\nНовинка\n<nom>\n\n<narx> сум/кг\n<supplier>";
+#   tovar sahifasida alohida element "В наличии: 2 000 000 кг". Ruxsatsiz mijozda ikkalasi YO'Q.
+STOCK_ON_PAGE = xpath("//*[starts-with(@content-desc, 'В наличии:')]")
+_QTY = re.compile(r"^(\d[\d ]*)\s+\S+$")      # "2 000 000 кг"
+
+
+def _qty(text: str) -> int | None:
+    m = _QTY.match(text.strip())
+    return int(m.group(1).replace(" ", "")) if m else None
 
 
 class CatalogScreen(BaseScreen):
@@ -112,12 +125,40 @@ class CatalogScreen(BaseScreen):
                 self.scroll_down()
         return False
 
+    def _card(self, product: str):
+        """Yuklangan ro'yxatdagi tovar KARTASI elementi ("В корзину" tugmasi emas)."""
+        return self.wait_for(xpath(f"//*[contains(@content-desc, '{product}') and contains(@content-desc, 'сум')"
+                                   f" and not(contains(@content-desc, '{ADD_TO_CART}'))]"),
+                             error=f"'{product}' kartasi topilmadi")
+
+    def card_stock(self, product: str) -> int | None:
+        """Kartadagi qoldiq (desc'da tovar nomidan OLDINGI "2 000 000 кг" qatori);
+        qoldiq ko'rsatilmasa None. Karta o'zi yuklangan — soxta "yo'q" bo'lmaydi."""
+        raw = self._card(product).get_attribute("content-desc") or ""
+        allure.attach(raw, name=f"karta desc: {product}", attachment_type=allure.attachment_type.TEXT)
+        lines = raw.split("\n")
+        # Format o'zgarsa jim None (soxta "qoldiq yo'q") bo'lmasin — yiqilamiz
+        assert product in lines, f"Karta desc kutilgan formatda emas (nom alohida qator emas): {raw!r}"
+        head = [ln for ln in lines[:lines.index(product)] if ln.strip() and ln.strip() != "Новинка"]
+        qtys = [_qty(ln) for ln in head]
+        assert None not in qtys and len(qtys) <= 1, f"Karta desc'ida nomdan oldin noma'lum qator: {raw!r}"
+        return qtys[0] if qtys else None
+
+    def page_stock(self, timeout: float = 5) -> int | None:
+        """Tovar sahifasida (open_product'dan keyin) "В наличии: N <birlik>"; yo'q bo'lsa None.
+        Element narx bilan bir modeldan chiziladi — sahifa ochilgach ``timeout`` ichida
+        chiqmasa, yo'q deb hisoblanadi."""
+        if not self.exists(STOCK_ON_PAGE, timeout=timeout):
+            return None
+        text = self.driver.find_element(*STOCK_ON_PAGE).get_attribute("content-desc") or ""
+        qty = _qty(text.split(":", 1)[1])
+        assert qty is not None, f"Qoldiq yozuvi kutilmagan formatda: {text!r}"
+        return qty
+
     def open_product(self, product: str) -> None:
         """Yuklangan kategoriya ro'yxatida tovar KARTASINI ("В корзину" emas) bosib,
         tovar sahifasini ochadi (karta desc: "Новинка | <nom> | | <narx> сум/кг | <supplier>")."""
-        card = self.wait_for(xpath(f"//*[contains(@content-desc, '{product}') and contains(@content-desc, 'сум')"
-                                   f" and not(contains(@content-desc, '{ADD_TO_CART}'))]"),
-                             error=f"'{product}' kartasi topilmadi")
+        card = self._card(product)
         # Karta elementi bounds'i butun qator kengligida, karta esa 2 ustunli setkada chap
         # yoki o'ng yarmida — markazga bosish bo'sh joyga tushadi (2026-10-16). Kartaning
         # rasm qismiga (chap-yuqori chorak) aniq nuqta bilan bosamiz.

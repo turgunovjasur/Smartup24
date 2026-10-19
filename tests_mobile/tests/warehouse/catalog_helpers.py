@@ -5,14 +5,19 @@ o'qish, katalog guruhining umumiy seed'i va har keys boshidagi web holat.
   «Категории» tabi umuman yo'q (tablar yuklangan) / kategoriya yo'q / ro'yxat yuklangan
   (tovar kartalari yoki «Ничего не найдено!»).
 """
+import re
+
 import allure
+from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import COMPANY_CODE, authorization
+from flows.flow_navbar import flow_navigate
 from tests.sbr.supplier.warehouse.warehouse_helpers import (
     SAM_CODE, SAM_NAME, TSH_CODE, TSH_NAME,
-    create_child_region, create_warehouse, login_supplier_user, set_binds, set_in_stock,
+    create_child_region, create_warehouse, login_admin, login_supplier_user, set_binds, set_in_stock,
     set_warehouse_regions,
 )
+from utils.base_page import BasePage
 from tests.test_group_a.test_client import run_client
 from tests.test_group_a.test_client_user import run_client_user
 from tests.test_group_a.test_cooperation import run_cooperation
@@ -24,6 +29,7 @@ from tests.test_setup.test_manufacturer import run_manufacturer
 from tests.test_setup.test_region import run_region
 from tests.test_setup.test_supplier import ensure_refs
 from tests_mobile.config import WEB_USER_PASSWORD
+from tests_mobile.screens.cart_screen import CartScreen
 from tests_mobile.screens.catalog_screen import CatalogScreen
 from tests_mobile.screens.login_screen import LoginScreen
 
@@ -55,6 +61,28 @@ def catalog_view(driver, client_code, supplier, category, products) -> dict:
         state = "tovar kartalari"
         view = {p: cs.has_product(p) for p in products}
     allure.attach(f"client_user-{client_code}: {state}; {view}", name=f"katalog client-{client_code}",
+                  attachment_type=allure.attachment_type.TEXT)
+    return view
+
+
+def stock_view(driver, client_code, supplier, category, product) -> dict:
+    """Mobil: ``product`` qoldig'i — kartada ("list"), tovar sahifasida ("info") va savat
+    qatorida ("basket"); ko'rsatilmasa None (0 emas). Savat oxirida bo'shatiladi."""
+    mobile_login(driver, client_code)
+    cs, cart = CatalogScreen(driver), CartScreen(driver)
+    cart.clear()                     # oldingi run qoldig'i savat qatorini chalg'itmasin
+    try:
+        cs.open_supplier(supplier)
+        assert cs.open_category_listing(category), f"{category} bo'sh — shart bajarilmagan"
+        view = {"list": cs.card_stock(product)}
+        cs.add_to_cart(product)
+        cs.open_product(product)
+        view["info"] = cs.page_stock()
+        cart.open()
+        view["basket"] = cart.row_stock(product)
+    finally:
+        cart.clear()
+    allure.attach(f"client_user-{client_code}: {product} qoldig'i {view}", name=f"qoldiq client-{client_code}",
                   attachment_type=allure.attachment_type.TEXT)
     return view
 
@@ -124,3 +152,67 @@ def set_catalog_state(page, d, *, binds: dict, stock: dict, regions: dict | None
         set_binds(page, binds, catalog_products(d))
         for product, want in stock.items():
             set_in_stock(page, product, want)
+
+
+# ── «Кому показывать остатки» (Модератор → Поставщик → Настройки → Основное) ─────────────
+# DEV DOM (probe 2026-10-19): label «Кому показывать остатки» → ``smt-control`` ichida
+# ``smt-multi-data-select`` (smtid YO'Q; smtkeyfield=person_id), filtr input placeholder «Поиск»,
+# variantlar ``[role=menuitemcheckbox]``; tanlangan mijoz ``smt-tag`` chipi, olib tashlash
+# ``button[aria-label="Remove this tag"]``. «Сохранить» formani YOPMAYDI (view'da qoladi) —
+# saqlash ``supplier/setting$save_setting`` POST 200 bilan tasdiqlanadi.
+STOCK_VISIBLE_LABEL = "Кому показывать остатки"
+
+
+def _stock_visible_field(page: Page):
+    label = page.locator("label").filter(has_text=re.compile(rf"^\s*{STOCK_VISIBLE_LABEL}\s*$"))
+    return page.locator("smt-control").filter(has=label).last
+
+
+def _open_supplier_settings(page: Page, supplier) -> BasePage:
+    """Модератор → Поставщики → supplier → Просмотреть → Настройки → Основное (model yuklangach)."""
+    m = BasePage(page)
+    flow_navigate(page, tab="Модератор", name="Поставщики")
+    m.expect_heading("Поставщики")
+    m.search(supplier)
+    m.click_grid_row(supplier)
+    m.click_button("Просмотреть", expect_heading="Поставщик (Просмотр)")
+    # Chiplar setting:model javobidan keyin chiziladi — javobni kutmasak bo'sh ro'yxat o'qiladi
+    with page.expect_response(lambda r: "supplier/setting:model" in r.url):
+        m.click_button("Настройки")
+    m.settle()
+    page.get_by_role("button", name="Основное", exact=True).last.click()
+    m.settle()
+    expect(_stock_visible_field(page)).to_be_visible()
+    return m
+
+
+def _stock_visible_names(page: Page) -> set:
+    return {t.strip() for t in _stock_visible_field(page).locator("smt-tag").all_inner_texts()}
+
+
+def set_stock_visible(page: Page, supplier, clients) -> None:
+    """Admin: supplier «Кому показывать остатки» ro'yxatini aynan ``clients`` (mijoz nomlari)
+    ga keltiradi, saqlaydi va qayta ochib tekshiradi."""
+    want = set(clients)
+    with allure.step(f"Admin: {supplier} → Настройки → Основное → «{STOCK_VISIBLE_LABEL}» = {sorted(want) or 'bo‘sh'}"):
+        login_admin(page)
+        m = _open_supplier_settings(page, supplier)
+        have = _stock_visible_names(page)
+        if have != want:
+            field = _stock_visible_field(page)
+            for name in sorted(have - want):
+                tag = field.locator("smt-tag").filter(has_text=re.compile(rf"^\s*{re.escape(name)}\s*$"))
+                tag.get_by_role("button", name="Remove this tag").click()
+                expect(tag).to_have_count(0)
+            for name in sorted(want - have):
+                m.select(name, label=STOCK_VISIBLE_LABEL)
+            with page.expect_response(lambda r: "supplier/setting$save_setting" in r.url) as resp:
+                m.click_button("Сохранить")
+            assert resp.value.status == 200, \
+                f"setting$save_setting → HTTP {resp.value.status}: {resp.value.text()[:300]}"
+            m.wait_for_loader()
+            _open_supplier_settings(page, supplier)
+        tags = _stock_visible_field(page).locator("smt-tag")
+        expect(tags).to_have_count(len(want))
+        for name in want:
+            expect(tags.filter(has_text=name)).to_have_count(1)

@@ -1,4 +1,4 @@
-"""S-05 mobil katalog (c:exp_product_list): 4.1, 2.2 (mobil), 4.2, 3.1 (mobil), 3.3, 4.3.
+"""S-05 mobil katalog (c:exp_product_list): 4.1, 2.2 (mobil), 4.2, 3.1 (mobil), 3.3, 4.3, 4.4.
 Web zakaz katalogi ombor regionini filtrlamaydi — katalog MOBILDA tekshiriladi.
 Har test boshida kerakli holat (ombor regionlari, bog'lanishlar, «В наличие») o'rnatiladi —
 oldingi test yiqilsa ham keyingisi mustaqil. Seed: conftest.py (``S05_MOBILE_SEED``).
@@ -15,7 +15,8 @@ from tests.sbr.supplier.warehouse.warehouse_helpers import (
 )
 from tests_mobile.screens.catalog_screen import CatalogScreen
 from tests_mobile.tests.warehouse.catalog_helpers import (
-    catalog_products, catalog_view, expect_in_view, mobile_login, set_catalog_state,
+    catalog_products, catalog_view, expect_in_view, mobile_login, set_catalog_state, set_stock_visible,
+    stock_view,
 )
 
 pytestmark = [pytest.mark.mobile, allure.epic("Supplier"), allure.feature("S-05 Склады")]
@@ -148,3 +149,48 @@ def test_product_suppliers_listed_once(session_page: Page, driver, catalog_seed)
     with allure.step("Kutilgan: Alfa bir marta"):
         with known_bug(REASON_SUPPLIER_DUP):
             assert count == 1, f"{d['supplier']} «Изменить поставщика» ro'yxatida {count} marta"
+
+
+@allure.id("S-05.4.4")
+@allure.story("stock_quantity — faqat ruxsat etilgan mijozga, barcha omborlar yig'indisi")
+@allure.title("S-05.4.4 — Qoldiq faqat ruxsat etilgan mijozga, barcha omborlar yig'indisi")
+@allure.tag("effect", "access")
+def test_stock_visible_only_to_allowed_client(session_page: Page, driver, catalog_seed) -> None:
+    """Sut Toshkent va Samarqand omborlarida «В наличие»; «Кому показывать остатки» = [Gamma].
+    Kutilgan: Gamma qoldiqni barcha omborlar yig'indisi sifatida ko'radi (regiondan qat'i nazar —
+    Gamma regionini faqat Toshkent ombori qamraydi); Epsilon qoldiqni umuman ko'rmaydi (0 ham
+    emas); ro'yxat bo'shatilsa Gamma ham ko'rmaydi.
+    UI cheklovi: aniq qoldiq (100 / 50) qo'yib bo'lmaydi — «Изменить наличие» har omborga
+    1 000 000 yozadi, shuning uchun kutilgan yig'indi 2 × 1 000 000 (kartada — c:exp_product_list,
+    tovar sahifasida — c:exp_product_info, savat qatorida — c:exp_basket_headers_info).
+    Savat har mijoz tekshiruvidan keyin bo'shatiladi."""
+    d = catalog_seed
+    expected = 2 * 1_000_000
+    gamma_client = f"client-{d['gamma']}"
+    set_catalog_state(session_page, d,
+                      binds={TSH_NAME: {d["sut"]}, SAM_NAME: {d["sut"]}, DEFAULT_WAREHOUSE: set()},
+                      stock={d["sut"]: True})
+
+    def _stock(client_code) -> dict:
+        return stock_view(driver, client_code, d["supplier"], d["category"], d["sut"])
+
+    emptied = False
+    try:
+        set_stock_visible(session_page, d["supplier"], {gamma_client})
+        with allure.step(f"Gamma (ruxsat etilgan): {d['sut']} qoldig'i = 2 000 000 (TSH + SAM)"):
+            view = _stock(d["gamma"])
+            assert view == dict.fromkeys(("list", "info", "basket"), expected), \
+                f"Gamma qoldig'i {view} (kutilgan: kartada, tovar sahifasida va savatda {expected})"
+        with allure.step(f"Epsilon (ruxsatsiz): {d['sut']} qoldig'i umuman ko'rsatilmaydi (0 ham emas)"):
+            view = _stock(d["epsilon"])
+            assert view == dict.fromkeys(("list", "info", "basket")), f"Epsilon qoldiqni ko'rmoqda: {view}"
+        set_stock_visible(session_page, d["supplier"], set())
+        emptied = True
+        with allure.step("Ro'yxat bo'sh: Gamma ham qoldiqni ko'rmaydi"):
+            view = _stock(d["gamma"])
+            assert view == dict.fromkeys(("list", "info", "basket")), \
+                f"Ro'yxat bo'sh, lekin Gamma qoldiqni ko'rmoqda: {view}"
+    finally:
+        # Assert yiqilsa ham ro'yxat bo'sh qolsin — boshqa keyslar qoldiq ko'rinishiga bog'lanmasin
+        if not emptied:
+            set_stock_visible(session_page, d["supplier"], set())
