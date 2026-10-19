@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import time
 
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+
 from tests_mobile.screens.base_screen import BaseScreen, contains, desc, xpath
 
 LOGIN_FIELD = xpath("(//android.widget.EditText)[1]")
@@ -25,6 +28,7 @@ LOGOUT = desc("Выйти")                     # menyuda ham, tasdiqlash dialog
 LOGOUT_CANCEL = desc("Отмена")             # tasdiqlash dialogi belgisi
 USER_INFO = contains("Логин:")             # Профиль: "Логин: sanobar" — faqat login QILINGANDA
 LOGGED_OUT_STABLE_S = 5                    # "Вход" shuncha turib qolsa — haqiqatan chiqilgan
+SUBMIT_READY_S = 10                        # yozilgandan keyin «Войти» clickable bo'lishini kutish
 
 
 class LoginScreen(BaseScreen):
@@ -35,9 +39,11 @@ class LoginScreen(BaseScreen):
         tekshirmaydi — test o'zi `is_logged_in()` / `on_login_form()` bilan tekshiradi."""
         self.ensure_logged_out()
         self.open_login_form()
-        self.type(LOGIN_FIELD, username)
-        self.type(PASSWORD_FIELD, password)
-        self.hide_keyboard()               # klaviatura "Войти" ni yopib turadi
+        # RACE (2026-10-19, S-05.4.2): sekin emulyatorda EditText matni yozilgan, lekin
+        # Flutter forma uni hali "sezmagan" — «Войти» enabled=true, ammo clickable=false
+        # va tap jim no-op. Shuning uchun FAQAT bosishdan oldin tayyorlikni kutamiz;
+        # bosishdan keyin qayta urinish YO'Q (noto'g'ri parolni ikki marta yubormaslik).
+        self._fill_form(username, password)
         self.tap(SUBMIT)
 
     def ensure_logged_in_as(self, username: str, password: str) -> None:
@@ -63,6 +69,34 @@ class LoginScreen(BaseScreen):
             raise AssertionError("Logoutdan keyin ilova login qilingan holatda qoldi")
 
     # ── yordamchilar ─────────────────────────────────────────────────
+    def _fill_form(self, username: str, password: str) -> None:
+        """Логин/Пароль yozadi va login qiymati mos hamda «Войти» clickable bo'lishini
+        kutadi; bo'lmasa bir marta qayta yozadi. Ikkinchi marta ham tayyor bo'lmasa —
+        aniq xato (jim bosib o'tib ketmaymiz)."""
+        for _ in range(2):
+            self.type(LOGIN_FIELD, username)
+            self.type(PASSWORD_FIELD, password)
+            self.hide_keyboard()           # klaviatura "Войти" ni yopib turadi
+            if (self.wait_for(LOGIN_FIELD).get_attribute("text") == username
+                    and self._submit_clickable(SUBMIT_READY_S)):
+                return
+        raise AssertionError(
+            f"«Войти» bosiladigan holatga o'tmadi ({SUBMIT_READY_S}s x2): "
+            "forma yozilgan login/parolni qabul qilmadi")
+
+    def _submit_clickable(self, timeout: float) -> bool:
+        """«Войти» semantikasi clickable=true bo'ldimi (EC.element_to_be_clickable
+        faqat enabled'ni ko'radi, Flutter esa forma tayyor bo'lguncha clickable=false)."""
+        def _ready(drv):
+            els = drv.find_elements(*SUBMIT)
+            return bool(els) and els[0].get_attribute("clickable") == "true"
+        try:
+            WebDriverWait(self.driver, timeout,
+                          ignored_exceptions=(StaleElementReferenceException,)).until(_ready)
+            return True
+        except TimeoutException:
+            return False
+
     def ensure_logged_out(self) -> None:
         """Boshlang'ich holat har xil bo'lishi mumkin: ochiq dialog, login forma,
         Профиль yoki boshqa tab — hammasidan login qilinmagan holatga o'tadi."""
