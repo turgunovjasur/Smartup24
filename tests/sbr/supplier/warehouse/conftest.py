@@ -17,7 +17,8 @@ from flows.flow_authorization import COMPANY_CODE, authorization
 from tests.sbr.supplier.warehouse.warehouse_api import WarehouseApi
 from tests.sbr.supplier.warehouse.warehouse_helpers import (
     DEFAULT_WAREHOUSE, TSH_CODE, TSH_NAME, TSH_REGION,
-    attach_product, create_warehouse, detach_product, login_admin, login_supplier_user,
+    attach_product, create_products, create_warehouse, detach_product, login_admin,
+    login_supplier_user,
 )
 from tests.test_group_a.test_product import run_product
 from tests.test_group_a.test_product_linking import run_product_linking
@@ -40,10 +41,7 @@ def alfa_seed(session_page: Page, code) -> dict:
         run_supplier(page, c, region=f"Region-{c}", ownership=f"MCHJ-{c}", industry=f"Industry-{c}")
         run_supplier_user(page, c)
     with allure.step(f"Setup (admin): tovarlar {d['sut']}, {d['non']}, {d['qatiq']} — biriktirish + narx"):
-        for name in (d["sut"], d["non"], d["qatiq"]):
-            run_product(page, c, manufacturer=f"Manufacturer-{c}", industry=f"Industry-{c}",
-                        category=f"Category-{c}", name=name)
-            run_product_linking(page, c, product_name=name)
+        create_products(page, c, f"Category-{c}", (d["sut"], d["non"], d["qatiq"]))
     with allure.step(f"Setup (Alfa): «{TSH_NAME}» ({TSH_REGION}) + {d['non']}; {d['qatiq']} hech qaysi omborda emas"):
         login_supplier_user(page, c)
         create_warehouse(page, TSH_NAME, TSH_CODE, TSH_REGION)

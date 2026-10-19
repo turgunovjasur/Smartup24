@@ -37,7 +37,6 @@ ANY_PRODUCT = xpath(f"//*[contains(@content-desc, '{ADD_TO_CART}') or @content-d
 # pastida "Отменить" (emulyatorda tasdiqlangan 2026-10-16).
 OTHER_SUPPLIERS = desc("Другие поставщики")
 CHANGE_SUPPLIER_SHEET = desc("Изменить поставщика")
-SHEET_CANCEL = desc("Отменить")
 # Qoldiq (stock_quantity) — faqat supplier «Кому показывать остатки» ro'yxatidagi mijozga
 # (emulyatorda tasdiqlangan 2026-10-19; bo'shliqlar oddiy probel):
 #   karta desc 1-qatori "2 000 000 кг\nНовинка\n<nom>\n\n<narx> сум/кг\n<supplier>";

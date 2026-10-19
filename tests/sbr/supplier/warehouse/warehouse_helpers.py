@@ -15,6 +15,11 @@ from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import COMPANY_CODE, authorization, logout
 from flows.flow_navbar import flow_navigate
+from tests.test_group_a.test_client import run_client
+from tests.test_group_a.test_client_user import run_client_user
+from tests.test_group_a.test_cooperation import run_cooperation
+from tests.test_group_a.test_product import run_product
+from tests.test_group_a.test_product_linking import run_product_linking
 from utils.base_page import BasePage
 
 DEFAULT_WAREHOUSE = "Склад по умолчанию"
@@ -119,6 +124,31 @@ def create_warehouse(page: Page, name, code, region) -> None:
     m.grid_row(name, code)
 
 
+def create_tsh_sam_warehouses(page: Page, tsh_region, sam_region) -> None:
+    """«Toshkent ombori» (TSH, ``tsh_region``) va «Samarqand ombori» (SAM, ``sam_region``)."""
+    create_warehouse(page, TSH_NAME, TSH_CODE, tsh_region)
+    create_warehouse(page, SAM_NAME, SAM_CODE, sam_region)
+
+
+# ── seed: tovarlar va mijozlar (admin) ──────────────────────────────────────────────
+def create_products(page: Page, c, category, names) -> None:
+    """Har ``names`` tovari: run_product (Manufacturer-/Industry-{c}, ``category``) + linking."""
+    for name in names:
+        run_product(page, c, manufacturer=f"Manufacturer-{c}", industry=f"Industry-{c}",
+                    category=category, name=name)
+        run_product_linking(page, c, product_name=name)
+
+
+def create_clients(page: Page, c, supplier, clients, *, ownership, industry) -> None:
+    """``clients`` — ((client_code, region), ...): har biri client + client_user, so'ng
+    hammasi ``supplier`` bilan hamkorlik (run_cooperation)."""
+    for client_code, region in clients:
+        run_client(page, client_code, region=region, ownership=ownership, industry=industry)
+        run_client_user(page, client_code)
+    for client_code, _ in clients:
+        run_cooperation(page, c, supplier_name=supplier, client_name=f"client-{client_code}")
+
+
 # ── ombor tovarlari (Прикрепленные / Доступные) ─────────────────────────────────────
 def open_warehouse_products(page: Page, warehouse) -> BasePage:
     """Склады → qator → «Товары» («Прикрепленные» tab)."""
@@ -190,10 +220,9 @@ def _stock_panel(page: Page, m: BasePage, product):
     return panel
 
 
-def toggle_in_stock(page: Page, product) -> None:
-    """Tovarni «В наличие» (Y) qiladi — BARCHA ombor bog'lanishlari «Да». Panel faqat
-    maqsad tugmani ko'rsatadi: «Да» bo'lsa avval «Не в наличие», keyin «В наличие»
-    (yangi bog'lanishlar ham Y bo'lsin). Grid o'zi yangilanmaydi — reload."""
+def _ensure_not_in_stock(page: Page, product):
+    """Поставщик → Товары → tovar paneli; «Не в наличие» tugmasi bo'lsa bosadi + да + reload.
+    Qaytaradi (m, panel) — bosilgan bo'lsa panel None (reload'dan keyin eskirgan)."""
     m = BasePage(page)
     flow_navigate(page, tab="Поставщик", name="Товары")
     m.expect_heading("Товары")
@@ -204,6 +233,16 @@ def toggle_in_stock(page: Page, product) -> None:
         m.confirm("да")
         page.reload()
         m.settle()
+        return m, None
+    return m, panel
+
+
+def toggle_in_stock(page: Page, product) -> None:
+    """Tovarni «В наличие» (Y) qiladi — BARCHA ombor bog'lanishlari «Да». Panel faqat
+    maqsad tugmani ko'rsatadi: «Да» bo'lsa avval «Не в наличие», keyin «В наличие»
+    (yangi bog'lanishlar ham Y bo'lsin). Grid o'zi yangilanmaydi — reload."""
+    m, panel = _ensure_not_in_stock(page, product)
+    if panel is None:
         panel = _stock_panel(page, m, product)
     on_btn = panel.get_by_role("button", name="В наличие", exact=True)
     expect(on_btn).to_be_visible()
@@ -220,16 +259,7 @@ def set_in_stock(page: Page, product, want: bool) -> None:
     if want:
         toggle_in_stock(page, product)
         return
-    m = BasePage(page)
-    flow_navigate(page, tab="Поставщик", name="Товары")
-    m.expect_heading("Товары")
-    panel = _stock_panel(page, m, product)
-    off_btn = panel.get_by_role("button", name="Не в наличие", exact=True)
-    if off_btn.count():
-        off_btn.click()
-        m.confirm("да")
-        page.reload()
-        m.settle()
+    m, _ = _ensure_not_in_stock(page, product)
     m.search(product)
     m.grid_row(product, "Нет")
 

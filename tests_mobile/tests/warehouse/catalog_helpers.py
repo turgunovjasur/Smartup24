@@ -13,16 +13,11 @@ from playwright.sync_api import Page, expect
 from flows.flow_authorization import COMPANY_CODE, authorization
 from flows.flow_navbar import flow_navigate
 from tests.sbr.supplier.warehouse.warehouse_helpers import (
-    SAM_CODE, SAM_NAME, TSH_CODE, TSH_NAME,
-    create_child_region, create_warehouse, login_admin, login_supplier_user, set_binds, set_in_stock,
-    set_warehouse_regions,
+    SAM_NAME, TSH_NAME,
+    create_child_region, create_clients, create_products, create_tsh_sam_warehouses, login_admin,
+    login_supplier_user, set_binds, set_in_stock, set_warehouse_regions,
 )
 from utils.base_page import BasePage
-from tests.test_group_a.test_client import run_client
-from tests.test_group_a.test_client_user import run_client_user
-from tests.test_group_a.test_cooperation import run_cooperation
-from tests.test_group_a.test_product import run_product
-from tests.test_group_a.test_product_linking import run_product_linking
 from tests.test_group_a.test_supplier import run_supplier
 from tests.test_group_a.test_supplier_user import run_supplier_user
 from tests.test_setup.test_manufacturer import run_manufacturer
@@ -72,7 +67,10 @@ def stock_view(driver, client_code, supplier, category, product) -> dict:
     cs, cart = CatalogScreen(driver), CartScreen(driver)
     cart.clear()                     # oldingi run qoldig'i savat qatorini chalg'itmasin
     try:
-        cs.open_supplier(supplier)
+        cs.open_supplier(supplier, require_categories=False)
+        # catalog_view bilan bir xil yo'l: tablar va kategoriya kartasi yuklangach bosiladi
+        assert cs.supplier_has_categories(), f"{supplier}: «Категории» tabi yo'q — shart bajarilmagan"
+        assert cs.find_category(category), f"{category} supplier sahifasida yo'q"
         assert cs.open_category_listing(category), f"{category} bo'sh — shart bajarilmagan"
         view = {"list": cs.card_stock(product)}
         cs.add_to_cart(product)
@@ -99,7 +97,7 @@ def expect_in_view(view, client_code, *, present=(), absent=()) -> None:
 def catalog_names(c) -> dict:
     """Seed nomlari ({code}11): shahar → tuman regionlari, Alfa/Gamma/Epsilon, 3 tovar."""
     return {
-        "c": c, "supplier": f"supplier-{c}", "category": f"Category-{c}",
+        "c": c, "supplier": f"supplier-{c}", "supplier_user": f"supplier_user-{c}", "category": f"Category-{c}",
         "gamma": f"{c}g", "epsilon": f"{c}e",
         "city": f"Region-{c}city", "tuman": f"Region-{c}tuman", "sam": f"Region-{c}sam",
         "sut": f"Sut 1L-{c}", "non": f"Non-{c}", "qatiq": f"Qatiq-{c}",
@@ -125,20 +123,13 @@ def create_catalog_seed(page, d) -> None:
     with allure.step(f"Seed (admin): Alfa {d['supplier']} + user, Gamma/Epsilon + userlar, hamkorlik"):
         run_supplier(page, c, region=d["city"], extra_regions=(d["tuman"], d["sam"]), **common)
         run_supplier_user(page, c)
-        for client_code, region in ((d["gamma"], d["tuman"]), (d["epsilon"], d["sam"])):
-            run_client(page, client_code, region=region, **common)
-            run_client_user(page, client_code)
-        for client_code in (d["gamma"], d["epsilon"]):
-            run_cooperation(page, c, supplier_name=d["supplier"], client_name=f"client-{client_code}")
+        create_clients(page, c, d["supplier"], ((d["gamma"], d["tuman"]), (d["epsilon"], d["sam"])),
+                       **common)
     with allure.step(f"Seed (admin): tovarlar {', '.join(catalog_products(d))} ({d['category']}) + narx"):
-        for name in catalog_products(d):
-            run_product(page, c, manufacturer=f"Manufacturer-{c}", industry=f"Industry-{c}",
-                        category=d["category"], name=name)
-            run_product_linking(page, c, product_name=name)
+        create_products(page, c, d["category"], catalog_products(d))
     with allure.step(f"Seed (Alfa): «{TSH_NAME}» ({d['city']}), «{SAM_NAME}» ({d['sam']})"):
         login_supplier_user(page, c)
-        create_warehouse(page, TSH_NAME, TSH_CODE, d["city"])
-        create_warehouse(page, SAM_NAME, SAM_CODE, d["sam"])
+        create_tsh_sam_warehouses(page, d["city"], d["sam"])
 
 
 def set_catalog_state(page, d, *, binds: dict, stock: dict, regions: dict | None = None) -> None:
@@ -161,11 +152,20 @@ def set_catalog_state(page, d, *, binds: dict, stock: dict, regions: dict | None
 # ``button[aria-label="Remove this tag"]``. «Сохранить» formani YOPMAYDI (view'da qoladi) —
 # saqlash ``supplier/setting$save_setting`` POST 200 bilan tasdiqlanadi.
 STOCK_VISIBLE_LABEL = "Кому показывать остатки"
+# «Системный пользователь *» — MAJBURIY ``smt-data-select`` (smtid YO'Q, smtkeyfield=user_id,
+# placeholder «Выберите...», variant matni = user nomi). Yangi supplier'da bo'sh — forma jim
+# bloklaydi, save_setting so'rovi KETMAYDI (MCP tasdiqlangan 2026-10-19).
+SYSTEM_USER_LABEL = "Системный пользователь"
 
 
 def _stock_visible_field(page: Page):
     label = page.locator("label").filter(has_text=re.compile(rf"^\s*{STOCK_VISIBLE_LABEL}\s*$"))
     return page.locator("smt-control").filter(has=label).last
+
+
+def _system_user_input(page: Page):
+    label = page.locator("label").filter(has_text=re.compile(rf"^\s*{SYSTEM_USER_LABEL}\s*\*?\s*$"))
+    return page.locator("smt-control").filter(has=label).last.locator("smt-data-select input").first
 
 
 def _open_supplier_settings(page: Page, supplier) -> BasePage:
@@ -190,15 +190,18 @@ def _stock_visible_names(page: Page) -> set:
     return {t.strip() for t in _stock_visible_field(page).locator("smt-tag").all_inner_texts()}
 
 
-def set_stock_visible(page: Page, supplier, clients) -> None:
+def set_stock_visible(page: Page, supplier, clients, system_user) -> None:
     """Admin: supplier «Кому показывать остатки» ro'yxatini aynan ``clients`` (mijoz nomlari)
-    ga keltiradi, saqlaydi va qayta ochib tekshiradi."""
+    ga keltiradi, saqlaydi va qayta ochib tekshiradi. «Системный пользователь» bo'sh bo'lsa
+    (yangi supplier) ``system_user`` tanlanadi — aks holda forma saqlanmaydi; to'la bo'lsa tegilmaydi."""
     want = set(clients)
     with allure.step(f"Admin: {supplier} → Настройки → Основное → «{STOCK_VISIBLE_LABEL}» = {sorted(want) or 'bo‘sh'}"):
         login_admin(page)
         m = _open_supplier_settings(page, supplier)
         have = _stock_visible_names(page)
         if have != want:
+            if not _system_user_input(page).input_value().strip():
+                m.select(system_user, label=SYSTEM_USER_LABEL)
             field = _stock_visible_field(page)
             for name in sorted(have - want):
                 tag = field.locator("smt-tag").filter(has_text=re.compile(rf"^\s*{re.escape(name)}\s*$"))

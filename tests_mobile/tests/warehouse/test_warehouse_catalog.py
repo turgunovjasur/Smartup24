@@ -140,7 +140,10 @@ def test_product_suppliers_listed_once(session_page: Page, driver, catalog_seed)
         # Navigatsiya xatolari oddiy FAIL — xfail faqat pastdagi bag assertion'ida (known_bug)
         mobile_login(driver, d["gamma"])
         cs = CatalogScreen(driver)
-        cs.open_supplier(d["supplier"])
+        cs.open_supplier(d["supplier"], require_categories=False)
+        # catalog_view bilan bir xil yo'l: tablar va kategoriya kartasi yuklangach bosiladi
+        assert cs.supplier_has_categories(), f"{d['supplier']}: «Категории» tabi yo'q — shart bajarilmagan"
+        assert cs.find_category(d["category"]), f"{d['category']} supplier sahifasida yo'q"
         assert cs.open_category_listing(d["category"]), f"{d['category']} bo'sh — shart bajarilmagan"
         cs.open_product(d["sut"])
         count = cs.supplier_offers(d["supplier"])
@@ -176,7 +179,7 @@ def test_stock_visible_only_to_allowed_client(session_page: Page, driver, catalo
 
     emptied = False
     try:
-        set_stock_visible(session_page, d["supplier"], {gamma_client})
+        set_stock_visible(session_page, d["supplier"], {gamma_client}, d["supplier_user"])
         with allure.step(f"Gamma (ruxsat etilgan): {d['sut']} qoldig'i = 2 000 000 (TSH + SAM)"):
             view = _stock(d["gamma"])
             assert view == dict.fromkeys(("list", "info", "basket"), expected), \
@@ -184,7 +187,7 @@ def test_stock_visible_only_to_allowed_client(session_page: Page, driver, catalo
         with allure.step(f"Epsilon (ruxsatsiz): {d['sut']} qoldig'i umuman ko'rsatilmaydi (0 ham emas)"):
             view = _stock(d["epsilon"])
             assert view == dict.fromkeys(("list", "info", "basket")), f"Epsilon qoldiqni ko'rmoqda: {view}"
-        set_stock_visible(session_page, d["supplier"], set())
+        set_stock_visible(session_page, d["supplier"], set(), d["supplier_user"])
         emptied = True
         with allure.step("Ro'yxat bo'sh: Gamma ham qoldiqni ko'rmaydi"):
             view = _stock(d["gamma"])
@@ -193,4 +196,4 @@ def test_stock_visible_only_to_allowed_client(session_page: Page, driver, catalo
     finally:
         # Assert yiqilsa ham ro'yxat bo'sh qolsin — boshqa keyslar qoldiq ko'rinishiga bog'lanmasin
         if not emptied:
-            set_stock_visible(session_page, d["supplier"], set())
+            set_stock_visible(session_page, d["supplier"], set(), d["supplier_user"])
