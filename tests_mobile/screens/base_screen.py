@@ -53,6 +53,19 @@ class BaseScreen:
         except TimeoutException:
             raise AssertionError(error or f"Element chiqmadi ({timeout}s): {loc[1]}") from None
 
+    def wait_any(self, *locs: Locator, timeout: float = TIMEOUT, error: str | None = None) -> int:
+        """Bir nechta holatdan BIRINCHI paydo bo'lganini kutadi va uning indeksini
+        qaytaradi (masalan "tovarlar yuklandi" yoki "Ничего не найдено!")."""
+        def _first(drv):
+            for i, loc in enumerate(locs):
+                if drv.find_elements(*loc):
+                    return i + 1          # 0 falsy — until() uchun 1 dan boshlaymiz
+            return False
+        try:
+            return WebDriverWait(self.driver, timeout).until(_first) - 1
+        except TimeoutException:
+            raise AssertionError(error or f"Hech biri chiqmadi ({timeout}s): {[l[1] for l in locs]}") from None
+
     def wait_gone(self, loc: Locator, timeout: float = 10, error: str | None = None) -> None:
         """Element yo'qolguncha kutadi (dialog yopildi va h.k.)."""
         try:

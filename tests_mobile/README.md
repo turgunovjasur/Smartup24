@@ -39,6 +39,9 @@ appium --address 127.0.0.1 --port 4723 --use-plugins=inspector --allow-cors
 .venv\Scripts\python -m pytest tests_mobile/tests/test_login.py -v --alluredir=test-results/allure-results
 .venv\Scripts\python -m pytest tests_mobile/tests/test_order_smoke.py -v   # ~2-3 min, tayyor data
 .venv\Scripts\python -m pytest tests_mobile/tests/test_order_e2e.py -v     # ~6 min, web+mobil
+.venv\Scripts\python -m pytest tests_mobile/tests/warehouse/test_warehouse_delete_e2e.py -v # S-05.1.2 ombor o'chirish, web+mobil
+$env:S05_MOBILE_SEED='<kod>'   # ixtiyoriy: mavjud seed'ni qayta ishlatish (web seed ~10 daq o'tkazib yuboriladi)
+.venv\Scripts\python -m pytest tests_mobile/tests/warehouse/test_warehouse_catalog.py -v # S-05 mobil katalog (4.1/4.2/4.3/2.2/3.1/3.3)
 ```
 Test boshida preflight Appium va telefonni tekshiradi; yo'q bo'lsa aniq xabar bilan to'xtaydi.
 Yiqilgan testning telefon ekrani va ekran tuzilmasi Allure'ga (va `screenshots/`) tushadi.
@@ -73,3 +76,9 @@ tests_mobile/
 - `no_reset=True`: login saqlanadi; har test oldidan ilova yopib qayta ochiladi.
 - Savatda yangi tovar avtomatik belgilangan — belgilangan checkboxni bosish uni yechadi.
 - Kamera (Штрих-код) real qurilmada ishlaydi, emulatorda cheklangan.
+- Katalog (2026-10-15, emulyator): kategoriyada mijoz regionida ombor bo'lmasa `Ничего не найдено!`;
+  supplierda tovarli ombor bo'lmasa "Категории" tabi yo'q (faqat `Контакты | Вкладка 1 из 1`) —
+  `CatalogScreen.open_supplier(require_categories=False)`, `has_category`, `open_category_listing` (yuklanishni kutadi), `has_product`.
+- Emulyator: Android Studio `emulator-5554` ham ishlaydi (MIUI cheklovi yo'q).
+- Tovar sahifasi: `CatalogScreen.open_product` (karta rasmiga bosadi), `supplier_offers` («Другие поставщики» qatorlari soni, barqarorlikni kutadi).
+- `core/driver_factory.py`: `new_command_timeout=1800` (web+mobil testda uzoq web qadamlar).

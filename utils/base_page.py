@@ -726,6 +726,18 @@ class BasePage:
         """Qator tanlanganini (action panel ochiq / checkbox belgilangan) bildiradi."""
         return self._grid_row_selected(row)
 
+    def field_wrapper(self, label, *, index=0, root=None):
+        """Label'li maydon bloki (label + control) — masalan xato matni yo'qligini tekshirish uchun."""
+        return self._field_wrapper(label, index=index, root=root)
+
+    def input_control(self, *, label=None, smtid=None, index=0, root=None):
+        """Matnli field komponenti (smt-input / smt-textarea / ...) — ichki ``input`` shu ichida."""
+        return self._control(self._INPUT_CSS, label=label, smtid=smtid, index=index, root=root)
+
+    def select_control(self, *, label=None, smtid=None, index=0, root=None):
+        """Select komponenti (data/multi/tree/smt-select) — tree'da tanlov trigger MATNIDA."""
+        return self._control(self._SELECT_CSS, label=label, smtid=smtid, index=index, root=root)
+
     def expect_no_row(self, text, *, row_selector=".smt-data-row"):
         """Grid'da matnli qator YO'Qligini tasdiqlaydi."""
         expect(self.page.locator(row_selector).filter(has_text=text)).to_have_count(0)
