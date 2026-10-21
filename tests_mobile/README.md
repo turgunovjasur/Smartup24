@@ -31,6 +31,18 @@ winget install --id Google.PlatformTools    # adb (platform-tools)
    `adb shell svc power stayon true`.
 
 ## Ishga tushirish
+**Emulyator bilan — mobil run oldidan bitta buyruq:**
+```powershell
+powershell -File tests_mobile/tools/start_emulator.ps1          # headless (-no-window, swiftshader_indirect)
+powershell -File tests_mobile/tools/start_emulator.ps1 -Window  # oynali rejim (ixtiyoriy; GPU xatosi bilan qulashi mumkin)
+```
+Emulyator allaqachon boot bo'lgan bo'lsa qayta yoqmaydi; aks holda qotgan emulator/qemu/crashpad
+jarayonlari va AVD `*.lock` larini tozalab `Medium_Phone_API_37.0` ni `ANDROID_SDK_ROOT=%LOCALAPPDATA%\Android\Sdk`
+bilan yoqadi, `sys.boot_completed=1` ni kutadi (300 s; timeoutda `test-results/emulator*.log` oxiri),
+Appium 4723 yo'q bo'lsa alohida "Appium — YOPMANG" oynasida ochadi, ilovani bir marta oldindan ochadi va holatni
+chiqaradi (hammasi tayyor — exit 0). Shundan keyin pastdagi 2-qadam (pytest).
+
+**Qo'lda (real telefon):**
 ```powershell
 # 1) Appium — ALOHIDA terminalda (Claude/IDE fon jarayoni xotira kam bo'lsa o'ldiriladi):
 appium --address 127.0.0.1 --port 4723 --use-plugins=inspector --allow-cors
@@ -60,7 +72,9 @@ tests_mobile/
 │   ├── cart_screen.py    # to'lov, sana, Оформить
 │   └── orders_screen.py  # Заказы: ochish va tekshirish
 ├── tests/                # faqat testlar
-└── tools/explore.py      # locator kashfiyoti (test emas); Appium Inspector — muqobil
+└── tools/
+    ├── explore.py        # locator kashfiyoti (test emas); Appium Inspector — muqobil
+    └── start_emulator.ps1  # emulyator + Appium + ilovani tayyorlash (mobil run oldidan)
 ```
 
 ## Yangi test yozish qoidalari

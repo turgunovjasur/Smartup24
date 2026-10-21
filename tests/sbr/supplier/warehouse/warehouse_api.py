@@ -4,6 +4,8 @@ Kashfiyot (DEV, 2026-10-18): hammasi POST JSON, faqat Content-Type + sessiya coo
 (kontekst headerlari shart emas; cookie'siz → 401). Login ``biruni/s$log_in``.
 Xato — HTTP 500 text/plain (masalan «Z:#z:sbr_supplier_warehouses null value name»).
 ``:model`` javobi massiv ``["(^_^)", meta, data, []]`` — data = [2].
+«В наличие» toggle (Поставщик → Товары) = ``product_list$change_avail`` {avail, product_id}
+(UI so'rovi MCP bilan ushlangan, requests bilan qayta tasdiqlangan — DEV 2026-10-20).
 
 ``post()`` statusni TEKSHIRMAYDI (negativ testlar javobni o'zi tekshiradi); qolgan
 yordamchilar «happy» yo'l — HTTP 200 ni assert qiladi. Har so'rov/javob Allure'ga
@@ -19,6 +21,7 @@ from utils.base_api import BASE_URL
 W = "/sb/sbr/supplier"
 LIST_COLUMNS = ["name", "code", "region_names", "count_child", "warehouse_id", "pcode"]
 BIND_COLUMNS = ["barcode", "name", "status", "status_name", "avail", "avail_name", "product_id"]
+PRODUCT_COLUMNS = ["name", "avail", "product_id"]   # product_list:table (Поставщик → Товары)
 DEFAULT_PCODE = "SB:1"   # «Склад по умолчанию»
 
 
@@ -117,3 +120,19 @@ class WarehouseApi:
     def detach(self, warehouse_id, *product_ids) -> requests.Response:
         return self.post(f"{W}/warehouse_product_bind_list$detach",
                          {"warehouse_id": warehouse_id, "product_id": list(product_ids)})
+
+    # ── supplier tovarlari (Поставщик → Товары) ───────────────────────────────────────
+    def supplier_product(self, name) -> dict:
+        """``product_list:table`` — supplier tovari aniq nom bo'yicha ({name, avail, product_id})."""
+        body = {"p": {"column": PRODUCT_COLUMNS, "filter": ["name", "esearch", f"%{name}%"],
+                      "sort": ["name"], "offset": 0, "limit": 50}, "d": {}}
+        rows = self._ok(f"{W}/product_list:table", body).json()["data"]
+        found = [dict(zip(PRODUCT_COLUMNS, row)) for row in rows if row[0] == name]
+        assert len(found) == 1, f"Supplier tovari «{name}» {len(found)} ta topildi"
+        return found[0]
+
+    def change_avail(self, product_id, avail) -> requests.Response:
+        """«В наличие»/«Не в наличие» (``product_list$change_avail``, avail Y/N) — tovarning
+        BARCHA ombor bog'lanishlarini birdan Y/N qiladi (UI'dagi kabi avval N shart emas).
+        Noma'lum product_id'da ham jim 200 — natijani o'qib tekshirish chaqiruvchida."""
+        return self._ok(f"{W}/product_list$change_avail", {"avail": avail, "product_id": product_id})

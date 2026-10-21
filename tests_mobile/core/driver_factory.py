@@ -8,6 +8,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
 
 from tests_mobile.config import APP_ACTIVITY, APP_PACKAGE, APPIUM_SERVER, DEVICE_UDID
+from tests_mobile.core.infra import MobileInfraError
 
 # Flutter ilova (splash/animatsiya) UI thread'ni band qiladi — UiAutomator2 har amaldan
 # oldin "idle"ni kutadi va sekin emulyatorda "Timed out ... waiting for the root
@@ -50,7 +51,7 @@ def wait_app_ready(drv, timeout: float = APP_READY_TIMEOUT) -> None:
                       ignored_exceptions=(WebDriverException,)).until(
             lambda d: d.find_elements(*_ANY_DESC))
     except TimeoutException:
-        raise AssertionError(
+        raise MobileInfraError(
             f"Ilova {timeout}s ichida tayyor bo'lmadi (splash'da qoldi yoki UiAutomator2 "
             f"root AccessibilityNodeInfo'ni ololmadi)") from None
 

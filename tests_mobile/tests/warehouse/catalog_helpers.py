@@ -1,5 +1,5 @@
 """S-05 mobil katalog yordamchilari (test emas): mobil login, katalogda tovar ko'rinishini
-o'qish, katalog guruhining umumiy seed'i va har keys boshidagi web holat.
+o'qish, katalog guruhining umumiy seed'i (web UI) va har keys boshidagi holat (API).
 
 «Yo'q» natijasi FAQAT yuklanganlik tasdiqlangandan keyin (soxta PASS bo'lmasin):
   «Категории» tabi umuman yo'q (tablar yuklangan) / kategoriya yo'q / ro'yxat yuklangan
@@ -12,17 +12,14 @@ from playwright.sync_api import Page, expect
 
 from flows.flow_authorization import COMPANY_CODE, authorization
 from flows.flow_navbar import flow_navigate
+from tests.sbr.supplier.warehouse.seed_api import (
+    seed_clients, seed_products, seed_reference_data, seed_supplier, seed_warehouses,
+)
+from tests.sbr.supplier.warehouse.warehouse_api import WarehouseApi
 from tests.sbr.supplier.warehouse.warehouse_helpers import (
-    SAM_NAME, TSH_NAME,
-    create_child_region, create_clients, create_products, create_tsh_sam_warehouses, login_admin,
-    login_supplier_user, set_binds, set_in_stock, set_warehouse_regions,
+    SAM_CODE, SAM_NAME, TSH_CODE, TSH_NAME, login_admin, login_supplier_user,
 )
 from utils.base_page import BasePage
-from tests.test_group_a.test_supplier import run_supplier
-from tests.test_group_a.test_supplier_user import run_supplier_user
-from tests.test_setup.test_manufacturer import run_manufacturer
-from tests.test_setup.test_region import run_region
-from tests.test_setup.test_supplier import ensure_refs
 from tests_mobile.config import WEB_USER_PASSWORD
 from tests_mobile.screens.cart_screen import CartScreen
 from tests_mobile.screens.catalog_screen import CatalogScreen
@@ -93,56 +90,107 @@ def expect_in_view(view, client_code, *, present=(), absent=()) -> None:
         assert not view[p], f"client-{client_code} katalogida '{p}' BOR (kutilgan: yo'q). Ko'rinish: {view}"
 
 
-# ── katalog guruhi: umumiy seed va har keys boshidagi holat (web, Alfa) ───────────────
-def catalog_names(c) -> dict:
+# ── katalog guruhi: umumiy seed (web) va har keys boshidagi holat (API, Alfa) ─────────
+def catalog_names(code) -> dict:
     """Seed nomlari ({code}11): shahar → tuman regionlari, Alfa/Gamma/Epsilon, 3 tovar."""
     return {
-        "c": c, "supplier": f"supplier-{c}", "supplier_user": f"supplier_user-{c}", "category": f"Category-{c}",
-        "gamma": f"{c}g", "epsilon": f"{c}e",
-        "city": f"Region-{c}city", "tuman": f"Region-{c}tuman", "sam": f"Region-{c}sam",
-        "sut": f"Sut 1L-{c}", "non": f"Non-{c}", "qatiq": f"Qatiq-{c}",
+        "c": code, "supplier": f"supplier-{code}", "supplier_user": f"supplier_user-{code}", "category": f"Category-{code}",
+        "gamma": f"{code}g", "epsilon": f"{code}e",
+        "city": f"Region-{code}city", "tuman": f"Region-{code}tuman", "sam": f"Region-{code}sam",
+        "sut": f"Sut 1L-{code}", "non": f"Non-{code}", "qatiq": f"Qatiq-{code}",
     }
 
 
-def catalog_products(d) -> tuple:
-    return d["sut"], d["non"], d["qatiq"]
+def catalog_products(seed) -> tuple:
+    return seed["sut"], seed["non"], seed["qatiq"]
 
 
-def create_catalog_seed(page, d) -> None:
+def create_catalog_seed(page, seed) -> None:
     """Regionlar (city → tuman «Области» orqali, sam); Alfa (city+tuman+sam) + user; Gamma
     (tuman) va Epsilon (sam) + userlar + hamkorlik; Sut/Non/Qatiq; omborlar TSH (city), SAM (sam)."""
-    c = d["c"]
-    with allure.step(f"Seed (admin): refs, Manufacturer, regionlar {d['city']} → {d['tuman']}, {d['sam']}"):
+    c = seed["c"]
+    with allure.step(f"Seed (admin): refs, Manufacturer, regionlar {seed['city']} → {seed['tuman']}, {seed['sam']}"):
         authorization(page)
-        ensure_refs(page, c)
-        run_manufacturer(page, c)
-        run_region(page, f"{c}city")
-        run_region(page, f"{c}sam")
-        create_child_region(page, d["city"], d["tuman"])
+        seed_reference_data(page, c, regions=(f"{c}city", f"{c}sam"), children=((seed["city"], seed["tuman"]),))
     common = dict(ownership=f"MCHJ-{c}", industry=f"Industry-{c}")
-    with allure.step(f"Seed (admin): Alfa {d['supplier']} + user, Gamma/Epsilon + userlar, hamkorlik"):
-        run_supplier(page, c, region=d["city"], extra_regions=(d["tuman"], d["sam"]), **common)
-        run_supplier_user(page, c)
-        create_clients(page, c, d["supplier"], ((d["gamma"], d["tuman"]), (d["epsilon"], d["sam"])),
-                       **common)
-    with allure.step(f"Seed (admin): tovarlar {', '.join(catalog_products(d))} ({d['category']}) + narx"):
-        create_products(page, c, d["category"], catalog_products(d))
-    with allure.step(f"Seed (Alfa): «{TSH_NAME}» ({d['city']}), «{SAM_NAME}» ({d['sam']})"):
+    with allure.step(f"Seed (admin): Alfa {seed['supplier']} + user, Gamma/Epsilon + userlar, hamkorlik"):
+        seed_supplier(page, c, region=seed["city"], extra_regions=(seed["tuman"], seed["sam"]), **common)
+        seed_clients(page, c, seed["supplier"], ((seed["gamma"], seed["tuman"]), (seed["epsilon"], seed["sam"])),
+                     **common)
+    with allure.step(f"Seed (admin): tovarlar {', '.join(catalog_products(seed))} ({seed['category']}) + narx"):
+        seed_products(page, c, seed["category"], catalog_products(seed))
+    with allure.step(f"Seed (Alfa): «{TSH_NAME}» ({seed['city']}), «{SAM_NAME}» ({seed['sam']})"):
         login_supplier_user(page, c)
-        create_tsh_sam_warehouses(page, d["city"], d["sam"])
+        seed_warehouses(page, c, ((TSH_NAME, TSH_CODE, seed["city"]), (SAM_NAME, SAM_CODE, seed["sam"])))
 
 
-def set_catalog_state(page, d, *, binds: dict, stock: dict, regions: dict | None = None) -> None:
-    """Web (Alfa): ombor regionlari (default TSH=city, SAM=sam), bog'lanishlar, «В наличие»."""
-    regions = regions or {TSH_NAME: {d["city"]}, SAM_NAME: {d["sam"]}}
-    universe = (d["city"], d["tuman"], d["sam"])
-    with allure.step(f"Holat (web, Alfa): regionlar {regions}; bog'lanishlar {binds}; В наличие {stock}"):
-        login_supplier_user(page, d["c"])
-        for warehouse, want in regions.items():
-            set_warehouse_regions(page, warehouse, want, universe)
-        set_binds(page, binds, catalog_products(d))
-        for product, want in stock.items():
-            set_in_stock(page, product, want)
+def _api_regions(api: WarehouseApi, warehouse, names) -> None:
+    """Ombor regionlari AYNAN ``names`` (edit$save region_id — string ID massivi)."""
+    wid = api.warehouse_id(warehouse)
+    want = sorted(api.region_ids(*names)) if names else []
+    model = api.edit_model(wid)
+    if sorted(map(str, model["region_id"] or [])) != want:
+        r = api.edit_save(model, region_id=want)
+        assert r.status_code == 200, f"«{warehouse}» edit$save → HTTP {r.status_code}: {r.text[:300]}"
+    have = sorted(map(str, api.edit_model(wid)["region_id"] or []))
+    assert have == want, f"«{warehouse}» regionlari {have}, kutilgan {want} ({sorted(names)})"
+
+
+def _api_binds(api: WarehouseApi, warehouse, want, products) -> None:
+    """``products`` doirasida ombor bog'lanishlari AYNAN ``want``: ortiqchasi detach,
+    yetishmagani attach (yangi bog'lanish avail N)."""
+    wid = api.warehouse_id(warehouse)
+
+    def _attached() -> dict:
+        return {p["name"]: str(p["product_id"]) for p in api.products(wid, "Y") if p["name"] in products}
+
+    have = _attached()
+    extra, missing = sorted(set(have) - set(want)), sorted(set(want) - set(have))
+    if extra:
+        r = api.detach(wid, *(have[p] for p in extra))
+        assert r.status_code == 200, f"«{warehouse}» $detach {extra} → HTTP {r.status_code}: {r.text[:300]}"
+    if missing:
+        r = api.attach(wid, *(api.product_id(wid, p, attached="N") for p in missing))
+        assert r.status_code == 200, f"«{warehouse}» $attach {missing} → HTTP {r.status_code}: {r.text[:300]}"
+    have = set(_attached())
+    assert have == set(want), f"«{warehouse}» bog'lanishlari {sorted(have)}, kutilgan {sorted(want)}"
+
+
+def _api_stock(api: WarehouseApi, product, want: bool) -> None:
+    """Tovar «В наличие» Y/N: supplier tovari va uning BARCHA ombor bog'lanishlari."""
+    flag = "Y" if want else "N"
+
+    def _state() -> tuple:
+        binds = {w["name"]: p["avail"] for w in api.warehouses()
+                 for p in api.products(str(w["warehouse_id"]), "Y", product)}
+        return api.supplier_product(product), binds
+
+    info, binds = _state()
+    if info["avail"] != flag or any(a != flag for a in binds.values()):
+        api.change_avail(str(info["product_id"]), flag)
+        info, binds = _state()
+    assert info["avail"] == flag and all(a == flag for a in binds.values()), \
+        f"{product}: avail={info['avail']}, omborlarda {binds} (kutilgan hammasi {flag})"
+
+
+def set_catalog_state(page, seed, *, binds: dict, stock: dict, regions: dict | None = None) -> None:
+    """API (Alfa, ``WarehouseApi``): ombor regionlari (default TSH=city, SAM=sam),
+    bog'lanishlar, «В наличие» — idempotent, har qismi qo'llangach qayta o'qib tasdiqlanadi
+    (server begona/noma'lum ID'da jim 200 qaytarishi mumkin). ``page`` ishlatilmaydi —
+    chaqiruvlar mos qolishi uchun saqlangan; web seans holatiga tegilmaydi."""
+    regions = regions or {TSH_NAME: {seed["city"]}, SAM_NAME: {seed["sam"]}}
+    products = catalog_products(seed)
+    with allure.step(f"Holat (API, Alfa): regionlar {regions}; bog'lanishlar {binds}; В наличие {stock}"):
+        api = WarehouseApi(f"supplier_user-{seed['c']}@{COMPANY_CODE}")
+        try:
+            for warehouse, names in regions.items():
+                _api_regions(api, warehouse, names)
+            for warehouse, want in binds.items():
+                _api_binds(api, warehouse, want, products)
+            for product, want in stock.items():
+                _api_stock(api, product, want)
+        finally:
+            api.logout()
 
 
 # ── «Кому показывать остатки» (Модератор → Поставщик → Настройки → Основное) ─────────────

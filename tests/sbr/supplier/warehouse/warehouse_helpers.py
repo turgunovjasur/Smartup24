@@ -10,10 +10,11 @@ import random
 import re
 from contextlib import contextmanager
 
+import allure
 import pytest
 from playwright.sync_api import Page, expect
 
-from flows.flow_authorization import COMPANY_CODE, authorization, logout
+from flows.flow_authorization import COMPANY_CODE, LOGIN_URL, authorization, logout
 from flows.flow_navbar import flow_navigate
 from tests.test_group_a.test_client import run_client
 from tests.test_group_a.test_client_user import run_client_user
@@ -21,6 +22,7 @@ from tests.test_group_a.test_cooperation import run_cooperation
 from tests.test_group_a.test_product import run_product
 from tests.test_group_a.test_product_linking import run_product_linking
 from utils.base_page import BasePage
+from utils.qa_report import current_step_desc, friendly_reason
 
 DEFAULT_WAREHOUSE = "Склад по умолчанию"
 TSH_NAME, TSH_CODE = "Toshkent ombori", "TSH"
@@ -50,6 +52,70 @@ def known_bug(reason):
     except AssertionError as exc:
         pytest.xfail(f"{reason} | {str(exc).splitlines()[0][:300]}")
     pytest.fail(f"XPASS: {reason} — bag tuzatilgan ko'rinadi, known_bug blokini olib tashlang")
+
+
+# ── seed retry ──────────────────────────────────────────────────────────────────────
+RETRY_CODE_PREFIX = "r"
+
+
+def _seed_failure_reason(page: Page, exc: BaseException) -> str:
+    step = current_step_desc(exc)
+    try:
+        reason = friendly_reason(exc, page)
+    except Exception:
+        reason = (str(exc).splitlines() or [""])[0][:300]
+    return f"{step} — {reason}" if step else reason
+
+
+def _reset_to_login(page: Page) -> None:
+    """Yiqilgan seed'dan keyin toza holat: Escape (dialog/overlay), logout; chiqib
+    bo'lmasa (dialog avatar'ni to'sgan) cookie tozalanadi; login sahifasi ochiladi.
+    Seed funksiyalari o'zi ``authorization`` bilan boshlanadi."""
+    for _ in range(2):
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+    if page.locator("app-user-dropdown").is_visible():   # login sahifasida logout 60s kutmasin
+        logout(page)
+    if "/auth/login" not in page.url:
+        page.context.clear_cookies()
+    page.goto(LOGIN_URL)
+    expect(page.get_by_role("textbox", name="Логин")).to_be_visible()
+
+
+def retry_seed(page: Page, build, code, label):
+    """``build(code)`` ni chaqiradi; yiqilsa sahifani tiklab 1 MARTA ``r{code}`` bilan
+    NOLDAN qayta urinadi (1-urinish qisman yaratgan yozuvlar bilan dublikat bo'lmasin;
+    prefiks — eski nom yangisining qismi bo'lib qolmasin, qidiruv/contains to'qnashmasin).
+    Qaytaradi ``build`` natijasi (seed dict, ``c`` = haqiqiy ishlatilgan kod).
+    Ikkala urinish yiqilsa — ikkala sabab bilan AssertionError."""
+    try:
+        return build(code)
+    except Exception as exc1:
+        reason1 = _seed_failure_reason(page, exc1)
+        code2 = f"{RETRY_CODE_PREFIX}{code}"
+        with allure.step(f"SEED-RETRY (1/1) {label} — 1-urinish sababi: {reason1}; yangi kod {code2}"):
+            try:
+                allure.attach(page.screenshot(full_page=True, timeout=8000), name=f"{label}: 1-urinish skrinshoti",
+                              attachment_type=allure.attachment_type.PNG)
+            except Exception:
+                pass
+            allure.attach(f"{type(exc1).__name__}: {exc1}", name=f"{label}: 1-urinish xatosi",
+                          attachment_type=allure.attachment_type.TEXT)
+            print(f"\n[SEED-RETRY] {label} ({code}) yiqildi: {reason1} — {code2} bilan qayta", flush=True)
+            try:
+                _reset_to_login(page)
+            except Exception as reset_exc:
+                raise AssertionError(
+                    f"Seed {label}: 1-urinish ({code}) yiqildi: {reason1} | sahifani tiklab bo'lmadi: "
+                    f"{(str(reset_exc).splitlines() or [''])[0][:300]}") from reset_exc
+    try:
+        return build(code2)
+    except Exception as exc2:
+        raise AssertionError(
+            f"Seed {label} 2 urinishda ham yiqildi. 1-urinish ({code}): {reason1} | "
+            f"2-urinish ({code2}): {_seed_failure_reason(page, exc2)}") from exc2
 
 
 # ── kichik locator yordamchilari ────────────────────────────────────────────────────

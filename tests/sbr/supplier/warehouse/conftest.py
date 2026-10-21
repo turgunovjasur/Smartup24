@@ -8,61 +8,60 @@ Kod varianti ``{code}10``: Alfa supplier + user; tovarlar «Sut 1L / Non / Qatiq
 ``beta_seed`` (``{code}12``, Alfa ma'lumotnomalari ustida): Beta supplier + user, tovar
 «Beta-{c}» (Beta standart omboriga avtomatik tushadi) va API orqali «Beta ombori» —
 S-05 API (egalik) testlari uchun.
+
+Seed yiqilsa (`retry_seed`) sahifa tiklanib 1 marta `r`-prefiksli kod bilan (`r{code}10`,
+`r{code}12`) noldan qayta yaratiladi; testlar faqat qaytgan dict (`["c"]`) bilan ishlaydi.
+
+Refs/tovar/ombor/bog'lanishlar ``S05_SEED_MODE`` (default ``api``, ``ui`` — eski yo'l) bo'yicha
+``seed_api`` orqali (supplier + user va tovarni supplier'ga biriktirish + narx ham).
 """
 import allure
 import pytest
 from playwright.sync_api import Page
 
-from flows.flow_authorization import COMPANY_CODE, authorization
+from flows.flow_authorization import COMPANY_CODE, authorization, logout
 from tests.sbr.supplier.warehouse.warehouse_api import WarehouseApi
-from tests.sbr.supplier.warehouse.warehouse_helpers import (
-    DEFAULT_WAREHOUSE, TSH_CODE, TSH_NAME, TSH_REGION,
-    attach_product, create_products, create_warehouse, detach_product, login_admin,
-    login_supplier_user,
+from tests.sbr.supplier.warehouse.seed_api import (
+    seed_binds, seed_products, seed_reference_data, seed_supplier, seed_warehouses,
 )
-from tests.test_group_a.test_product import run_product
-from tests.test_group_a.test_product_linking import run_product_linking
-from tests.test_group_a.test_supplier import run_supplier
-from tests.test_group_a.test_supplier_user import run_supplier_user
-from tests.test_setup.test_manufacturer import run_manufacturer
-from tests.test_setup.test_supplier import ensure_refs
+from tests.sbr.supplier.warehouse.warehouse_helpers import (
+    DEFAULT_WAREHOUSE, TSH_CODE, TSH_NAME, TSH_REGION, login_supplier_user, retry_seed,
+)
 
 
-@pytest.fixture(scope="session")
-def alfa_seed(session_page: Page, code) -> dict:
-    c = f"{code}10"
+def _build_alfa(page: Page, c) -> dict:
     d = {"c": c, "supplier": f"supplier-{c}", "sut": f"Sut 1L-{c}", "non": f"Non-{c}",
          "qatiq": f"Qatiq-{c}"}
-    page = session_page
     with allure.step(f"Setup (admin): refs + Manufacturer-{c}, Alfa {d['supplier']} + user"):
         authorization(page)
-        ensure_refs(page, c)
-        run_manufacturer(page, c)
-        run_supplier(page, c, region=f"Region-{c}", ownership=f"MCHJ-{c}", industry=f"Industry-{c}")
-        run_supplier_user(page, c)
+        seed_reference_data(page, c)
+        seed_supplier(page, c, region=f"Region-{c}", ownership=f"MCHJ-{c}", industry=f"Industry-{c}")
     with allure.step(f"Setup (admin): tovarlar {d['sut']}, {d['non']}, {d['qatiq']} — biriktirish + narx"):
-        create_products(page, c, f"Category-{c}", (d["sut"], d["non"], d["qatiq"]))
+        seed_products(page, c, f"Category-{c}", (d["sut"], d["non"], d["qatiq"]))
     with allure.step(f"Setup (Alfa): «{TSH_NAME}» ({TSH_REGION}) + {d['non']}; {d['qatiq']} hech qaysi omborda emas"):
         login_supplier_user(page, c)
-        create_warehouse(page, TSH_NAME, TSH_CODE, TSH_REGION)
-        attach_product(page, TSH_NAME, d["non"])
-        detach_product(page, DEFAULT_WAREHOUSE, d["qatiq"])
+        seed_warehouses(page, c, ((TSH_NAME, TSH_CODE, TSH_REGION),))
+        seed_binds(page, c, attach=((TSH_NAME, d["non"]),), detach=((DEFAULT_WAREHOUSE, d["qatiq"]),))
     return d
 
 
 @pytest.fixture(scope="session")
-def beta_seed(session_page: Page, code, alfa_seed) -> dict:
-    a, c = alfa_seed["c"], f"{code}12"
+def alfa_seed(session_page: Page, code) -> dict:
+    """Yiqilsa ``retry_seed`` 1 marta ``r{code}10`` bilan noldan qayta yaratadi."""
+    return retry_seed(session_page, lambda c: _build_alfa(session_page, c), f"{code}10", "alfa_seed")
+
+
+def _build_beta(page: Page, c, a) -> dict:
     d = {"c": c, "supplier": f"supplier-{c}", "product": f"Beta-{c}", "warehouse": f"Beta ombori-{c}",
          "login": f"supplier_user-{c}@{COMPANY_CODE}"}
-    page = session_page
     with allure.step(f"Setup (admin): Beta {d['supplier']} + user, tovar {d['product']} (Alfa ma'lumotnomalari)"):
-        login_admin(page)
-        run_supplier(page, c, region=f"Region-{a}", ownership=f"MCHJ-{a}", industry=f"Industry-{a}")
-        run_supplier_user(page, c)
-        run_product(page, c, manufacturer=f"Manufacturer-{a}", industry=f"Industry-{a}",
-                    category=f"Category-{a}", name=d["product"])
-        run_product_linking(page, c, product_name=d["product"])
+        # 1-urinishda alfa'dan keyin supplier user seansi ochiq — faqat shunda logout;
+        # retry'da sahifa login'da (login_admin ichidagi logout 60s bekor kutardi).
+        if page.locator("app-user-dropdown").is_visible():
+            logout(page)
+        authorization(page)
+        seed_supplier(page, c, region=f"Region-{a}", ownership=f"MCHJ-{a}", industry=f"Industry-{a}")
+        seed_products(page, c, f"Category-{a}", (d["product"],), refs_code=a)
     with allure.step(f"Setup (Beta, API): «{d['warehouse']}» ({TSH_REGION}); ID'lar"):
         api = WarehouseApi(d["login"])
         try:
@@ -73,3 +72,10 @@ def beta_seed(session_page: Page, code, alfa_seed) -> dict:
         finally:
             api.logout()
     return d
+
+
+@pytest.fixture(scope="session")
+def beta_seed(session_page: Page, code, alfa_seed) -> dict:
+    """Yiqilsa ``retry_seed`` 1 marta ``r{code}12`` bilan noldan qayta yaratadi."""
+    a = alfa_seed["c"]
+    return retry_seed(session_page, lambda c: _build_beta(session_page, c, a), f"{code}12", "beta_seed")

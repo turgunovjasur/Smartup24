@@ -51,9 +51,11 @@ class LoginScreen(BaseScreen):
         boshqa user yoki chiqilgan bo'lsa to'liq login(). Profile'da "Логин: <login>"
         (kompaniya kodisiz) aniq mos kelishi tekshiriladi."""
         login_name = username.split("@")[0]
-        if not self.on_login_form(timeout=2):
+        if self._form_or_tab() == 1:
             self.tap(PROFILE_TAB)
-            if self.profile_state() == "in" and self.exists(desc(f"Логин: {login_name}"), timeout=3):
+            # profile_state "in" = "Логин: ..." allaqachon chizilgan — yo'qlikni 3s kutib
+            # tekshirish o'rniga joriy loginni o'qiymiz (user almashganda 3.4s tejaydi)
+            if self.profile_state() == "in" and self._current_login() == login_name:
                 return
         self.login(username, password)
 
@@ -65,7 +67,9 @@ class LoginScreen(BaseScreen):
         self.tap_last(LOGOUT)              # dialogdagi "Выйти" (oxirgisi)
         self.wait_gone(LOGOUT_CANCEL)
         self.tap(PROFILE_TAB)
-        if self.profile_state() != "out":
+        # Logout hozirgina tasdiqlandi — "Вход"ning 5s barqarorligini kutish shart emas
+        # (u faqat ilova qayta ochilib sessiya yuklanayotgan payt uchun), ~6.8s tejaydi.
+        if self.profile_state(stable_s=0) != "out":
             raise AssertionError("Logoutdan keyin ilova login qilingan holatda qoldi")
 
     # ── yordamchilar ─────────────────────────────────────────────────
@@ -97,25 +101,51 @@ class LoginScreen(BaseScreen):
         except TimeoutException:
             return False
 
+    def _form_or_tab(self) -> int:
+        """0 — login formasi ochiq, 1 — pastki «Профиль» tab ko'rinadi. Forma modal
+        (ochiq turganda tab YO'Q) — ikkalasi bir-birini istisno qiladi, shuning uchun
+        "forma yo'qmi?"ni to'liq timeout kutib tekshirish o'rniga birinchi chiqqanini
+        kutamiz (2026-10-20: yo'qlik tekshiruvlari user almashishda ~17s yeyardi)."""
+        return self.wait_any(LOGIN_FIELD, PROFILE_TAB,
+                             error="Na login formasi, na «Профиль» tab chiqdi")
+
+    def _current_login(self) -> str | None:
+        """Профиль'dagi "Логин: <login>" dan login (kompaniya kodisiz); topilmasa None."""
+        for el in self.driver.find_elements(*USER_INFO):
+            try:
+                text = el.get_attribute("content-desc") or ""
+            except StaleElementReferenceException:
+                continue
+            if text.startswith("Логин:"):
+                return text.split(":", 1)[1].strip()
+        return None
+
     def ensure_logged_out(self) -> None:
         """Boshlang'ich holat har xil bo'lishi mumkin: ochiq dialog, login forma,
-        Профиль yoki boshqa tab — hammasidan login qilinmagan holatga o'tadi."""
-        if self.exists(LOGOUT_CANCEL, timeout=2):
+        Профиль yoki boshqa tab — hammasidan login qilinmagan holatga o'tadi.
+        Natija: yoki login formasi ochiq, yoki Профиль "Вход" holatida."""
+        if self.wait_any(LOGOUT_CANCEL, LOGIN_FIELD, PROFILE_TAB,
+                         error="Na dialog, na login formasi, na «Профиль» tab chiqdi") == 0:
             self.tap(LOGOUT_CANCEL)
-        if self.on_login_form():
+        if self._form_or_tab() == 0:
             return
         self.tap(PROFILE_TAB)
         if self.profile_state() == "in":
             self.logout()
 
     def open_login_form(self) -> None:
-        if self.on_login_form():
+        """Login qilinmagan holatdan formani ochadi. ensure_logged_out'dan keyin Профиль
+        allaqachon "Вход" holatida — qayta tekshiruvlar (5s barqarorlik) takrorlanmaydi."""
+        idx = self.wait_any(LOGIN_FIELD, LOGIN_ENTRY, PROFILE_TAB,
+                            error="Na login formasi, na «Вход», na «Профиль» tab chiqdi")
+        if idx == 0:
             return
-        self.tap(PROFILE_TAB)
-        if self.profile_state() == "in":
-            raise AssertionError("Login formasini ochib bo'lmaydi: ilova login qilingan holatda")
-        if self.on_login_form(timeout=2):
-            return                         # Профиль formani o'zi ochdi
+        if idx == 2:                       # boshqa tabda turibmiz — Профиль'ga o'tib holatni aniqlaymiz
+            self.tap(PROFILE_TAB)
+            if self.profile_state() == "in":
+                raise AssertionError("Login formasini ochib bo'lmaydi: ilova login qilingan holatda")
+            if self.on_login_form(timeout=0.5):
+                return                     # Профиль formani o'zi ochdi (mehmon)
         self.tap(LOGIN_ENTRY)
         self.wait_for(LOGIN_FIELD, error="Login formasi ochilmadi")
 
@@ -123,10 +153,10 @@ class LoginScreen(BaseScreen):
     def on_login_form(self, timeout: float = 5) -> bool:
         return self.exists(LOGIN_FIELD, timeout=timeout)
 
-    def profile_state(self, timeout: float = 30) -> str:
+    def profile_state(self, timeout: float = 30, stable_s: float = LOGGED_OUT_STABLE_S) -> str:
         """Профиль ochilgandan keyin: "in" (login qilingan) yoki "out" ("Вход" yoki login forma).
-        "Логин:" chiqsa darhol "in"; "Вход" esa LOGGED_OUT_STABLE_S turib qolsagina "out"
-        (sessiya yuklanayotganda "Вход" vaqtincha ko'rinadi)."""
+        "Логин:" chiqsa darhol "in"; "Вход" esa ``stable_s`` turib qolsagina "out"
+        (sessiya yuklanayotganda "Вход" vaqtincha ko'rinadi; logout'dan keyin stable_s=0)."""
         end = time.time() + timeout
         out_since = None
         blank_since = time.time()     # na "Логин:", na "Вход" — Профиль ochilmagan bo'lishi mumkin
@@ -138,7 +168,7 @@ class LoginScreen(BaseScreen):
             if self.exists(LOGIN_ENTRY, timeout=0.5):
                 blank_since = None
                 out_since = out_since or time.time()
-                if time.time() - out_since >= LOGGED_OUT_STABLE_S:
+                if time.time() - out_since >= stable_s:
                     return "out"
             else:
                 out_since = None
