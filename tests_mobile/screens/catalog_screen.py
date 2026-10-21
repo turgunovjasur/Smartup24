@@ -7,7 +7,6 @@ Bir xil tugma ko'p joyda bor (har supplierda "Показать каталог", 
 from __future__ import annotations
 
 import re
-import time
 
 import allure
 from selenium.webdriver.support.ui import WebDriverWait
@@ -17,7 +16,19 @@ from tests_mobile.screens.base_screen import BaseScreen, contains, desc, xpath
 SUPPLIERS_TAB = desc("Постав.")
 SHOW_CATALOG = "Показать каталог"
 ADD_TO_CART = "В корзину"        # "В корзину 1 шт" / "В корзину 1 кг" (birlik tovarga bog'liq)
-PLUS = "+"                       # savatdagi tovar: "+ / N <birlik>" boshqaruvi
+# Savatdagi tovar kartasida "В корзину" o'rniga "[−] [N <birlik>] [+]" boshqaruvi: −/+ —
+# content-desc'SIZ ImageView'lar, o'rtada desc'siz wrapper View ichida "1 кг" View (desc "+"
+# YO'Q — eski "+" locatori hech qachon topilmasdi). Qoldiqli mijozda KARTA desc'i ham raqam
+# bilan boshlanadi ("2 000 000 кг\nНовинка\n<nom>..."), miqdor esa kartaning AVLODI —
+# shuning uchun "raqam bilan boshlanadigan desc" faqat karta ichida qidiriladi
+# (emulyatorda ikkala karta variantida tasdiqlangan 2026-10-21).
+# "<raqam> <birlik>" ("1 кг", "2 шт"): raqam bilan boshlanadi, probel bor, raqam bilan TUGAMAYDI,
+# bitta qator va 'сум' yo'q — reyting "4.8" yoki narx kabi boshqa raqamli node'lar mos kelmaydi.
+_DIGIT_FIRST = ("translate(substring(@content-desc, 1, 1), '0123456789', '') = ''"
+                " and contains(@content-desc, ' ') and not(contains(@content-desc, '\n'))"
+                " and not(contains(@content-desc, 'сум'))"
+                " and translate(substring(@content-desc, string-length(@content-desc)), '0123456789', '') != ''")
+IN_CART_QTY = f"//*[contains(@content-desc, 'сум')]//*[{_DIGIT_FIRST}]"   # istalgan kartadagi "N <birlik>"
 CATEGORIES_MARKER = contains("Категории")
 # Supplier sahifasi tablari: "Категории | Вкладка 1 из 2", "Контакты | Вкладка 2 из 2".
 # Supplierning HECH BIR omborida tovar bo'lmasa "Категории" tabi YO'Q — faqat
@@ -31,7 +42,7 @@ CONTACTS_ONLY_TAB = xpath("//*[contains(@content-desc, 'Контакты') "
                           "and contains(@content-desc, 'Вкладка 1 из 1')]")
 # Kategoriya ichida mijoz regionidagi omborda tovar bo'lmasa (2026-10-15 tasdiqlangan)
 NOTHING_FOUND = desc("Ничего не найдено!")
-ANY_PRODUCT = xpath(f"//*[contains(@content-desc, '{ADD_TO_CART}') or @content-desc='{PLUS}']")
+ANY_PRODUCT = xpath(f"//*[contains(@content-desc, '{ADD_TO_CART}')] | {IN_CART_QTY}")
 # Tovar sahifasi → "Другие поставщики" → "Изменить поставщика" varag'i (c:exp_product_supplier_list):
 # har taklif qatori "[Самое выгодное |] <supplier> | <narx> сум/<birlik> | <regionlar>",
 # pastida "Отменить" (emulyatorda tasdiqlangan 2026-10-16).
@@ -80,9 +91,8 @@ class CatalogScreen(BaseScreen):
         self.tap(xpath(f"(//*[@content-desc='{category}'])[last()]"))
         # Tovarlar asinxron yuklanadi: "В корзину" yoki "+" (savatda) chiqquncha kutamiz.
         # Birlik (шт/кг) tovarga bog'liq — unga tayanmaymiz.
-        any_product = xpath(f"//*[contains(@content-desc, '{ADD_TO_CART}') or @content-desc='{PLUS}']")
         # Sekin internetda (4G) kartalar uzoq "skelet" holatida turadi -> 30s
-        self.wait_for(any_product, timeout=30, error=f"'{category}' kategoriyasida tovarlar yuklanmadi (30s)")
+        self.wait_for(ANY_PRODUCT, timeout=30, error=f"'{category}' kategoriyasida tovarlar yuklanmadi (30s)")
 
     def supplier_has_categories(self, timeout: float = 30) -> bool:
         """Supplier sahifasi tablari TO'LIQ yuklangach: True — "Категории" tabi bor;
@@ -186,18 +196,24 @@ class CatalogScreen(BaseScreen):
         """Tovarni savatga qo'shadi (allaqachon savatda bo'lsa tegmaydi).
         "В корзину" tugmasi karta ekranga TO'LIQ chiqqandagina renderlanadi ->
         tovarni emas, aynan shu tugmani ko'ringuncha scroll qilamiz."""
-        prod = f"//*[contains(@content-desc, '{product}')]"
+        prod = f"//*[contains(@content-desc, '{product}')]"           # karta (desc'ida nom)
         add_btn = xpath(f"{prod}//*[contains(@content-desc, '{ADD_TO_CART}')]")
-        plus_btn = xpath(f"{prod}//*[@content-desc='{PLUS}']")    # bor bo'lsa = allaqachon savatda
+        qty_lbl = xpath(f"{prod}//*[{_DIGIT_FIRST}]")       # "N <birlik>" — bor bo'lsa = allaqachon savatda
+        plus_btn = xpath(f"{prod}//*[*[{_DIGIT_FIRST}]]/following-sibling::*[1]")   # miqdordan o'ngdagi "+"
         for _ in range(10):
             if self.exists(add_btn, timeout=2):
                 self.tap(add_btn)
-                self.exists(plus_btn, timeout=5)      # tugma "+ / N <birlik>" ga aylanadi
-                for _ in range(qty - 1):
+                # "В корзину" o'rniga "1 <birlik>" miqdori chiqishi = tovar savatga qo'shildi
+                # (badge "1\nКорзина" bilan birga, ~1 s). Sekin tarmoqda (VPN) kech chiqadi -> 20 s.
+                self.wait_for(qty_lbl, timeout=20,
+                              error=f"'{product}' savatga qo'shilmadi — 'В корзину' miqdorga aylanmadi (20s)")
+                for n in range(2, qty + 1):
                     self.tap(plus_btn)
-                    time.sleep(0.5)                   # tez ketma-ket bosish yutiladi
+                    # tez ketma-ket bosish yutiladi -> har bosishdan keyin yangi miqdorni kutamiz
+                    self.wait_for(xpath(f"{prod}//*[starts-with(@content-desc, '{n} ')]"), timeout=20,
+                                  error=f"'{product}' miqdori {n} ga oshmadi ('+' bosilgach)")
                 return
-            if self.exists(plus_btn, timeout=1):
+            if self.exists(qty_lbl, timeout=1):
                 return
             self.scroll_down()
         raise AssertionError(f"Tovar '{product}' katalogda topilmadi (10 marta scroll)")
