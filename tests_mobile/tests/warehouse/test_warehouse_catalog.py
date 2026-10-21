@@ -24,12 +24,12 @@ pytestmark = [pytest.mark.mobile, allure.epic("Supplier"), allure.feature("S-05 
 REASON_SUPPLIER_DUP = "SMAR24-1063: c:exp_product_supplier_list — Alfa ikki marta (ombor qatorlari bilan join, distinct yo'q)"
 
 
-def _view(driver, d, client_code) -> dict:
-    return catalog_view(driver, client_code, d["supplier"], d["category"], catalog_products(d))
+def _view(driver, seed, client_code) -> dict:
+    return catalog_view(driver, client_code, seed["supplier"], seed["category"], catalog_products(seed))
 
 
 @allure.id("S-05.4.1")
-@allure.story("Katalogda ko'rinish — avail Y kamida bitta omborda")
+@allure.story("Katalogda ko'rinish")
 @allure.title("S-05.4.1 — Katalogda faqat «В наличие» tovarlar ko'rinadi")
 @allure.tag("effect")
 def test_catalog_shows_only_available_products(session_page: Page, driver, catalog_seed) -> None:
@@ -109,7 +109,7 @@ def test_catalog_hides_new_and_detached_products(session_page: Page, driver, cat
 @allure.story("«Изменить наличие»")
 @allure.title("S-05.3.3 — «Изменить наличие» katalogda darhol aks etadi")
 @allure.tag("effect")
-def test_catalog_follows_change_avail(session_page: Page, driver, catalog_seed) -> None:
+def test_catalog_follows_in_stock_toggle(session_page: Page, driver, catalog_seed) -> None:
     """Qatiq → Да; Sut → Нет; Sut → Да. Kutilgan: Qatiq paydo bo'ladi; Sut yo'qoladi, keyin qaytadi."""
     d = catalog_seed
     set_catalog_state(session_page, d,
@@ -126,7 +126,7 @@ def test_catalog_follows_change_avail(session_page: Page, driver, catalog_seed) 
 
 
 @allure.id("S-05.4.3")
-@allure.story("c:exp_product_supplier_list — regionsiz va dublikat")
+@allure.story("Tovar sahifasidagi yetkazib beruvchilar ro'yxati")
 @allure.title("S-05.4.3 — Tovar sahifasida yetkazib beruvchi bir marta chiqadi")
 @allure.tag("effect", "bug-candidate")
 def test_product_suppliers_listed_once(session_page: Page, driver, catalog_seed) -> None:
@@ -155,7 +155,7 @@ def test_product_suppliers_listed_once(session_page: Page, driver, catalog_seed)
 
 
 @allure.id("S-05.4.4")
-@allure.story("stock_quantity — faqat ruxsat etilgan mijozga, barcha omborlar yig'indisi")
+@allure.story("Qoldiq ko'rinishi")
 @allure.title("S-05.4.4 — Qoldiq faqat ruxsat etilgan mijozga, barcha omborlar yig'indisi")
 @allure.tag("effect", "access")
 def test_stock_visible_only_to_allowed_client(session_page: Page, driver, catalog_seed) -> None:

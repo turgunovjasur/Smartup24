@@ -6,7 +6,7 @@ import allure
 from playwright.sync_api import Page, expect
 
 from tests.sbr.supplier.warehouse.warehouse_helpers import (
-    CREATE_HEADING, GRID_ROW, RAW_ERROR_MARKERS, SAM_REGION, TSH_NAME, TSH_REGION,
+    BUX_REGION, CREATE_HEADING, GRID_ROW, RAW_ERROR_MARKERS, TSH_NAME, TSH_REGION,
     cell, known_bug, login_supplier_user, name_input, open_create_form, open_edit_form, open_warehouses,
 )
 from utils.base_page import BasePage
@@ -164,11 +164,11 @@ def test_warehouse_edit_regions(session_page: Page, alfa_seed) -> None:
     def _region_trigger(m: BasePage):
         return m.select_control(label="Регион")
 
-    with allure.step(f"«{TSH_NAME}» → Изменить → Регион daraxtida {TSH_REGION} + {SAM_REGION} → Сохранить"):
+    with allure.step(f"«{TSH_NAME}» → Изменить → Регион daraxtida {TSH_REGION} + {BUX_REGION} → Сохранить"):
         m = open_edit_form(page, TSH_NAME)
         expect(_region_trigger(m)).to_contain_text(TSH_REGION)
         # 2+ tanlovda trigger nom emas «N выбрано» ko'rsatadi
-        m.select(SAM_REGION, label="Регион", expect_selected=False)
+        m.select(BUX_REGION, label="Регион", expect_selected=False)
         expect(_region_trigger(m)).to_contain_text("2 выбрано")
         m.save()
     with allure.step("Qayta ochish: ikkala region tanlangan"):
@@ -176,10 +176,10 @@ def test_warehouse_edit_regions(session_page: Page, alfa_seed) -> None:
     with allure.step("Ro'yxat «Регионы» ustunida ikkalasi"):
         region_cell = cell(open_warehouses(page).grid_row(TSH_NAME), "region_names")
         expect(region_cell).to_contain_text(TSH_REGION)
-        expect(region_cell).to_contain_text(SAM_REGION)
+        expect(region_cell).to_contain_text(BUX_REGION)
     with allure.step("Hamma regionni olib tashlab (daraxtda qayta bosish) Сохранить → ombor regionsiz"):
         m = open_edit_form(page, TSH_NAME)
-        for region in (TSH_REGION, SAM_REGION):
+        for region in (TSH_REGION, BUX_REGION):
             m.select(region, label="Регион", expect_selected=False)
         expect(_region_trigger(m)).to_have_text(re.compile(r"^\s*Регион\s*$"))   # placeholder
         m.save()

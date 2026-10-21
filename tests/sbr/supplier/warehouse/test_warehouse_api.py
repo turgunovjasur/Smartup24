@@ -12,7 +12,7 @@ import pytest
 from flows.flow_authorization import COMPANY_CODE
 from tests.sbr.supplier.warehouse.warehouse_api import DEFAULT_PCODE, W, WarehouseApi
 from tests.sbr.supplier.warehouse.warehouse_helpers import (
-    DEFAULT_WAREHOUSE, RAW_ERROR_MARKERS, SAM_REGION, TSH_REGION, known_bug,
+    BUX_REGION, DEFAULT_WAREHOUSE, RAW_ERROR_MARKERS, TSH_REGION, known_bug,
 )
 
 REASON_OWNER = "SMAR24-926/1061: ombor egaligi tekshirilmaydi — Alfa {}"
@@ -53,7 +53,7 @@ def _delete_if_exists(apis, name) -> None:
 @allure.epic("Supplier")
 @allure.feature("S-05 Склады")
 @allure.story("Egalik")
-@allure.title("S-05.1.5 — Alfa «Beta ombori»ning edit:model'ini ololmaydi")
+@allure.title("S-05.1.5 — Alfa «Beta ombori» ma'lumotlarini ko'ra olmaydi")
 @allure.tag("access", "negative", "bug-candidate")
 def test_api_foreign_warehouse_edit_model_rejected(alfa_api, beta_seed) -> None:
     """Alfa sessiyasi → warehouse+edit:model «Beta ombori».
@@ -141,7 +141,7 @@ def test_api_foreign_warehouse_detach_rejected(alfa_api, beta_api, beta_seed) ->
 @allure.epic("Supplier")
 @allure.feature("S-05 Склады")
 @allure.story("Egalik")
-@allure.title("S-05.1.5 — Alfa o'z omborini supplier_id = Beta bilan Beta'ga o'tkaza olmaydi")
+@allure.title("S-05.1.5 — Alfa o'z omborini Beta'ga o'tkaza olmaydi")
 @allure.tag("access", "negative", "bug-candidate")
 def test_api_warehouse_owner_change_rejected(alfa_api, beta_api, beta_seed) -> None:
     """Alfa vaqtinchalik ombor → warehouse+edit$save supplier_id = Beta.
@@ -254,7 +254,7 @@ def test_api_create_unknown_region_error(alfa_api, alfa_seed) -> None:
 @allure.id("S-05.2.3")
 @allure.epic("Supplier")
 @allure.feature("S-05 Склады")
-@allure.story("region_id kalitisiz tahrir")
+@allure.story("Regionsiz tahrirlash (API)")
 @allure.title("S-05.2.3 — region_id kaliti yuborilmasa regionlar o'zgarmaydi")
 @allure.tag("crud", "negative", "bug-candidate")
 def test_api_edit_without_region_key_keeps_regions(alfa_api, alfa_seed) -> None:
@@ -263,8 +263,8 @@ def test_api_edit_without_region_key_keeps_regions(alfa_api, alfa_seed) -> None:
     c = alfa_seed["c"]
     name = f"API 2 region-{c}"
     try:
-        with allure.step(f"Alfa: vaqtinchalik ombor «{name}» ({TSH_REGION} + {SAM_REGION})"):
-            regions = alfa_api.region_ids(TSH_REGION, SAM_REGION)
+        with allure.step(f"Alfa: vaqtinchalik ombor «{name}» ({TSH_REGION} + {BUX_REGION})"):
+            regions = alfa_api.region_ids(TSH_REGION, BUX_REGION)
             model = alfa_api.edit_model(alfa_api.create(name, f"A2{c}", regions))
             assert sorted(map(str, model["region_id"])) == sorted(regions), f"Regionlar: {model['region_id']}"
         with allure.step(f"Alfa → edit$save name=«{name} 2», region_id kalitisiz"):

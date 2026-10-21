@@ -24,10 +24,12 @@ from utils.base_page import BasePage
 
 DEFAULT_WAREHOUSE = "Склад по умолчанию"
 TSH_NAME, TSH_CODE = "Toshkent ombori", "TSH"
+# Mobil testlar (tests_mobile/tests/warehouse/) o'zi yaratgan «...sam» region bilan ishlatadi.
 SAM_NAME, SAM_CODE = "Samarqand ombori", "SAM"
-# DEV'da "Toshkent"/"Samarqand" nomli region yo'q — mavjud seed regionlar ishlatiladi.
+# Web testlar: DEV'da "Toshkent"/"Samarqand" nomli region yo'q — mavjud seed regionlar ishlatiladi.
+BUX_NAME, BUX_CODE = "Buxoro ombori", "BUX"
 TSH_REGION = "Ташкент"
-SAM_REGION = "Бухара"
+BUX_REGION = "Бухара"
 
 GRID_ROW = ".smt-data-row"
 GRID_HEADER_CELL = ".smt-grid-header smt-cell-header"

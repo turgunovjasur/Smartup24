@@ -7,7 +7,7 @@ from playwright.sync_api import Page, expect
 
 from flows.flow_navbar import flow_navigate
 from tests.sbr.supplier.warehouse.warehouse_helpers import (
-    DEFAULT_WAREHOUSE, GRID_HEADER_CELL, GRID_ROW, SAM_CODE, SAM_NAME, SAM_REGION,
+    BUX_CODE, BUX_NAME, BUX_REGION, DEFAULT_WAREHOUSE, GRID_HEADER_CELL, GRID_ROW,
     TSH_CODE, TSH_NAME, TSH_REGION,
     cell, create_warehouse, login_admin, login_supplier_user, open_warehouses, row_panel,
 )
@@ -31,10 +31,10 @@ def run_warehouse_list(page: Page, code) -> None:
         for sup in (alfa, beta):
             run_supplier(page, sup, **refs)
             run_supplier_user(page, sup)
-    with allure.step(f"Setup: Alfa — «{TSH_NAME}», «{SAM_NAME}»; Beta — «{beta_warehouse}»"):
+    with allure.step(f"Setup: Alfa — «{TSH_NAME}», «{BUX_NAME}»; Beta — «{beta_warehouse}»"):
         login_supplier_user(page, alfa)
         create_warehouse(page, TSH_NAME, TSH_CODE, TSH_REGION)
-        create_warehouse(page, SAM_NAME, SAM_CODE, SAM_REGION)
+        create_warehouse(page, BUX_NAME, BUX_CODE, BUX_REGION)
         login_supplier_user(page, beta)
         create_warehouse(page, beta_warehouse, "BET", TSH_REGION)
     with allure.step("(a) Alfa-admin → Поставщик → Склады: ro'yxat ochildi"):
@@ -43,15 +43,15 @@ def run_warehouse_list(page: Page, code) -> None:
         m.settle()
 
     rows = page.locator(GRID_ROW)
-    with allure.step(f"(b) Aniq 3 qator: {DEFAULT_WAREHOUSE}, {TSH_NAME}, {SAM_NAME}"):
+    with allure.step(f"(b) Aniq 3 qator: {DEFAULT_WAREHOUSE}, {TSH_NAME}, {BUX_NAME}"):
         expect(rows).to_have_count(3)
         names = {t.strip() for t in rows.locator('[data-smt-col-key="name"]').all_inner_texts()}
-        assert names == {DEFAULT_WAREHOUSE, TSH_NAME, SAM_NAME}, f"Ro'yxatdagi omborlar: {sorted(names)}"
+        assert names == {DEFAULT_WAREHOUSE, TSH_NAME, BUX_NAME}, f"Ro'yxatdagi omborlar: {sorted(names)}"
     with allure.step(f"(b) {DEFAULT_WAREHOUSE}: Код va Регионы kataklari BO'SH"):
         row = m.grid_row(DEFAULT_WAREHOUSE)
         expect(cell(row, "code")).to_have_text(re.compile(r"^\s*$"))
         expect(cell(row, "region_names")).to_have_text(re.compile(r"^\s*$"))
-    for name, code, region in ((TSH_NAME, TSH_CODE, TSH_REGION), (SAM_NAME, SAM_CODE, SAM_REGION)):
+    for name, code, region in ((TSH_NAME, TSH_CODE, TSH_REGION), (BUX_NAME, BUX_CODE, BUX_REGION)):
         with allure.step(f"(b) {name}: Код={code}, Регионы={region}"):
             row = m.grid_row(name)
             expect(cell(row, "code")).to_have_text(code)
