@@ -8,6 +8,7 @@ import shutil
 import socket
 import threading
 import allure
+import allure_commons
 import pytest
 import requests
 from dotenv import load_dotenv
@@ -680,7 +681,13 @@ TG_PROGRESS_FILE = os.path.join("test-results", "tg_progress.json")
 
 def _persist_progress(text: str | None) -> None:
     """Progress xabar msg_id + matnini faylga yozadi (bot o'qishi uchun).
-    ``text=None`` — faylni o'chiradi (run tugadi/progress yo'q)."""
+    ``text=None`` — faylni o'chiradi (run tugadi/progress yo'q). Asosiy oqim va
+    ``_progress_ticker`` thread'i bir xil tmp faylga yozmasligi uchun qulf ostida."""
+    with _persist_lock:
+        _persist_progress_unlocked(text)
+
+
+def _persist_progress_unlocked(text: str | None) -> None:
     try:
         if text is None or not _progress.get("msg_id"):
             if os.path.exists(TG_PROGRESS_FILE):
@@ -734,7 +741,70 @@ _progress = {
     "suite": "",   # qaysi bo'lim(lar) ishlayapti — Telegram xabarlarida ko'rsatiladi
     "current": "", # joriy ishlab turgan test nomi (jonli, /status uchun)
     "start_ts": 0.0,  # run boshlangan vaqt (o'tган vaqt/ETA uchun)
+    "test_ts": 0.0,   # joriy test boshlangan vaqt (⏱ — uzun seed qotgandek ko'rinmasin)
 }
+
+# Joriy test ichidagi allure qadamlari (⏱/🔧 qatorlari uchun). ``steps`` — ochiq qadamlar
+# steki [(uuid, title)], ``last_top`` — eng so'nggi boshlangan YUQORI darajadagi qadam
+# (qadamlar orasida ham bo'sh qolmasin). Faqat Telegram progress yoqiq bo'lsa to'ldiriladi.
+_step_state: dict = {"steps": [], "last_top": ""}
+# Test davomida (qadam ichida, test chegarasisiz) progress xabarini yangilash oralig'i —
+# fon ``_progress_ticker`` thread'i shu oraliqda bir marta tahrirlaydi (Telegram limitlari).
+_PROGRESS_TICK_INTERVAL = 60.0
+_STEP_TEXT_MAX = 80
+_ticker_stop = threading.Event()
+_ticker_thread: threading.Thread | None = None
+_persist_lock = threading.Lock()   # progress fayli: asosiy oqim + ticker thread
+
+
+class _AllureStepTracker:
+    """allure_commons plugin: ``allure.step`` boshlanishi/tugashini kuzatadi (faqat stek
+    yangilanadi — tarmoq chaqiruvi YO'Q, test sekinlashmaydi)."""
+
+    @allure_commons.hookimpl
+    def start_step(self, uuid, title, params):
+        if not _step_state["steps"]:
+            _step_state["last_top"] = str(title)
+        _step_state["steps"].append((uuid, str(title)))
+
+    @allure_commons.hookimpl
+    def stop_step(self, uuid, exc_type, exc_val, exc_tb):
+        steps = _step_state["steps"]
+        for i in range(len(steps) - 1, -1, -1):
+            if steps[i][0] == uuid:
+                del steps[i:]
+                break
+
+
+def _short_step(title: str) -> str:
+    title = " ".join(title.split())
+    if len(title) > _STEP_TEXT_MAX:
+        title = title[:_STEP_TEXT_MAX - 1] + "…"
+    return html.escape(title)
+
+
+def _progress_ticker() -> None:
+    """Fon thread: test davomida har ``_PROGRESS_TICK_INTERVAL`` da progress xabarini
+    (🔧 qadam + ⏱ vaqt bilan) yangilaydi. Tahrir shu thread'da SINXRON — test oqimi
+    kutmaydi; tarmoq xatosi ``_edit_telegram`` ichida yutiladi."""
+    while not _ticker_stop.wait(5):
+        if not _progress["msg_id"] or not _progress["current"]:
+            continue
+        if time.monotonic() - _progress["last_edit"] < _PROGRESS_TICK_INTERVAL:
+            continue
+        _progress["last_edit"] = time.monotonic()
+        text = _render_progress()
+        _persist_progress(text)
+        if not _ticker_stop.is_set():
+            _edit_telegram(_progress["msg_id"], text, sync=True)
+
+
+def _stop_progress_ticker() -> None:
+    """Yakuniy xabardan OLDIN: ticker to'xtaydi va tugashi kutiladi — kechikkan oraliq
+    tahrir yakuniy natija xabarini ustidan yozmasin."""
+    _ticker_stop.set()
+    if _ticker_thread is not None:
+        _ticker_thread.join(timeout=15)
 
 
 # Progress barni JUDA tez-tez tahrirlamaslik uchun minimal interval (sekund).
@@ -753,6 +823,11 @@ _RUNNER_LABELS = {
     "test_all_main.py":             "Main",
     "test_all_document_runner.py":  "Document",
 }
+# S-05 Склады papkalari → turi (ikkalasi birga = "S-05 Склады")
+_S05_DIRS = {
+    "tests/sbr/supplier/warehouse/": "web",
+    "tests_mobile/tests/warehouse/": "mobil",
+}
 
 
 def _suite_label(items) -> str:
@@ -762,6 +837,17 @@ def _suite_label(items) -> str:
     birga → "HAMMASI (5 bo'lim)". Runner bo'lmagan (individual debug) fayllar
     yig'ilsa — fayl nomi(lari) ko'rsatiladi. Fayl tartibi buyruq qatoridan
     saqlanadi, shuning uchun 'Setup + Group A' to'g'ri tartibda chiqadi."""
+    # S-05 Склады: hamma fayl web va/yoki mobil ombor papkasida bo'lsa
+    s05 = set()
+    for it in items:
+        path = it.nodeid.split("::")[0]
+        kind = next((k for d, k in _S05_DIRS.items() if path.startswith(d)), None)
+        if kind is None:
+            s05 = set()
+            break
+        s05.add(kind)
+    if s05:
+        return "S-05 Склады" if len(s05) == 2 else f"S-05 Склады ({s05.pop()})"
     files = []
     for it in items:
         base = it.nodeid.split("::")[0].rsplit("/", 1)[-1]
@@ -822,10 +908,19 @@ def _render_progress(current_name: str | None = None) -> str:
         _progress_bar(pct),
         f"✅ {_progress['passed']}   ❌ {_progress['failed']}   ⏳ {done}/{_progress['total']}",
     ]
-    # Jonli progressда vaqt KO'RSATILMAYDI (marginal + chalkash edi) — jami ishlash
-    # vaqti faqat YAKUNIY xabarда beriladi (standart, qadrli). start_ts shu uchun.
+    # Jami ishlash vaqti faqat YAKUNIY xabarда (start_ts). Jonli xabarда faqat JORIY
+    # test vaqti (⏱) va allure qadami (🔧) — uzun seed paytida qotgandek ko'rinmasin.
     if current_name:
         lines.append(f"▶️ <code>{current_name}</code>")
+        steps = list(_step_state["steps"])   # nusxa: ticker thread o'qiydi
+        top = steps[0][1] if steps else _step_state["last_top"]
+        if top:
+            lines.append(f"\U0001F527 {_short_step(top)}")
+            if len(steps) > 1:
+                lines.append(f"     ↳ {_short_step(steps[-1][1])}")
+        if _progress["test_ts"]:
+            elapsed = int(time.time() - _progress["test_ts"])
+            lines.append(f"⏱ {elapsed // 60} daq {elapsed % 60} s")
     return "\n".join(lines)
 
 
@@ -865,6 +960,13 @@ def pytest_collection_finish(session):
     _delete_stale_progress()  # to'xtatilgan oldingi run'ning qotib qolgan xabari
     _progress["msg_id"] = _send_telegram(start_text)
     _persist_progress(start_text)  # bot o'qishi uchun (band-flash)
+    if _progress["msg_id"]:
+        # 🔧 joriy allure qadami + ⏱ test vaqti: qadam kuzatuvchi + 60 s'lik fon tahriri
+        global _ticker_thread
+        allure_commons.plugin_manager.register(_AllureStepTracker())
+        _ticker_stop.clear()
+        _ticker_thread = threading.Thread(target=_progress_ticker, name="tg-progress-ticker", daemon=True)
+        _ticker_thread.start()
     # Pin QILMAYMIZ (senior): o'tkinchi progress'ни qadash professional emas —
     # pin/unpin tizim shovqini + bezovta. Xabar shunchaki oxirgi bo'lib turadi.
 
@@ -882,6 +984,9 @@ def pytest_runtest_logstart(nodeid, location):
     if not _progress["msg_id"]:
         return
     _progress["current"] = _short_nodeid(nodeid)
+    _progress["test_ts"] = time.time()
+    _step_state["steps"].clear()
+    _step_state["last_top"] = ""
     text = _render_progress()
     _persist_progress(text)   # DOIM — bot /status uchun yangi holat
     now = time.monotonic()
@@ -989,6 +1094,7 @@ def pytest_sessionfinish(session, exitstatus):
         # BITTA xabar oqimi (foydalanuvchi so'rovi): progress xabari bo'lsa uni
         # YAKUNIY holatga TAHRIRLAYMIZ — yangi xabar yubormaymiz. Progress
         # bo'lmasa (Telegram o'chiq/xato) yangi xabar sifatida yuboramiz.
+        _stop_progress_ticker()   # oraliq tahrir yakuniy xabarni ustidan yozmasin
         if _progress["msg_id"]:
             # SINXRON: jarayon shu funksiyadan keyin DARHOL chiqadi — daemon
             # thread'да bo'lsa yakuniy xabar yuborilmay qolardi (2026-08-27 bug).
